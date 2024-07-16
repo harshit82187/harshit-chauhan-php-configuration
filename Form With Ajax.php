@@ -121,6 +121,8 @@
 
 ******************************** Add Controller Side Code ********************************************
 
+use Illuminate\Support\Facades\Validator;
+
 public function storeProduct(Request $req){
         // dd($req->all());
 
