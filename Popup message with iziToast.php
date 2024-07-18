@@ -181,3 +181,60 @@ Route::get('account-details-active/{id}', 'account_active')->name('account_activ
 </script>
 
 
+///////////////////////////////////////  Modal And Migrate Command In web file ////////////////////////////////////////////////////////////////
+
+
+Route::get('/migration', function(){
+    try {
+        Artisan::call('make:model', ['name' => 'Surveillance', '-m' => true]);
+        return 'Model and migration created successfully!';
+    } catch (\Exception $e) {
+        return 'Error: ' . $e->getMessage();
+    }
+});
+
+
+
+Route::get('/migrate', function(){
+    try {
+        Artisan::call('migrate', ['--path' => '/database/migrations/2024_05_14_175020_create_surveillances_table.php']);
+        return 'Migration ran successfully!';
+    } catch (\Exception $e) {
+        return 'Error: ' . $e->getMessage();
+    }
+});
+
+
+
+
+///////////////////////////////////////  Summernote In Laravel ////////////////////////////////////////////////////////////////
+
+
+<link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.css" rel="stylesheet">
+
+<textarea class="form-control summernote" rows="5" cols="5" name="sidebar_description" >{{ $websitesetting->sidebar_description ?? ''}}</textarea>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.js"></script><script>
+    $(document).ready(function() {
+        
+        $('.summernote').summernote({
+        placeholder: 'Hello stand alone ui',
+        tabsize: 2,
+        height: 120,
+        toolbar: [
+          ['style', ['style']],
+          ['font', ['bold', 'underline', 'clear']],
+          ['color', ['color']],
+          ['para', ['ul', 'ol', 'paragraph']],
+          ['table', ['table']],
+          ['insert', ['link', 'picture', 'video']],
+          ['view', ['fullscreen', 'codeview', 'help']]
+        ]
+       });
+
+    });
+</script>
+
+
