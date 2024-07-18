@@ -48,6 +48,7 @@
     </div>
 </div>
 
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
 <script>
         $("#product_submit").click(function(e){
@@ -121,8 +122,6 @@
 
 ******************************** Add Controller Side Code ********************************************
 
-use Illuminate\Support\Facades\Validator;
-
 public function storeProduct(Request $req){
         // dd($req->all());
 
@@ -163,7 +162,7 @@ public function storeProduct(Request $req){
             'success' => true,
             'message' => 'Product added successfully' 
         ], 201);
-    }
+}
 
 
 
@@ -255,17 +254,143 @@ if($request->hasFile('profile_photo')){
 
     $currentData =  DB::table('vouchers')->where('id',$request->id)->first();
 
-// Delete the previous profile_photo
-if (!empty($currentData->profile_photo)) {
-    $previousFilePath = public_path('assets/images/teams/') . $currentData->profile_photo;
-    if (file_exists($previousFilePath)) {
-        unlink($previousFilePath);
+    // Delete the previous profile_photo
+    if (!empty($currentData->profile_photo)) {
+        $previousFilePath = public_path('assets/images/teams/') . $currentData->profile_photo;
+        if (file_exists($previousFilePath)) {
+            unlink($previousFilePath);
+        }
     }
+
+
+    $file = $request->file('profile_photo');
+    $filename = time() . '.' . $file->getClientOriginalExtension();
+    $file->move(public_path('assets/images/teams'), $filename);
+    $data['profile_photo'] = $filename;
 }
 
 
-$file = $request->file('profile_photo');
-$filename = time() . '.' . $file->getClientOriginalExtension();
-$file->move(public_path('assets/images/teams'), $filename);
-$data['profile_photo'] = $filename;
-}
+
+******************************* Form Submission with modal *****************************************************************
+
+<div class="modal" id="add">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content" style="margin-left:172px; width:697px; margin-top:75px;">
+                <!-- Modal Header -->
+                <div class="modal-header">
+                    <h4 class="modal-title">Add Study Material</h4>
+                    <button type="button" id="closeModal" class="close"  data-dismiss="modal" style="border:0px; background-color:transparent;" >&times;</button>
+                </div>
+                <!-- Modal Body -->
+                <div class="modal-body">
+                    <div class="row">
+                        <form id="material_form" method="post" enctype="multipart/form-data"  >
+                            @csrf
+                            
+                    <div class="col-md-12">
+                        <div class="mb-3">
+                        <label for="question">Title</label>
+                        <input type="text" class="form-control"  name="title" >
+                        </div>
+                    </div>                
+
+                    
+
+                    <div class="col-md-12">
+                        <div class="mb-3">
+                        <label for="answer">Upload File</label>
+                        <input type="file" class="form-control" name="material">
+                        </div>
+                    </div>
+
+                    <div class="col-md-2">
+                        <button type="button" class="btn btn-success" id="submit"  >Submit</button>
+                    </div>
+                    </form>                   
+
+
+
+               
+
+
+
+                    </div>
+                                                                                
+                </div>
+            </div>
+        </div>
+</div>
+
+
+<script>
+
+    
+
+$("#submit").click(function(e){
+        // alert(1221);
+        e.preventDefault();
+        let form = $('#material_form')[0];
+        let data = new FormData(form);
+       
+        $.ajax({
+            url: "{{ url('admin/study_materials') }}",
+            type: "POST",
+            data: data,
+            dataType: "JSON",
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.errors) {
+                    var errorMsg = '';
+                    $.each(response.errors, function(field, errors) {
+                        $.each(errors, function(index, error) {
+                            errorMsg += error + '<br>';
+                        });
+                    });
+                    iziToast.error({
+                        message: errorMsg,
+                        position: 'topRight'
+                    });
+                } else {
+                    $('#material_form')[0].reset();
+                    console.log(response);
+                    $('#closeModal').trigger('click'); // Trigger click on close button
+                   
+                    iziToast.success({
+                        message: response.message,
+                        position: 'topRight'
+                    });
+                    $('#dataTable').load(location.href + " #dataTable");
+                }
+            },
+            error: function(xhr, status, error) {
+                let errorMessage = 'An error occurred';
+                if (xhr.responseJSON && xhr.responseJSON.errors) {
+                    var errorMsg = '';
+                    $.each(xhr.responseJSON.errors, function(field, errors) {
+                        $.each(errors, function(index, error) {
+                            errorMsg += error + '<br>';
+                        });
+                    });
+                    iziToast.error({
+                        message: errorMsg,
+                        position: 'topRight'
+                    });
+                } else if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMessage = xhr.responseJSON.message;
+                    iziToast.error({
+                        message: errorMessage,
+                        position: 'topRight'
+                    });
+                } else {
+                    errorMessage += ': ' + error;
+                    iziToast.error({
+                        message: errorMessage,
+                        position: 'topRight'
+                    });
+                }
+            }
+        });
+    });
+
+</script>
