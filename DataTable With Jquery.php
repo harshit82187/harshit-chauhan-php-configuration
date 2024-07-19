@@ -489,23 +489,30 @@ public function deleteSelectedRows(Request $request){
 ////////////////////////////////////////////////////////////// Summernote /////////////////////////////////////////////////////////////////////
 
 
-<link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-bs4.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.css" rel="stylesheet">
+
+<textarea class="form-control summernote" rows="5" cols="5" name="sidebar_description" >{{ $websitesetting->sidebar_description ?? ''}}</textarea>
 
 
-<div class="col-md-12">
-	<div class="mb-3">
-	<label for="question">Address</label>
-	<textarea class="form-control summernote" name="address" rows="5" cols="5" >{{ $setting->address  ?? ''}}</textarea>
-	</div>
-</div>
 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-bs4.min.js"></script>
-<script>
-    $(document).ready(function() {        
-        $('.summernote').summernote({                   
-            height: 200,             
-        });
+<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.js"></script><script>
+    $(document).ready(function() {
+        
+        $('.summernote').summernote({
+        placeholder: 'Hello stand alone ui',
+        tabsize: 2,
+        height: 120,
+        toolbar: [
+          ['style', ['style']],
+          ['font', ['bold', 'underline', 'clear']],
+          ['color', ['color']],
+          ['para', ['ul', 'ol', 'paragraph']],
+          ['table', ['table']],
+          ['insert', ['link', 'picture', 'video']],
+          ['view', ['fullscreen', 'codeview', 'help']]
+        ]
+       });
+
     });
 </script>
 
