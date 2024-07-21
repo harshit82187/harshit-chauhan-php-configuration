@@ -1,0 +1,37 @@
+*********************** Create Laravel project ****************************
+composer create-project laravel/laravel Chatify
+
+
+
+ composer require munafio/chatify
+ 
+ 
+ php artisan chatify:install
+ 
+ 
+ php artisan migrate 
+ 
+ 
+ composer require laravel/jetstream
+ 
+ php artisan jetstream:install livewire
+ 
+ first download node.js in your system
+
+npm install
+
+npm run build
+
+create account in pusher 
+https://dashboard.pusher.com/accounts/sign_up?product=channels&_gl=1*qpu5dw*_gcl_au*NTM1OTk3MTIwLjE3MjE1NDcyNzU.
+
+
+add secret key in .env file
+
+PUSHER_APP_ID=1837278
+PUSHER_APP_KEY=d629fe4208f6a5174bdb
+PUSHER_APP_SECRET=a006e93ddebb0c545b10
+PUSHER_APP_CLUSTER=ap2
+PUSHER_HOST=
+PUSHER_PORT=443
+PUSHER_SCHEME=https
