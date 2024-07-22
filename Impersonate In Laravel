@@ -1,0 +1,23 @@
+**************************** Web File Code **********************************
+
+Route::get('/impersonate/{user_id}', 'ImpersonateController@impersonate')->name('impersonate');
+
+**************************** Controller Side Code ***********************************
+
+public function impersonate(Request $request, $user_id){
+        // dd($user_id);
+
+        $user = User::findOrFail($user_id);
+        // dd($user);
+
+        $administrator = Auth::user();
+        
+        // Log the administrator out
+        Auth::logout();
+        
+        // Log in as the specified user
+        Auth::login($user, true);
+        
+        // Redirect to the desired location after impersonating
+        return redirect()->route('home');
+}
