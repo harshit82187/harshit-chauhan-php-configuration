@@ -78,11 +78,13 @@
                     } else {
                         $('#products')[0].reset();
                         console.log(response);
-                        $('#exampleModal').modal('hide');
+                        $('#closeModal').trigger('click');
                         iziToast.success({
                             message: response.message,
                             position: 'topRight'
                         });
+                        $('#dataTable').load(location.href + " #dataTable");
+
                     }
                 },
                 error: function(xhr, status, error) {
