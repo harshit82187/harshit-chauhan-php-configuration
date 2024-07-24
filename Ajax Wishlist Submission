@@ -1,0 +1,136 @@
+************************************************* Controller Side Code *************************************************************************
+
+
+public function wishlist(Request $req){
+        if(Auth::check()){
+            // dd($req->all());
+            $user = Auth::user();
+            $quizId = $req->quiz_id;
+
+            $wishlistItem = Wishlist::where('user_id', $user->id)
+                                    ->where('quiz_id', $req->quiz_id)
+                                    ->first();
+        
+            if ($wishlistItem) {
+                $wishlistItem->delete();
+                return response()->json([
+                    'success' => true,
+                    'message' => 'This Quiz Removed From Your Wishlist',
+                    'action' => 'removed'
+                ]);
+            }else{
+                
+                Wishlist::create([
+                    'user_id' => $user->id,
+                    'quiz_id' => $quizId
+                ]);
+                return response()->json([
+                    'success' => true,
+                    'message' => 'This Quiz Saved In Your Wishlist Successfully!',
+                    'action' => 'added'
+                ]);
+            }                 
+
+
+        }else{
+            return response()->json([
+                'redirect' => route('student.login'),
+                'message' => 'First Login!' 
+            ], 401); 
+        }
+}
+
+
+
+
+*********************************************** Ajax Script **********************************************************************************
+<script>
+    $(document).ready(function() {
+    // Check if the quiz is already in the wishlist
+    $('.wishlistForm').each(function() {
+        let form = $(this);
+        let quizId = form.find('input[name="quiz_id"]').val();
+        
+        $.ajax({
+            url: "{{ route('web.wishlist') }}",
+            type: 'GET',
+            data: { quiz_id: quizId },
+            success: function(response) {
+                if (response.isInWishlist) {
+                    form.find('svg').css('fill', 'red');
+                }
+            }
+        });
+    });
+
+    // Handle wishlist form click
+    $(".wishlistForm").on('click', function(e) {
+        e.preventDefault();
+        let form = $(this);
+        let data = form.serialize(); // Serialize form data
+
+        $.ajax({
+            url: "{{ route('web.wishlist') }}",
+            type: 'POST',
+            data: data,
+            success: function(response) {
+                if (response.success) {
+                    iziToast.success({
+                        message: response.message,
+                        position: 'topRight'
+                    });
+                    // Toggle the color of the wishlist icon
+                    if (response.action === 'added') {
+                        form.find('svg').css('fill', 'red');
+                    } else {
+                        form.find('svg').css('fill', 'black'); // or the original color
+                    }
+                } else if (response.errors) {
+                    var errorMsg = '';
+                    $.each(response.errors, function(field, errors) {
+                        $.each(errors, function(index, error) {
+                            errorMsg += error + '<br>';
+                        });
+                    });
+                    iziToast.error({
+                        message: errorMsg,
+                        position: 'topRight'
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                if (xhr.status === 401 && xhr.responseJSON.redirect) {
+                    window.location.href = xhr.responseJSON.redirect;
+                } else {
+                    let errorMessage = 'An error occurred';
+                    if (xhr.responseJSON && xhr.responseJSON.errors) {
+                        var errorMsg = '';
+                        $.each(xhr.responseJSON.errors, function(field, errors) {
+                            $.each(errors, function(index, error) {
+                                errorMsg += error + '<br>';
+                            });
+                        });
+                        iziToast.error({
+                            message: errorMsg,
+                            position: 'topRight'
+                        });
+                    } else if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMessage = xhr.responseJSON.message;
+                        iziToast.error({
+                            message: errorMessage,
+                            position: 'topRight'
+                        });
+                    } else {
+                        errorMessage += ': ' + error;
+                        iziToast.error({
+                            message: errorMessage,
+                            position: 'topRight'
+                        });
+                    }
+                }
+            }
+        });
+    });
+});
+
+</script>
