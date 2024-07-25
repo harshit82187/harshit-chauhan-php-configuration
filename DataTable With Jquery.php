@@ -49,106 +49,7 @@
 								<a href="" class="btn btn-icon btn-primary mr-2">Show</a>
 								<a href="{{ route('click_delete',$data->id) }}" onclick="return confirm('Are you want delete?')" class="btn btn-sm btn-danger">Delete </a>
 							</td>
-						</tr>
-						<!-- View  Details Modal -->
-						<div class="modal" id="show{{$data->id}}">
-							<div class="modal-dialog modal-lg">
-								<div class="modal-content" style="margin-left:172px; width:697px; margin-top:75px;">
-									<!-- Modal Header -->
-									<div class="modal-header">
-										<h4 class="modal-title">Show Details</h4>
-										<button type="button" class="close"  data-dismiss="modal" style="border:0px; background-color:transparent;" >&times;</button>
-									</div>
-									<!-- Modal Body -->
-									<div class="modal-body">
-										<div class="row">
-											<div class="col-md-6 mb-3">
-												<label for="name">Name</label>
-												<input type="text" class="form-control" id="name" placeholder="Enter your name">
-											</div>
-											<div class="col-md-6 mb-3">
-												<label for="mobile">Mobile</label>
-												<input type="number" class="form-control" id="mobile" placeholder="Enter your mobile number">
-											</div>
-											<div class="col-md-6 mb-3">
-												<label for="email">Email</label>
-												<input type="email" class="form-control" id="email" placeholder="Enter your email">
-											</div>
-											<div class="col-md-6 mb-3">
-												<label>Gender</label>
-												<div class="form-check">
-													<input type="radio" class="form-check-input" name="gender" id="genderMale" value="male" checked>
-													<label class="form-check-label" for="genderMale">Male</label>
-												</div>
-												<div class="form-check">
-													<input type="radio" class="form-check-input" name="gender" id="genderFemale" value="female">
-													<label class="form-check-label" for="genderFemale">Female</label>
-												</div>
-												<div class="form-check">
-													<input type="radio" class="form-check-input" name="gender" id="genderOther" value="other">
-													<label class="form-check-label" for="genderOther">Other</label>
-												</div>
-											</div>
-											<div class="col-md-6 mb-3">
-												<label>Hobby</label>
-												<div class="form-check">
-													<input type="checkbox" class="form-check-input" id="docDancing">
-													<label class="form-check-label" for="docDancing">Dancing</label>
-												</div>
-												<div class="form-check">
-													<input type="checkbox" class="form-check-input" id="docSinging">
-													<label class="form-check-label" for="docSinging">Singing</label>
-												</div>
-											</div>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-						<!-- End  Details Modal -->
-						<!-- Edit Two Wheeler Modal -->
-						<div class="modal" id="two_wheeler_edit{{$data->id}}">
-							<div class="modal-dialog modal-lg">
-								<div class="modal-content" style="margin-left:102px;">
-									<!-- Modal Header -->
-									<div class="modal-header">
-										<h4 class="modal-title">Edit Two Wheeler</h4>
-										<button type="button" class="close" data-dismiss="modal">&times;</button>
-									</div>
-									<!-- Modal Body -->
-									<div class="modal-body">
-										<!-- Your Form -->
-										<form action="{{ route('admin.two_wheller_edit') }}" method="post">
-											@csrf  
-											<input type="hidden" name="id" value="{{ $data->id }}">
-											@if($data->image)
-											<img src="{{ asset('bookings/' .$data->image) }}" alt="image" style="width:103px; height:103px; border-radius:50%; margin-left:339px;">
-											@endif
-											<div class="form-group">
-												<label for="answer">Image</label>
-												<input type="file" class="form-control" name="image">
-											</div>
-											<div class="form-group">
-												<label for="question">Model Name</label>
-												<input type="text" class="form-control"  name="name" value="{{ $data->name }}">
-											</div>
-											<div class="form-group">
-												<label for="question">Sitting Capacity</label>
-												<input type="text" class="form-control"  name="capacity" value="{{ $data->capacity }}">
-											</div>
-											<div class="form-group">
-												<label for="answer">Amount</label>
-												<input type="text" class="form-control"  name="amount" value="{{ $data->amount }}">
-											</div>
-											<div class="form-group">
-												<button type="submit" class="btn btn-success">Update</button>
-											</div>
-										</form>
-									</div>
-								</div>
-							</div>
-						</div>
-						<!-- End Edit Two Wheeler Modal -->
+						</tr>						
 						@endforeach
 					</tbody>
 				</table>
@@ -177,6 +78,168 @@
 </html>
 
 
+
+
+
+
+
+
+********************************** Add modal Code ***************************************************
+
+<div class="modal fade" id="formModal" tabindex="-1" aria-labelledby="formModalLabel" aria-hidden="true">
+	<div class="modal-dialog">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="formModalLabel">Form Modal</h5>
+				<button type="button" id="closeModal" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<form id="studentForm" method="POST" >
+					@csrf
+					<div class="row">
+						<div class="col-md-12 mb-3">
+							<label for="name">Profile Photo</label>
+							<input type="file" class="form-control" name="profile_photo" accept=".jpg,.png,.jpeg" >
+						</div>
+
+						<div class="col-md-12 mb-3">
+							<label for="name">Name</label>
+							<input type="text" class="form-control" name="name" placeholder="Enter your name">
+						</div>
+
+						<div class="col-md-12 mb-3">
+							<label for="mobile">Mobile</label>
+							<input type="number" class="form-control" name="mobile_no" placeholder="Enter your mobile number">
+						</div>
+
+						<div class="col-md-12 mb-3">
+							<label for="email">Email</label>
+							<input type="email" class="form-control" name="email" placeholder="Enter your email">
+						</div>
+						<div class="col-md-12 mb-3">
+							<label for="email">Password</label>
+							<input type="password" class="form-control" name="password" placeholder="Enter your password">
+						</div>
+
+						<div class="col-md-12 mb-3">
+							<label>Gender</label>
+							<div class="form-check">
+								<input type="radio" class="form-check-input" name="gender"  value="Male" checked>
+								<label class="form-check-label" for="genderMale">Male</label>
+							</div>
+							<div class="form-check">
+								<input type="radio" class="form-check-input" name="gender"  value="Female">
+								<label class="form-check-label" for="genderFemale">Female</label>
+							</div>
+							<div class="form-check">
+								<input type="radio" class="form-check-input" name="gender"  value="Other">
+								<label class="form-check-label" for="genderOther">Other</label>
+							</div>
+						</div>
+
+						<div class="col-md-12 mb-3">
+							<label>Hobby</label>
+							<div class="form-check">
+								<input type="checkbox" class="form-check-input" name="hobby[]"   value="Dancing">
+								<label class="form-check-label" for="docDancing">Dancing</label>
+							</div>
+							<div class="form-check">
+								<input type="checkbox" class="form-check-input" name="hobby[]"  value="Singing">
+								<label class="form-check-label" for="docSinging">Singing</label>
+							</div>
+						</div>
+					</div>
+				</form>
+																								
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+				<button type="button" id="submit" class="btn btn-primary">Save</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+********************************** Edit modal Code ***************************************************
+<div class="modal" id="edit_student{{ $user->id }}">
+	<div class="modal-dialog modal-lg">
+		<div class="modal-content" style="margin-left:172px; width:697px; margin-top:75px;">
+			<!-- Modal Header -->
+			<div class="modal-header">
+				<h4 class="modal-title">Edit Details</h4>
+				<button type="button" class="close" data-dismiss="modal" id="close{{$user->id}}" style="border:0px; background-color:transparent;">&times;</button>
+			</div>
+			<!-- Modal Body -->
+			@php
+			$hobbies = json_decode($user->hobby, true);
+			@endphp
+			<div class="modal-body">
+				<form id="update_user_{{ $user->id }}" method="POST" enctype="multipart/form-data">
+					@csrf
+					<input type="hidden" name="user_id" value="{{ $user->id }}">
+					<div class="row">
+						@if($user->profile_photo)
+						<div class="col-md-12 mb-3">
+							<img src="{{ asset('users/' . $user->profile_photo) }}" alt="image" style="width:74px; height:85px; border-radius:50%;">
+						</div>
+						@endif
+						<div class="col-md-12 mb-3">
+							<label for="name">Name</label>
+							<input type="text" class="form-control" name="name" value="{{ $user->name }}">
+						</div>
+						<div class="col-md-12 mb-3">
+							<label for="mobile">Mobile</label>
+							<input type="number" class="form-control" name="mobile_no" value="{{ $user->mobile_no }}">
+						</div>
+						<div class="col-md-12 mb-3">
+							<label for="email">Email</label>
+							<input type="email" class="form-control" name="email" value="{{ $user->email }}">
+						</div>
+						<div class="col-md-12 mb-3">
+							<label for="profile_photo">Profile Photo</label>
+							<input type="file" class="form-control" name="profile_photo">
+						</div>
+
+						<div class="col-md-12 mb-3">
+							<label>Gender</label>
+							<div class="form-check">
+								<input type="radio" class="form-check-input" name="gender" id="genderMale{{ $user->id }}" value="Male" {{ $user->gender == 'Male' ? 'checked' : '' }}>
+								<label class="form-check-label" for="genderMale{{ $user->id }}">Male</label>
+							</div>
+							<div class="form-check">
+								<input type="radio" class="form-check-input" name="gender" id="genderFemale{{ $user->id }}" value="Female" {{ $user->gender == 'Female' ? 'checked' : '' }}>
+								<label class="form-check-label" for="genderFemale{{ $user->id }}">Female</label>
+							</div>
+							<div class="form-check">
+								<input type="radio" class="form-check-input" name="gender" id="genderOther{{ $user->id }}" value="Other" {{ $user->gender == 'Other' ? 'checked' : '' }}>
+								<label class="form-check-label" for="genderOther{{ $user->id }}">Other</label>
+							</div>
+						</div>
+
+						<div class="col-md-12 mb-3">
+							<label>Hobby</label>
+							<div class="form-check">
+								<input type="checkbox" class="form-check-input" id="hobbyDancing{{ $user->id }}" name="hobby[]" value="Dancing" {{ in_array('Dancing', $hobbies ?? []) ? 'checked' : '' }}>
+								<label class="form-check-label" for="hobbyDancing{{ $user->id }}">Dancing</label>
+							</div>
+							<div class="form-check">
+								<input type="checkbox" class="form-check-input" id="hobbySinging{{ $user->id }}" name="hobby[]" value="Singing" {{ in_array('Singing', $hobbies ?? []) ? 'checked' : '' }}>
+								<label class="form-check-label" for="hobbySinging{{ $user->id }}">Singing</label>
+							</div>
+							<!-- Add more hobbies as needed -->
+						</div>
+
+						<div class="col-md-12 mb-3">
+							<button type="submit" class="form-control btn btn-success" id="submit_user_{{ $user->id }}">Submit</button>
+						</div>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+</div>
 
 
 
