@@ -24,16 +24,22 @@
 .skiptranslate iframe {
     visibility: hidden !important;
 }
+.VIpgJd-ZVi9od-xl07Ob-lTBxed{
+    display: none;
+}
 </style>
 
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit">
-</script>
+
+<script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
 <script>
     function googleTranslateElementInit() {
         new google.translate.TranslateElement({
+            pageLanguage: 'en',
             includedLanguages: 'en,ar,ru,fa,tr,uz,vi,ko,hi,zh-CN,id,ms,ne', // Add the desired languages
+            layout: google.translate.TranslateElement.InlineLayout.SIMPLE
         }, 'google_translate_element');
     }
 </script>
@@ -65,21 +71,3 @@ $(document).ready(function() {
 
 
 
-
-///////////////////////////////// Another Googler Translate Script ///////////////////////////////////////////////////////////////////////
-
-<script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
-
-<script>
-    function googleTranslateElementInit() {
-        new google.translate.TranslateElement({
-            pageLanguage: 'en',
-            includedLanguages: 'en,hi,ne', // Add the desired languages
-            layout: google.translate.TranslateElement.InlineLayout.SIMPLE
-        }, 'google_translate_element');
-    }
-</script>
-
-<li class="nav-item">
-    <div id="google_translate_element"></div>
-</li>
