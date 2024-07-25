@@ -1,6 +1,5 @@
 
-composer create-project --prefer-dist laravel/laravel:^8.0 blog
-
+composer create-project laravel/laravel:^10.0 ecommerece
 
 
 ***************************************** Add Modal **********************************************************************
