@@ -123,6 +123,8 @@
 
 
 ******************************** Add Controller Side Code ********************************************
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 public function storeProduct(Request $req){
         // dd($req->all());
