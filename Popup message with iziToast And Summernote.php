@@ -64,20 +64,24 @@ catch (ValidationException $e) {
 
 
 
-************ Another Method ***********************
+*********************************************** Another Method ********************************************************************************
 @if(session()->get('success'))
     <div class="alert alert-success" role="alert">
-        {{ session()->get('success') }}
+        {{ session()->get('success')}}
     </div>
-   @elseif(session()->get('error'))
-    <div class="alert alert-danger" role="alert">
-        {{ session()->get('error') }}
-    </div>
-   @elseif($errors->any())
-    <div class="alert alert-danger" role="alert">
-        @foreach($errors->all() as $error)
-            <div>{{ $error }}</div>
-        @endforeach
+    @elseif(session()->get('error'))
+        <div class="alert alert-danger" role="alert">
+            {{ session()->get('error')}}
+        </div>
+@endif
+
+@if ($errors->any())
+    <div class="alert alert-danger">
+        <ul>
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
     </div>
 @endif
 
