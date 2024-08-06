@@ -156,6 +156,8 @@ public function bookingStore(Request $request){
                 'razorpay_payment_id' => $razorpayPaymentId,
                 'transaction_via'     => 'razorpay',
                 'order_id'            =>  $order_id,
+                'user_id'             => Auth::user()->id,
+                
             ];
 
             DB::table('transactions')->insert($data);
@@ -440,12 +442,16 @@ public function stripePost(Request $request)
 
 
 
-Card Details :-  4242 4242 4242 4242
-                 12/34
-                 567
+Card Details    :-  4242 4242 4242 4242
+                    12/34
+                    567
 
 Stripe Login    :- chauhanharshit350@gmail.com 
        Password :- Harshit@8218756792
+
+
+STRIPE_KEY=pk_test_51PkJ4d06ShRfWNZFtQI3nuM25eMT1cbHjjSJRFHbNozetlH26nH2PENmyDVQt7F166VQk2KgSm48OKnrqE291A4A00F4WbmBYM
+STRIPE_SECRET=sk_test_51PkJ4d06ShRfWNZFV7KHIsD30YoFGbrNyraAoieOKqTg79e5Boh2RNr9tIrOui5lOZcwbqXSbqok42HxxsUAGS3m00QtRBYLdk
 
 
 
