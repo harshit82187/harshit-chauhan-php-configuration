@@ -12,7 +12,8 @@ composer create-project laravel/laravel^:10.0 Chatify
  php artisan migrate 
  
  
- composer require laravel/jetstream
+ composer require laravel/jetstream   ////////////          if using laravel 10 version- composer require laravel/jetstream:^4.0
+
  
  php artisan jetstream:install livewire
  
