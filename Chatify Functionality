@@ -1,5 +1,5 @@
 *********************** Create Laravel project ****************************
-composer create-project laravel/laravel Chatify
+composer create-project laravel/laravel^:10.0 Chatify
 
 
 
