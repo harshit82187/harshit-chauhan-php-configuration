@@ -45,6 +45,19 @@ public function transaction_add(Request $request){
                 $subject = 'Funds Details';
                 $email = $request->email;
                 $pdf = PDF::loadView('mail.fund-mail', $data);
+
+                // Define the PDF filename and path
+                $fileName = 'funds_details.pdf';
+                $filePath = public_path('user-uploads/' . $fileName);
+
+                // Ensure the directory exists or create it
+                if (!file_exists(public_path('user-uploads/'))) {
+                    mkdir(public_path('user-uploads/weekly-report-attachments'), 0755, true);
+                }
+
+                // Save the PDF to the specified path
+                file_put_contents($filePath, $pdf->output());
+
     
                // Move the $pdf variable inside the callback function
                 Mail::send('mail.fund-mail', $data, function($message) use ($subject, $email, $pdf) {
@@ -67,7 +80,7 @@ public function transaction_add(Request $request){
             
 
         }
-    }
+}
 
 
     ////////////////////////////////////////////// View File Code////////////////////////////////////////////////////////////
