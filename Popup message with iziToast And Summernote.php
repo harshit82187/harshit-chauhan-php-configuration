@@ -96,6 +96,78 @@ catch (ValidationException $e) {
 
 
 
+***************************************** Sweet Alert Functionality With Success / Error / Validation Failed ******************************
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@10">
+
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
+
+<style>
+       .swal2-icon{
+            width: 80px!important;
+            height: 80px!important;
+        }
+
+        button.button.py-20.-dark-1.bg-blue-1.text-white {
+            width: 100%;
+        }
+</style>
+
+
+@if(session('success'))
+<script>
+    Swal.fire({
+        position: "top-end",
+        icon: "success",
+        title: "{{ session('success') }}",
+        showConfirmButton: false,
+        timer: 1500
+    });
+</script>
+@endif
+
+@if(session('error'))
+<script>
+    Swal.fire({
+        position: "top-end",
+        icon: "error",
+        title: "Error Occurred",
+        text: "{{ session('error') }}", // Displaying the detailed error message
+        showConfirmButton: true,
+        iconColor: '#FF0000' // Red color for errors
+    });
+</script>
+@endif
+
+@if($errors->any())
+<script>
+    Swal.fire({
+        position: "top-end",
+        icon: "warning",
+        title: "Validation Failed!",
+        html: 
+        `<ul>
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>`,
+        showConfirmButton: true,
+        iconColor: '#FFA500' // Orange color for validation failed
+    });
+</script>
+@endif
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -183,7 +255,7 @@ Route::get('account-details-active/{id}', 'account_active')->name('account_activ
             }
         }).then((result) => {
             if (result.isConfirmed) {
-				window.location.href = "{{ url('admin/delete-plans', ['id' => '__id__']) }}".replace('__id__', id);				
+				window.location.href = "{{ url('admin/delete-plans') }}/" +id;				
                 console.log("Harshit");
             }
         });
@@ -248,3 +320,23 @@ Route::get('/migrate', function(){
 </script>
 
 
+
+///////////////////////////////////////  select2 In Laravel ////////////////////////////////////////////////////////////////
+
+<link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/css/select2.min.css" rel="stylesheet" />
+
+<select id="single" class="js-states form-control form-select js-example-basic-single form-select">
+    <option selected disabled value="">Selcet Bank</option>
+        @foreach ($allBanks as $bank)
+        <option value="{{$bank->id}}">{{$bank->name}}</option>
+        @endforeach
+</select>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js"></script>
+<script>
+    $("#single").select2({
+        placeholder: "Select Bank",
+        allowClear: true
+    });
+</script>
