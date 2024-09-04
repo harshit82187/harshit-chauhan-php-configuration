@@ -220,6 +220,8 @@ Card Details :- 4111 1111 1111 1111
 
 *************************************************** Stripe Payment Gateway *******************************************************************
 
+composer require stripe/stripe-php
+                    
 /////////////////// web file code ///////////////////
 Route::controller(StripePaymentController::class)->group(function(){
     Route::get('stripe', 'stripe');
