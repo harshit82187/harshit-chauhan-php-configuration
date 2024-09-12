@@ -88,6 +88,15 @@ MAIL_ENCRYPTION=ssl
 MAIL_FROM_ADDRESS="info@eskayinvestments.in"
 MAIL_FROM_NAME="${APP_NAME}"
 
+MAIL_MAILER=smtp
+MAIL_HOST=smtpout.secureserver.net
+MAIL_PORT=465
+MAIL_USERNAME=contact@panutility.com
+MAIL_PASSWORD="SIPun0000@"
+MAIL_ENCRYPTION=ssl
+MAIL_FROM_ADDRESS="contact@panutility.com"  # This should be a valid email address
+MAIL_FROM_NAME="${APP_NAME}"
+
 
 ******************* ********************************* Controller Side Code ****************************************************** **************
 
