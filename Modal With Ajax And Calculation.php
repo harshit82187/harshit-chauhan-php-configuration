@@ -59,9 +59,9 @@ $(document).ready(function() {
         }
       },
 
-      error:function(error){
-        console.log("An Error occoured :", error);
-      }
+      error: function(xhr, status, error) {
+                console.error('An error occurred:', error);
+            }
       
 
     });
