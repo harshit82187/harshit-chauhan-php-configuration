@@ -114,7 +114,6 @@ catch (ValidationException $e) {
         }
 </style>
 
-
 @if(session('success'))
 <script>
     Swal.fire({
@@ -133,9 +132,10 @@ catch (ValidationException $e) {
         position: "top-end",
         icon: "error",
         title: "Error Occurred",
-        text: "{{ session('error') }}", // Displaying the detailed error message
+        text: "{{ session('error') }}", 
         showConfirmButton: true,
-        iconColor: '#FF0000' // Red color for errors
+        iconColor: '#FF0000', 
+        timer: 2500
     });
 </script>
 @endif
@@ -146,17 +146,18 @@ catch (ValidationException $e) {
         position: "top-end",
         icon: "warning",
         title: "Validation Failed!",
-        html: 
-        `<ul>
+        html: `<ul>
             @foreach ($errors->all() as $error)
                 <li>{{ $error }}</li>
             @endforeach
         </ul>`,
         showConfirmButton: true,
-        iconColor: '#FFA500' // Orange color for validation failed
+        iconColor: '#FFA500', 
+        timer: 2500
     });
 </script>
 @endif
+
 
 
 
