@@ -1,0 +1,15 @@
+*************************************************** Import and Export Excel and CSV Files in Laravel *******************************************************************
+
+composer require maatwebsite/excel
+
+
+
+************************************************ config/app.php *********************************************************************
+
+'providers' => [
+    Maatwebsite\Excel\ExcelServiceProvider::class,
+],
+
+'aliases' => [
+    'Excel' => Maatwebsite\Excel\Facades\Excel::class,
+],
