@@ -98,6 +98,16 @@ MAIL_FROM_ADDRESS="contact@panutility.com"  # This should be a valid email addre
 MAIL_FROM_NAME="${APP_NAME}"
 
 
+MAIL_MAILER=smtp
+MAIL_HOST=mail.collegeforum.in
+MAIL_PORT=465
+MAIL_USERNAME=contact@collegeforum.in
+MAIL_PASSWORD="?[6_[ibHMVVutpExg4"
+MAIL_ENCRYPTION=ssl
+MAIL_FROM_ADDRESS=contact@collegeforum.in
+MAIL_FROM_NAME="${APP_NAME}"
+
+
 ******************* ********************************* Controller Side Code ****************************************************** **************
 
 
