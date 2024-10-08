@@ -50,6 +50,7 @@
 
 
 
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 catch (ValidationException $e) {
