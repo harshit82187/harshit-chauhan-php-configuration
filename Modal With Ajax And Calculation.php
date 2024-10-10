@@ -574,4 +574,24 @@ Step : 5
         });
     });
 </script>
+
+
+
+
+
+
+****************************************************************** when you submit a form without ajax *********************************************************************************
+<script>
+    $(document).ready(function() {
+    $('#leaveapplyform').on('submit', function(event) {
+        event.preventDefault();        
+       
+        $('#submitleaveapplyform').html('<i class="fa fa-spinner fa-spin"></i> Please Wait...').prop('disabled', true);
+        this.submit(); 
+    });
+    $('#submitleaveapplyform').html('Apply').prop('disabled', false);
+});
+
+</script>
+
     
