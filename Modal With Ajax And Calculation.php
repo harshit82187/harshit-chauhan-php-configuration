@@ -49,8 +49,7 @@ $(document).ready(function() {
           var modalTitle = response.card_name + " Booking";
           $('.modal-title').text(modalTitle);
 
-          var dataString = JSON.stringify(response);
-          console.log(dataString);
+          console.log(JSON.stringify(response));
           updateTotalPrice();
 
         }else{
