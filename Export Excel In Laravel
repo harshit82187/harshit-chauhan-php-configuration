@@ -1,0 +1,294 @@
+************************************************ Export Excel Sheet Data In Laravel ******************************************************
+
+<div class="modal fade" id="export_lead_modal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" data-backdrop="static" data-keyboard="false" aria-hidden="true" style="margin-top:-5%;"  >
+  <div class="modal-dialog" role="document">
+    <div class="modal-content" style="margin-left:21%;">
+      <div class="modal-header">
+        <h5 class="modal-title" id="">Export Lead</h5>
+       
+      </div>
+        <div class="modal-body">
+            <form id="export_lead_Form" enctype="multipart/form-data" >
+                @csrf 
+                                       
+                    <div class="mb-3">
+							<label class="form-label">Follow-Up Status <span class="text-danger" >*</span> </label>
+							<div class="form-check">
+								<input class="form-check-input" type="radio" name="exportStatus" id="today" value="Today">
+								<label class="form-check-label px-2" for="today">Today</label>
+							</div>
+							<div class="form-check">
+								<input class="form-check-input" type="radio" name="exportStatus" id="yesterday" value="Yesterday">
+								<label class="form-check-label px-2" for="yesterday">Yesterday</label>
+							</div>
+							<div class="form-check">
+								<input class="form-check-input" type="radio" name="exportStatus" id="last_7_day" value="Last 7 Day">
+								<label class="form-check-label px-2" for="last_7_day">Last 7 Day</label>
+							</div>
+                            <div class="form-check">
+								<input class="form-check-input" type="radio" name="exportStatus" id="thisMonth" value="This Month">
+								<label class="form-check-label px-2" for="thisMonth">This Month</label>
+							</div>
+							<div class="form-check">
+								<input class="form-check-input" type="radio" name="exportStatus" id="lastMonth" value="Last Month">
+								<label class="form-check-label px-2" for="lastMonth">Last Month</label>
+							</div>
+							
+						
+							<div class="form-check">
+								<input class="form-check-input" type="radio" name="exportStatus" id="export_custom_date" value="Custom Date">
+								<label class="form-check-label px-2" for="export_custom_date">Custom Date</label>
+							</div>
+						
+							
+							
+						</div>
+
+                        <div class="row" id="exportDateContainer">
+                            <div class="col-6" >
+                                <label for="export_start_date" class="form-label">Start Date <span class="text-danger" >*</span></label>
+                                <input type="date"  class="form-control" name="export_start_date"  >
+                            </div>
+
+                            <div class="col-6" >
+                                <label for="export_end_date" class="form-label">End Date<span class="text-danger" >*</span></label>
+                                <input type="date" class="form-control" name="export_end_date"  >
+                            </div>                         
+                        </div>
+            </form>
+        </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        <button type="submit" class="btn btn-primary" id="submit_export_lead_Form">Download</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+************************************************************** Script **************************************************************************
+<script>
+    $(document).ready(function(){
+        $('#exportDateContainer').hide();
+            $('input[name="exportStatus"]').on('change', function() {
+            if ($('#export_custom_date').is(':checked')) {
+                $('#exportDateContainer').show();
+            } else {
+                $('#exportDateContainer').hide();
+            }
+        });
+    });
+
+
+    $('#submit_export_lead_Form').on('click', function(e) {
+       e.preventDefault();
+       let form = $('#export_lead_Form')[0];
+       let data = new FormData(form); 
+        console.log("Form Data: ", data);
+        
+        for (let pair of data.entries()) {
+                console.log(pair[0] + ': ' + pair[1]);
+            }
+
+        $('#submit_export_lead_Form').html('<i class="fa fa-spinner fa-spin"></i> Please Wait...').prop('disabled', true);
+
+
+            $.ajax({
+                url: '{{ url("export-lead-data") }}',
+                method: 'POST',
+                data: data,
+                processData: false,
+                contentType: false, 
+                success: function(response) {
+                    $('#submit_export_lead_Form').html('Download').prop('disabled', false);
+
+                    if (response.errors) {
+                        var errorMsg = '';
+                            $.each(response.errors, function(field, errors) {
+                                $.each(errors, function(index, error) {
+                                    errorMsg += error + '<br>';
+                                });
+                            });
+                            iziToast.error({
+                                message: errorMsg,
+                                position: 'topRight'
+                            });
+                    } else {
+                            $('#export_lead_Form')[0].reset();
+                            $('#export_lead_modal').modal('hide');
+                            console.log(response);
+                            iziToast.success({
+                                message: response.message,
+                                position: 'topRight'
+                            });
+                    }
+                },
+                error: function(xhr, status, error) {
+                    $('#submit_export_lead_Form').html('Download').prop('disabled', false);
+                    let errorMessage = 'An error occurred';
+                        if (xhr.responseJSON && xhr.responseJSON.errors) {
+                            var errorMsg = '';
+                            $.each(xhr.responseJSON.errors, function(field, errors) {
+                                $.each(errors, function(index, error) {
+                                    errorMsg += error + '<br>';
+                                });
+                            });
+                            iziToast.error({
+                                message: errorMsg,
+                                position: 'topRight'
+                            });
+                        } else if (xhr.responseJSON && xhr.responseJSON.message) {
+                            errorMessage = xhr.responseJSON.message;
+                            iziToast.error({
+                                message: errorMessage,
+                                position: 'topRight'
+                            });
+                        } else {
+                            errorMessage += ': ' + error;
+                            iziToast.error({
+                                message: errorMessage,
+                                position: 'topRight'
+                            });
+                        }
+                }
+            });
+    });
+
+
+
+</script>
+
+
+
+************************************************************* Controller Side Code ***********************************************************************
+
+use App\Exports\LeadExport;
+use Maatwebsite\Excel\Facades\Excel;
+
+public function manageExportLeadData(Request $req)
+    {
+        try {
+            $rules = [
+                'exportStatus' => 'required|string',
+            ];
+            $validator = Validator::make($req->all(), $rules);
+
+               
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation errors',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+    
+            // Initialize start and end date
+            $startDate = null;
+            $endDate = null;
+    
+            // Handle different export status cases
+            switch ($req->input('exportStatus')) {
+                case 'Today':
+                    $startDate = Carbon::today()->toDateString();
+                    $endDate = Carbon::today()->toDateString();
+                    break;
+                case 'Yesterday':
+                    $startDate = Carbon::yesterday()->toDateString();
+                    $endDate = Carbon::yesterday()->toDateString();
+                    break;
+                case 'Last 7 Day':
+                    $startDate = Carbon::now()->subDays(7)->toDateString();
+                    $endDate = Carbon::today()->toDateString();
+                    break;
+                case 'This Month':
+                    $startDate = Carbon::now()->startOfMonth()->toDateString();
+                    $endDate = Carbon::now()->endOfMonth()->toDateString();
+                    break;
+                case 'Last Month':
+                    $startDate = Carbon::now()->subMonth()->startOfMonth()->toDateString();
+                    $endDate = Carbon::now()->subMonth()->endOfMonth()->toDateString();
+                    break;
+                case 'Custom Date':
+                    // Validate custom date range
+                    $rules = [
+                        'export_start_date' => 'required|date',
+                        'export_end_date' => 'required|date|after_or_equal:export_start_date',
+                    ];
+                    $validator = Validator::make($req->all(), $rules);
+
+               
+                        if ($validator->fails()) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'Validation errors',
+                                'errors' => $validator->errors()
+                            ], 422);
+                        }
+                    $startDate = $req->input('export_start_date');
+                    $endDate = $req->input('export_end_date');
+                    break;
+                default:
+                    return response()->json(['error' => 'Invalid export status'], 400);
+            }
+    
+            // Trigger the file download
+            return Excel::download(new LeadExport($startDate, $endDate), 'leads_export.xlsx');
+    
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'Message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+
+
+
+**************************************** app\Exports\LeadExport.php *********************************************************************
+<?php
+
+namespace App\Exports;
+
+use App\Enquiry;
+use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+
+class LeadExport implements FromCollection, WithHeadings
+{
+    protected $startDate;
+    protected $endDate;
+
+    // Constructor to accept date range
+    public function __construct($startDate, $endDate)
+    {
+        $this->startDate = $startDate;
+        $this->endDate = $endDate;
+    }
+
+    // Fetch the data for export
+    public function collection()
+    {
+        $enquiry = Enquiry::whereBetween('created_at', [$this->startDate, $this->endDate])
+                         ->get(['id', 'name', 'email', 'phone', 'created_at']);
+        
+        return $enquiry;
+    }
+
+    // Specify the column headings
+    public function headings(): array
+    {
+        return [
+            'ID',
+            'Name',
+            'Email',
+            'Phone',
+            'Created At',
+        ];
+    }
+}
