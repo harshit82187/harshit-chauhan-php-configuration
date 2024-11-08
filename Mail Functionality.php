@@ -174,3 +174,64 @@ public function saveContactus(Request $req)
 
 
 
+
+
+**************************************************** Send MAil In Coer Php *****************************************************************************
+
+
+
+  try {
+                $to = $request->email;  // Receiver's email address
+                $subject = 'Verify Your Company Email';              
+                $verificationUrl = route('company.verify', ['token' => $token, 'email' => $to]); // Use the generated token
+                
+                // Email content
+                $message = "
+                <html>
+                <head>
+                    <title>Email Verification</title>
+                </head>
+                <body style='font-family: Arial, sans-serif; background-color: #f8f9fa; color: #212529; margin: 0; padding: 0;'>
+                    <div style='max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 0.25rem; box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); padding: 2rem; border: 1px solid #dee2e6;'>
+                        <div style='text-align: center; padding-bottom: 1.5rem;'>
+                            <h1 style='margin: 0; font-size: 1.75rem; color: #343a40;'>Email Verification</h1>
+                        </div>
+                        <div style='padding-bottom: 1.5rem; font-size: 1rem; line-height: 1.5;'>
+                            <p>Hello, {$request->name}</p>
+                            <p>Thank you for registering your company with DSOM! We’re excited to welcome you to our network. <br>
+                            To finalize your registration, please verify your email address by clicking the button below:
+
+                            </p>
+                        </div>
+                        <div style='display: block; text-align: center; margin-top: 2rem;'>
+                            <a href='{$verificationUrl}' target='_blank' style='display: inline-block; padding: 0.75rem 1.5rem; font-size: 1rem; font-weight: 600; color: #ffffff; background-color: #007bff; border-color: #007bff; text-decoration: none; border-radius: 0.25rem;'>Verify Email Address</a>
+                        </div>
+                        <div style='text-align: center; margin-top: 2rem; font-size: 0.875rem; color: #6c757d;'>
+                            <p>If you did not initiate this request, no action is required. <br> 
+                            We look forward to a successful partnership and supporting your team with our digital marketing expertise.
+
+                            </p>
+                            <p>Best regards,<br>DSOM</p>
+                        </div>
+                    </div>
+                </body>
+                </html>";
+            
+                // Set headers
+                $headers = "MIME-Version: 1.0" . "\r\n";
+                $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
+                $headers .= 'From: contact@dsom.in' . "\r\n";
+            
+                // Send the email
+                if (mail($to, $subject, $message, $headers)) {
+                   
+                } else {
+                    echo 'Error! Email could not be sent.';
+                }
+                
+            } catch (Exception $e) {
+                echo 'Caught exception: ', $e->getMessage();
+            }
+
+
+
