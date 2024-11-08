@@ -1,0 +1,138 @@
+**************************************************************** Import Excel Sheet In Laravel **************************************************************
+
+<!-- Import Lead Modal -->
+<div class="modal fade" id="import_lead_modal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" data-backdrop="static" data-keyboard="false" aria-hidden="true" style="margin-top:-5%;">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content" style="margin-left:21%;">
+      <div class="modal-header">
+        <h5 class="modal-title">Import Lead</h5>
+        <a href="{{ asset('Vinod.xlsx') }}" download>
+            <img src="{{ asset('sheets.png') }}" width="30px" height="30px" alt="excel">
+        </a>
+      </div>
+      <div class="modal-body">
+        <form id="" method="POST" action="{{ url('import-lead-data') }}" enctype="multipart/form-data">
+          @csrf 
+
+            <div class="mb-3">
+                <label for="subject" class="form-label">Upload Excel Sheet <span class="text-danger" >*</span> </label>
+                <input type="file" name="excel_sheet" class="form-control" required >
+            </div>
+
+    
+      
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            <button type="submit" class="btn btn-primary">Upload</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+**************************************** Controller Side Code ***********************************************************
+  
+use App\Exports\LeadExport;
+use App\Imports\EnquiryImport;
+use Maatwebsite\Excel\Facades\Excel;
+use Maatwebsite\Excel\HeadingRowImport;
+use Carbon\Carbon; 
+
+public function manageImportLeadData(Request $req)
+    {
+        try {
+            // Validate the file input
+            $req->validate([
+                'excel_sheet' => 'required|file|mimes:xlsx,xls,csv',
+            ]);
+
+            // Get the uploaded file
+            $file = $req->file('excel_sheet');
+
+            // Define the expected headers
+            $expectedHeaders = ['name', 'email', 'phone']; // Change this to match your expected headers
+
+            // Check the headers in the uploaded file
+            $import = new HeadingRowImport;
+            $headingRow = $import->toArray($file)[0]; // Get the first row as the header row
+
+            // Extract the headers from the first row
+            $headers = array_keys($headingRow); // Extract keys which represent the headers
+
+            // Compare the headers with the expected ones
+            if (!$this->validateHeaders($headers, $expectedHeaders)) {
+                return back()->with('error', 'The Excel file does not have the correct headers.');
+            }
+
+            // Proceed with the import
+            $user = Auth::user();
+            Excel::import(new EnquiryImport($user), $file);
+            return redirect()->back()->with('success', 'Leads imported successfully!');
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Warning: ' . $e->getMessage());
+        }
+    }
+
+    private function validateHeaders($headers, $expectedHeaders)
+    {
+        $headers = array_map('strtolower', $headers);
+        $expectedHeaders = array_map('strtolower', $expectedHeaders);
+
+        return $headers === $expectedHeaders;
+    }
+
+
+
+
+
+
+
+
+*********************************************************************   app\Imports\EnquiryImport   ***********************************************************************************************
+<?php
+
+namespace App\Imports;
+
+use App\Enquiry;
+use Maatwebsite\Excel\Concerns\ToModel;
+use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Carbon\Carbon;
+
+class EnquiryImport implements ToModel, WithHeadingRow
+{
+    protected $user;
+
+    public function __construct($user)
+    {
+        $this->user = $user;
+    }
+
+    public function model(array $row)
+    {
+        return new Enquiry([
+            'name' => $row['name'],
+            'email' => $row['email'],
+            'phone' => $row['phone'],
+            'user_id' => $this->user->id, 
+            'created_at' => Carbon::now(),
+            'updated_at' => Carbon::now(),
+        ]);
+    }
+}
