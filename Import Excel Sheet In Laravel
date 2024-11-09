@@ -48,32 +48,34 @@
 
 **************************************** Controller Side Code ***********************************************************
   
+
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use App\Exports\LeadExport;
 use App\Imports\EnquiryImport;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\HeadingRowImport;
-use Carbon\Carbon; 
 
-public function manageImportLeadData(Request $req)
+
+
+    public function manageImportLeadData(Request $req)
     {
         try {
-            // Validate the file input
             $req->validate([
                 'excel_sheet' => 'required|file|mimes:xlsx,xls,csv',
             ]);
 
-            // Get the uploaded file
             $file = $req->file('excel_sheet');
 
-            // Define the expected headers
-            $expectedHeaders = ['name', 'email', 'phone']; // Change this to match your expected headers
+            $expectedHeaders = ['name', 'email', 'phone']; 
 
-            // Check the headers in the uploaded file
             $import = new HeadingRowImport;
-            $headingRow = $import->toArray($file)[0]; // Get the first row as the header row
+            $headingRow = $import->toArray($file)[0][0];
 
-            // Extract the headers from the first row
-            $headers = array_keys($headingRow); // Extract keys which represent the headers
+            $headers = array_values($headingRow);
+            
+
 
             // Compare the headers with the expected ones
             if (!$this->validateHeaders($headers, $expectedHeaders)) {
@@ -92,9 +94,13 @@ public function manageImportLeadData(Request $req)
 
     private function validateHeaders($headers, $expectedHeaders)
     {
-        $headers = array_map('strtolower', $headers);
+        // Trim and convert headers to lowercase
+        $headers = array_map(function ($header) {
+            return strtolower(trim($header));
+        }, $headers);
         $expectedHeaders = array_map('strtolower', $expectedHeaders);
-
+        // dd($headers, $expectedHeaders);
+    
         return $headers === $expectedHeaders;
     }
 
