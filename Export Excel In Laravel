@@ -66,80 +66,57 @@
 use App\Exports\LeadExport;
 use Maatwebsite\Excel\Facades\Excel;
 
-public function manageExportLeadData(Request $req)
+   public function manageExportLeadData(Request $req)
     {
         try {
-            $rules = [
+            $req->validate([
                 'exportStatus' => 'required|string',
-            ];
-            $validator = Validator::make($req->all(), $rules);
-
-               
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation errors',
-                    'errors' => $validator->errors()
-                ], 422);
-            }
+            ]);
     
-            // Initialize start and end date
             $startDate = null;
             $endDate = null;
     
             // Handle different export status cases
             switch ($req->input('exportStatus')) {
                 case 'Today':
-                    $startDate = Carbon::today()->toDateString();
-                    $endDate = Carbon::today()->toDateString();
+                    $startDate = Carbon::today()->startOfDay()->toDateTimeString();
+                    $endDate = Carbon::today()->endOfDay()->toDateTimeString();
                     break;
                 case 'Yesterday':
-                    $startDate = Carbon::yesterday()->toDateString();
-                    $endDate = Carbon::yesterday()->toDateString();
+                    $startDate = Carbon::yesterday()->startOfDay()->toDateTimeString();
+                    $endDate = Carbon::yesterday()->endOfDay()->toDateTimeString();
                     break;
                 case 'Last 7 Day':
-                    $startDate = Carbon::now()->subDays(7)->toDateString();
-                    $endDate = Carbon::today()->toDateString();
+                    $startDate = Carbon::now()->subDays(7)->startOfDay()->toDateTimeString();
+                    $endDate = Carbon::today()->endOfDay()->toDateTimeString();
                     break;
                 case 'This Month':
-                    $startDate = Carbon::now()->startOfMonth()->toDateString();
-                    $endDate = Carbon::now()->endOfMonth()->toDateString();
+                    $startDate = Carbon::now()->startOfMonth()->toDateTimeString();
+                    $endDate = Carbon::now()->endOfMonth()->toDateTimeString();
                     break;
                 case 'Last Month':
-                    $startDate = Carbon::now()->subMonth()->startOfMonth()->toDateString();
-                    $endDate = Carbon::now()->subMonth()->endOfMonth()->toDateString();
+                    $startDate = Carbon::now()->subMonth()->startOfMonth()->toDateTimeString();
+                    $endDate = Carbon::now()->subMonth()->endOfMonth()->toDateTimeString();
                     break;
                 case 'Custom Date':
                     // Validate custom date range
-                    $rules = [
+                    $req->validate([
                         'export_start_date' => 'required|date',
                         'export_end_date' => 'required|date|after_or_equal:export_start_date',
-                    ];
-                    $validator = Validator::make($req->all(), $rules);
-
-               
-                        if ($validator->fails()) {
-                            return response()->json([
-                                'success' => false,
-                                'message' => 'Validation errors',
-                                'errors' => $validator->errors()
-                            ], 422);
-                        }
-                    $startDate = $req->input('export_start_date');
-                    $endDate = $req->input('export_end_date');
+                    ]);
+    
+                    $startDate = Carbon::parse($req->input('export_start_date'))->startOfDay()->toDateTimeString();
+                    $endDate = Carbon::parse($req->input('export_end_date'))->endOfDay()->toDateTimeString();
                     break;
                 default:
-                    return response()->json(['error' => 'Invalid export status'], 400);
+                    return back()->with('error', 'Warning: Invalid Export');
             }
     
-            // Trigger the file download
+            \Log::info("Start Date: $startDate, End Date: $endDate");
             return Excel::download(new LeadExport($startDate, $endDate), 'leads_export.xlsx');
     
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'Message' => $e->getMessage()
-            ], 500);
+            return back()->with('error', 'Warning: ' . $e->getMessage());
         }
     }
 
