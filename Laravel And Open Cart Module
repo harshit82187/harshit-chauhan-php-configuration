@@ -12,6 +12,7 @@
 				</div>
 				</form>
 
+				<img src="<?=BASEURL.DIR_SYSTEM.'web-assets/';?>img/ban-hall.jpg" alt="Marriage Event" style="width:100%; border-radius:10px;">
 
 
 
