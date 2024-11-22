@@ -1,0 +1,61 @@
+
+
+
+ <form action="<?=SITEURL.'subscriber';?>" method="POST" > 
+				<div class="single-field -w-410 d-flex x-gap-10 y-gap-20">
+					<div>
+						<input class="bg-white h-60" type="email" placeholder="Your Email" name="email">
+					</div>
+					<div>
+						<button type="submit" class="button -md h-60 bg-blue-1 text-white">Subscribe</button>
+					</div>
+				</div>
+				</form>
+
+
+
+
+
+	public function subscriber(){
+
+			$emailExist =  DB::table('subscribers')->where('email','=',$_POST['email'])->first()->toArray();
+			if($emailExist){				
+				return redirect("?error=subscribe");
+			}else{
+				$values = [
+					'email' => $_POST['email'],				
+					'created_at' => date('Y-m-d H:i:s'),
+					'updated_at' => date('Y-m-d H:i:s'),
+				];
+				DB::table('subscribers')->insert($values);
+				return redirect("?success=subscribe");
+			}
+		
+		}
+
+
+
+
+<?php if(isset($_GET['error'])): ?>
+    <script>
+        iziToast.error({
+            message: 'This email address already exists.',
+            timeout: 8000,
+            close: true,
+            displayMode: 'once',
+            position: 'topRight',
+        });
+    </script>
+<?php endif; ?>
+
+<?php if(isset($_GET['success'])): ?>
+    <script>
+        iziToast.success({
+            message: 'You have successfully subscribed.',
+            timeout: 8000,
+            close: true,
+            displayMode: 'once',
+            position: 'topRight',
+        });
+    </script>
+<?php endif; ?>
