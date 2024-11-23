@@ -1,5 +1,6 @@
 ****************************************************** Blade File Code **************************************************************************************
 
+composer require yajra/laravel-datatables-oracle:^10.4
 
 
 @extends('backend.layouts.app')
