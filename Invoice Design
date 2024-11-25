@@ -9,7 +9,6 @@
     <tr>
         <td colspan="2" class="text-center">
             <h1 class="event-title" style="font-size: 36px; color: #333; font-weight: bold;"><strong>Apnda Demand Event</strong></h1>
-            <p class="event-subtitle" style="font-size: 18px; color: #555; margin-bottom: 20px;">ONE STOP SOLUTION FOR EVENT BOOKING REQUIREMENTS</p>
             <p><strong>70, MG Market, Patna City, Bihar – 800008</strong></p>
             <p><strong>Ph: 1234567890; 9876543210;</strong></p>
             <p><strong>Email: <a href="mailto:apnademand@gmail.com">apnademand@gmail.com</a>, <a href="mailto:contact@apnademand.com">contact@apnademand.com</a></strong></p>
@@ -20,17 +19,20 @@
     <tr>
         <td class="user-details" style="width: 50%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
             <h3 style="margin-bottom: 15px; font-size: 18px; color: #333;">User Details</h3>
-            <p style="font-size: 16px; color: #555;"><strong>Name:</strong> <?=$data['user'][0]['first_name'];?></p>
-            <p style="font-size: 16px; color: #555;"><strong>Email:</strong> <?=$data['user'][0]['contact_number'];?> </p>
-            <p style="font-size: 16px; color: #555;"><strong>Phone:</strong> <?=$data['user'][0]['email'];?></p>
-            <p style="font-size: 16px; color: #555;"><strong>Address:</strong> <?=$data['user'][0]['address'];?></p>
-            <p style="font-size: 16px; color: #555;"><strong>Country & State:</strong> <?=$data['user'][0]['country'];?>, <?=$data['user'][0]['state'];?> , <?=$data['user'][0]['city'];?> </p>
+            <p style="font-size: 16px; color: #555;"><strong>Name:</strong> <?=$data['user'][0]['first_name'] ?? '';?></p>
+            <p style="font-size: 16px; color: #555;"><strong>Email:</strong> <?=$data['user'][0]['contact_number'] ?? '';?> </p>
+            <p style="font-size: 16px; color: #555;"><strong>Phone:</strong> <?=$data['user'][0]['email'] ?? '';?></p>
+            <p style="font-size: 16px; color: #555;"><strong>Address:</strong> <?=$data['user'][0]['address'] ?? '';?></p>
+            <p style="font-size: 16px; color: #555;"><strong>Country & State:</strong> <?=$data['user'][0]['country'] ?? '';?>, <?=$data['user'][0]['state'] ?? '';?> , <?=$data['user'][0]['city'] ?? '';?> </p>
         </td>
         <td class="organizer-details" style="width: 50%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
             <h3 style="margin-bottom: 15px; font-size: 18px; color: #333;">Organizer Details</h3>
-            <p style="font-size: 16px; color: #555;"><strong>Name:</strong>  <?=$data['organizerDetail'][0]['username'];?> </p>
-            <p style="font-size: 16px; color: #555;"><strong>Email:</strong> <?=$data['organizerDetail'][0]['email'];?></p>
-            <p style="font-size: 16px; color: #555;"><strong>Phone:</strong> <?=$data['organizerDetail'][0]['phone'];?></p>
+            <p style="font-size: 16px; color: #555;"><strong>Name:</strong>  <?=$data['organizerDetail'][0]['username'] ?? '';?> </p>
+            <p style="font-size: 16px; color: #555;"><strong>Phone:</strong> <?=$data['organizerDetail'][0]['phone'] ?? '';?></p>
+            <p style="font-size: 16px; color: #555;"><strong>Email:</strong> <?=$data['organizerDetail'][0]['email'] ?? '';?></p>
+            <p style="font-size: 16px; color: #555;"><strong>Address:</strong> <?=$data['organizer_info'][0]['address'] ?? '';?></p>
+            <p style="font-size: 16px; color: #555;"><strong>Country & State:</strong> <?=$data['organizer_info'][0]['country'] ?? '';?>, <?=$data['organizer_info'][0]['state'] ?? '';?> , <?=$data['organizer_info'][0]['city'] ?? '';?> </p>
+
         </td>
     </tr>
 
@@ -80,8 +82,8 @@
 
     <tr>
         <td colspan="2" class="text-center">
-            <button class="btn-print" style="background-color: #007bff; color: #fff; font-size: 16px; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s;" onclick="printInvoice()">Print Invoice</button>
-        </td>
+            <button class="btn-print" style="background-color: #007bff; color: #fff; font-size: 16px; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s;" onclick="printInvoice()">Print Invoice</button><br><br>
+        </td> 
     </tr>
 </table>
 
