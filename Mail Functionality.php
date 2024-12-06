@@ -69,15 +69,17 @@ MAIL_ENCRYPTION=ssl
 MAIL_FROM_ADDRESS="info@test.pearl-developer.com"
 MAIL_FROM_NAME="${APP_NAME}"
 
-
 MAIL_MAILER=smtp
-MAIL_HOST=smtp.hostinger.com
-MAIL_PORT=465
-MAIL_USERNAME=info@asianbloom.com
-MAIL_PASSWORD="Asianbloom@123"
-MAIL_ENCRYPTION=ssl
-MAIL_FROM_ADDRESS="info@asianbloom.com"
+MAIL_HOST=mail.devs.pearl-developer.com
+MAIL_PORT=587
+MAIL_USERNAME=laravel@devs.pearl-developer.com
+MAIL_PASSWORD=Laravel@12390
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=laravel@devs.pearl-developer.com
 MAIL_FROM_NAME="${APP_NAME}"
+
+
+
 
 MAIL_MAILER=smtp
 MAIL_HOST=eskayinvestments.in
