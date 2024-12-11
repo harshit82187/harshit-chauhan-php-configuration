@@ -78,6 +78,15 @@ MAIL_ENCRYPTION=tls
 MAIL_FROM_ADDRESS=laravel@devs.pearl-developer.com
 MAIL_FROM_NAME="${APP_NAME}"
 
+MAIL_MAILER=smtp
+MAIL_HOST=gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=harshitk@pearlorganisation.com
+MAIL_PASSWORD=yfmlhtrjyafvoawm
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=harshitk@pearlorganisation.com
+MAIL_FROM_NAME="${APP_NAME}"
+
 
 
 
