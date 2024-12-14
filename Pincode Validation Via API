@@ -1,0 +1,104 @@
+**************************************** Step 1 : Blade File Code ********************************************************
+let timer;
+
+// Function to validate city, state, and pincode
+function validateCityStatePincode() {
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+        const city = $('#city').val().trim().toLowerCase();
+        const pincode = $('#zip').val().trim();
+        const state = $('#state').val(); // Get the selected state value
+        const proceedButton = $('.proceed_to_next_button');
+
+        if (city && pincode.length === 6 && !isNaN(pincode)) {
+            $.ajax({
+                url: '{{ route("validate.pincode") }}',
+                method: 'POST',
+                data: {
+                    city: city,
+                    state: state, // Include state in the request
+                    pincode: pincode,
+                    _token: '{{ csrf_token() }}'
+                },
+                beforeSend: function () {
+                    $('#responseMessage').text('Validating...').css('color', 'blue'); // Show loading message
+                    proceedButton.addClass('disabled');
+                },
+                success: function (response) {
+                    if (response.valid) {
+                        $('#responseMessage').text('Correct City, State, and Pincode').css('color', 'green');
+                        proceedButton.removeClass('disabled');
+                    } else {
+                        $('#responseMessage').text('City, State, or Pincode do not match. Please try again.').css('color', 'red');
+                        proceedButton.addClass('disabled');
+                    }
+                },
+                error: function () {
+                    $('#responseMessage').text('Error occurred while validating. Please try again.').css('color', 'red');
+                    proceedButton.addClass('disabled');
+                }
+            });
+        } else {
+            $('#responseMessage').text('');
+            proceedButton.addClass('disabled');
+        }
+    }, 500);
+}
+
+// Listen for input in city and pincode fields
+$('#city, #zip').on('keyup', function () {
+    validateCityStatePincode();
+});
+
+// Listen for state dropdown change
+$('#state').on('change', function () {
+    validateCityStatePincode();
+});
+
+
+
+
+
+
+
+
+
+
+
+**************************************** Step 2 : Controller File Code ********************************************************
+
+ public function validatePincode(Request $req)
+    {
+        $city = strtolower($req->city);
+        $state = strtolower($req->state); // Get state from request
+        $pincode = $req->pincode;
+
+        // API URL
+        $apiUrl = "https://api.postalpincode.in/pincode/{$pincode}";
+        $response = Http::get($apiUrl);
+
+        // Check if API response is successful
+        if ($response->successful()) {
+            $data = $response->json();
+
+            if (isset($data[0]['Status']) && $data[0]['Status'] === 'Success') {
+                $postOfficeData = $data[0]['PostOffice'];
+
+                foreach ($postOfficeData as $postOffice) {
+                    // Validate city and state against API response
+                    if (
+                        (strtolower($postOffice['District']) === $city || strtolower($postOffice['Name']) === $city) &&
+                        strtolower($postOffice['State']) === $state
+                    ) {
+                        return response()->json(['valid' => true, 'message' => 'City, State, and Pincode match']);
+                    }
+                }
+                return response()->json(['valid' => false, 'message' => 'City, State, and Pincode do not match']);
+            }
+
+            return response()->json(['valid' => false, 'message' => 'Invalid Pincode. Please check and try again']);
+        }
+
+        // Default response for API failure or incorrect inputs
+        return response()->json(['valid' => false, 'message' => 'Error validating Pincode. Please try again.']);
+    }
