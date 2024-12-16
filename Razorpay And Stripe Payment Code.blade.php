@@ -474,6 +474,9 @@ STRIPE_SECRET=sk_test_51PkJ4d06ShRfWNZFV7KHIsD30YoFGbrNyraAoieOKqTg79e5Boh2RNr9t
         $key_secret = env('RAZORPAY_SECRET');
         // $arr = ['amount' => $amount, 'currency' => $currencyCode];
         $arr = ['amount' => $amount * 100, 'currency' => $currencyCode];
+	Log::info('Using Razorpay Key', ['key' => env('RAZORPAY_KEY')]);
+	Log::info('Using Razorpay Secret', ['secret' => env('RAZORPAY_SECRET')]);
+	Log::info('Razorpay API Request Data', ['data' => $arr]);
 
         $arr1 = json_encode($arr);
         $fields_string = $arr1;
