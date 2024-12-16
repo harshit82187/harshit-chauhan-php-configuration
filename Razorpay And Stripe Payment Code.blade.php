@@ -465,6 +465,9 @@ STRIPE_SECRET=sk_test_51PkJ4d06ShRfWNZFV7KHIsD30YoFGbrNyraAoieOKqTg79e5Boh2RNr9t
 
 ************************************************** Second Method Razorpay Payment Gateway ***************************************************
 
+RAZORPAY_KEY_ID="rzp_test_peX01P5vxyNOOw"
+RAZORPAY_SECRET="VbI2YAcrnfvL2x6btR2aBp5u"
+			
 
 
  public function get_curl_handle_razorpay($razorpayPaymentId, $amount, $currencyCode)
@@ -553,6 +556,7 @@ STRIPE_SECRET=sk_test_51PkJ4d06ShRfWNZFV7KHIsD30YoFGbrNyraAoieOKqTg79e5Boh2RNr9t
                                     'method' => $response_array['method'],
                                     'currency' => $response_array['currency'],
                                     'user_email' => $email,
+			             'status' => 'Done',
                                     'amount' => $response_array['amount'] / 100,
                                     'json_response' => $result,
                                 ]);
