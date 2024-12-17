@@ -188,12 +188,21 @@ public function register(Request $req){
             'hobby'    => json_encode($req->hobby),
         ];
 
-        if($req->profile_photo != null){
-            $file = $req->profile_photo;
+
+        if($request->profile_photo != null){
+            $file = $request->profile_photo;
             $filename = time(). '.' . $file->getClientOriginalExtension();
-            $file->move(public_path('users'),$filename);
-            $data['profile_photo'] = $filename;
+            $year = now()->year;
+            $month = now()->format('M');
+            $folderPath = public_path("users/{$year}/{$month}");
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0777, true);  
+            }
+            $file->move($folderPath, $filename);
+            $data['profile_photo'] = "users/{$year}/{$month}/" . $filename;
         }
+
+       
 
         User::create($data);
 
