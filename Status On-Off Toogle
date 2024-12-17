@@ -41,26 +41,67 @@
 	transform: translateX(14px);
 	}
 </style>
+<meta name="csrf-token" content="{{ csrf_token() }}">
 
 
 <td>
-  <label class="switch">
-  <input type="checkbox" class="status-toggle" data-id="{{ $review->id }}" {{ $review->status ? 'checked' : '' }}>
-  <span class="slider round"></span>
-  </label>
+<label class="switch">
+	 <input type="checkbox" class="status-toggle" data-id="{{ $blog->id }}" {{ $blog->status ? 'checked' : '' }}>
+	<span class="slider round"></span>
+</label>                                       
 </td>
 
-Route::post('blog/status/{blog}', [BlogController::class, 'updateStatus'])->name('admin.blog.status');
+
+<script>
+    $(document).ready(function() {
+    $('.status-toggle').change(function() {
+        var status = $(this).prop('checked') == true ? 1 : 0;  
+        var blog_id = $(this).data('id');  
+
+        $.ajax({
+            url: '{{ url('admin/blogs/update-status') }}',  
+            type: 'POST',  
+            data: {
+                '_token': $('meta[name="csrf-token"]').attr('content'), 
+                'blog_id': blog_id,  
+                'status': status  
+            },
+            success: function(response) {
+                alert('Status updated successfully!');
+            },
+            error: function(xhr, status, error) {
+                alert('Error updating status!');
+            }
+        });
+    });
+});
+;
+
+</script>
+
+Route::post('admin/blogs/update-status', [BlogController::class, 'updateStatus'])->name('admin.blogs.updateStatus');
   
 
 
 ******************************************* Controller Side Code  ********************************************************
 
 
-public function updateStatus(Request $request, Blog $blog)
+   public function updateStatus(Request $request)
     {
+        // dd($request->all());
+        $request->validate([
+            'blog_id' => 'required|numeric',  
+            'status' => 'required|boolean',  
+        ]);
+      
+
+        $blog = Blog::findOrFail($request->blog_id);
+
         $blog->status = $request->status;
         $blog->save();
 
-        return response()->json(['success' => true]);
+        return response()->json([
+            'success' => true,
+            'message' => 'Blog status updated successfully',
+        ]);
     }
