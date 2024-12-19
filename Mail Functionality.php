@@ -118,6 +118,19 @@ MAIL_ENCRYPTION=ssl
 MAIL_FROM_ADDRESS=contact@collegeforum.in
 MAIL_FROM_NAME="${APP_NAME}"
 
+Route::get('/test-raw-mail', function () {
+    $toEmail = 'recipient-email@example.com';
+    $subject = 'Test Email';
+    $body = 'This is a test email sent using raw content to check if email functionality is working.';
+
+    Mail::raw($body, function ($message) use ($toEmail, $subject) {
+        $message->to($toEmail)
+                ->subject($subject);
+    });
+
+    return 'Raw test email sent successfully!';
+});
+
 
 ******************* ********************************* Controller Side Code ****************************************************** **************
 
