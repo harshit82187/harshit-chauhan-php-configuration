@@ -1,3 +1,6 @@
+composer require maatwebsite/excel 
+
+
 ************************************************ Export Excel Sheet Data In Laravel ******************************************************
 <!-- Export Lead Modal -->
 <div class="modal fade" id="export_lead_modal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" data-backdrop="static" data-keyboard="false" aria-hidden="true" style="margin-top:-5%;">
