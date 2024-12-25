@@ -401,53 +401,57 @@
 
 <script>
 	$(document).ready(function(){
-	    // Function to handle "Select All" checkbox
 	    $('#select-all').change(function(){
 	        $('.row-checkbox').prop('checked', $(this).prop('checked'));
 	    });
-	
-	    // Function to handle row checkbox changes
+
 	    $('.row-checkbox').change(function(){
 	        if(!$(this).prop('checked')){
 	            $('#select-all').prop('checked', false);
 	        }
 	    });
-	
-	    // Function to delete selected rows
+
 	    $('#delete-selected').click(function(){
 	        var selectedIds = [];
 	        $('.row-checkbox:checked').each(function(){
 	            selectedIds.push($(this).data('id'));
 	        });
-	
+            if (selectedIds.length === 0) {
+                iziToast.warning({
+                    title: 'Warning :',
+                    message: 'Select Atleast One',
+                    position: 'topRight',
+                });
+                return;
+            }
+            if (!confirm('Are you sure you want to delete the selected rows?')) return;
+
 	        var csrfToken = $('meta[name="csrf-token"]').attr('content');
-	
-	
-	        // Perform deletion of selected rows using AJAX
 	        $.ajax({
 	            type: 'POST',
-	            url: '{{ route('admin.deleteSelectedRows') }}', // Change this URL to your actual route
+	            url: '{{ route('admin.deleteSelectedRows') }}',
 	            data: {
 	                ids: selectedIds,
 	                _token: csrfToken
 	            },
 	            success: function(response){
-	                // Handle success response here
-	                console.log(response); // For demonstration purposes
-	                Swal.fire({
-	                    position: "top-end",
-	                    icon: "success",
-	                    title: "Delete Successfully",
-	                    showConfirmButton: false,
-	                    timer: 2500
-	                });
-	                location.reload(true); 
-	                // You can update the UI, reload the page, or perform any other action after successful deletion
+                    console.log("AJAX Success:", response);
+                    iziToast.success({
+                        title: 'Success',
+                        message: response.message,
+                        position: 'topRight',
+                    });
+                    setTimeout(function() {
+                        location.reload(true);
+                    }, 1000);
 	            },
 	            error: function(xhr, status, error){
-	                // Handle error response here
-	                console.error(error); // Log error to console
-	                // You can display an error message or perform any other action to handle the error
+	                console.error(error);
+                    iziToast.error({
+                        title: 'Error',
+                        message: 'Something went wrong!',
+                        position: 'topRight',
+                    });
 	            }
 	        });
 	    });
@@ -455,12 +459,14 @@
 </script>
 Route::post('delet-selected-rows', 'deleteSelectedRows')->name('deleteSelectedRows');
 
-public function deleteSelectedRows(Request $request){
+ public function deleteSelectedRows(Request $request){
 	// dd($request->all());
 	$ids = $request->input('ids');
-	// Perform deletion of selected rows (You need to implement this logic based on your application)
-	// For example:
-	DB::table('contactus')->whereIn('id', $ids)->delete();
+	if (empty($ids) || !is_array($ids)) {
+	    return response()->json(['message' => 'No rows selected.'], 400);   
+	}
+	// dd($ids);
+	ContactForm::whereIn('id', $ids)->delete();
 	return response()->json(['message' => 'Selected rows deleted successfully']);
 }
 
