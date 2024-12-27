@@ -47,7 +47,7 @@
 								<a href="#" data-toggle="modal" data-target="#two_wheeler_edit{{ $data->id }}" class="btn btn-success">Edit</a>  
 								<a href="" class="btn btn-sm btn-warning mr-2">Show</a>
 								<a href="" class="btn btn-icon btn-primary mr-2">Show</a>
-								<a href="{{ route('click_delete',$data->id) }}" onclick="return confirm('Are you want delete?')" class="btn btn-sm btn-danger">Delete </a>
+                                                                <button onclick="deleteUser({{ $property->id }})" class="btn btn-danger btn-sm" onclick="confirm"><i class="fas fa-trash"></i></button>
 							</td>
 						</tr>						
 						@endforeach
