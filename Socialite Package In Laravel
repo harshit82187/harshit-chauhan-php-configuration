@@ -1,0 +1,106 @@
+************************************************************ Socialite Package In Laravel ****************************************************************************************************
+composer require laravel/socialite
+-------------------------------------------------------------- Login with Google -------------------------------------------------------------------------------------------------------------
+
+Step :1  config/services.php
+
+ 'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URL'),
+    ],
+
+Step : 2  .env file
+
+GOOGLE_CLIENT_ID="150989955736-vfm0l7ssajglfq0fmaorvtahuij2gdta.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET="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"
+GOOGLE_REDIRECT_URL="https://test.pearl-developer.com/goatour/public/auth/google/callback"
+
+Step :3 web.php file
+
+Route::controller(GoogleController::class)->group(function () {
+    Route::get('auth/google', 'redirectToGoogle')->name('google.login');
+    Route::get('auth/google/callback', 'handleGoogleCallback');
+
+});
+
+Step :4 GoogleController file
+
+<?php
+
+namespace App\Http\Controllers\auth;
+
+use App\Http\Controllers\Controller;
+
+use Socialite;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
+use Hash;
+use Illuminate\Support\Str;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
+use Mail;
+
+class GoogleController extends Controller
+{
+    public function redirectToGoogle()
+    {
+        return Socialite::driver('google')->redirect();
+    }
+
+    public function handleGoogleCallback()
+    {
+        try {
+            $user = Socialite::driver('google')->stateless()->user();
+
+            $findUser = User::where('email', $user->email)->first();
+            // dd($user);
+
+            if ($findUser) {
+                Auth::login($findUser);
+
+                return redirect()->intended('user-dashboard')->with('success', 'Logged in successfully!');
+            } else {
+                // Create a new user
+                $token = Str::random(64);
+                $newUser = User::create([
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'google_id' => $user->id, 
+                    'password' => Hash::make('12345678'),
+                    'status' => '1',
+                    'role'   => '1',
+                    'remember_token' => $token,
+                    'email_verified_at' => now(),
+                ]);               
+                $subject = 'Verification Mail';
+		    	$email = $user->email;
+                $data = [
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'token' => $token,
+                    
+                ];
+                try {
+                    Mail::send('email.verification-link', ['data' => $data], function($message) use ($subject, $email) {
+                        $message->to($email);
+                        $message->subject($subject);
+                    });    
+                    Log::channel('email')->info('Email sent successfully to ' . $email);    
+                } catch (\Exception $mailException) {
+                    Log::channel('email')->info('Failed to send email to ' . $email . '. Error: ' . $mailException->getMessage());
+                    return redirect()->back()->with('error', 'Warning :'. $mailException->getMessage());
+                }
+
+                Auth::login($newUser);
+                return redirect()->intended('user-dashboard')->with('success', 'Logged in successfully!');
+            }
+        } catch (\Exception $e) {
+            return redirect()->route('login')->withErrors(['error' => 'Failed to login with Google.']);
+        }
+    }
+}
+
+
+Step :6 login.blade.php
+<a href="{{ route('google.login') }}"><img src="assets/img/icon/google.png" alt="icon"></a>
