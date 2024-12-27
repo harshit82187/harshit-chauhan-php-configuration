@@ -206,3 +206,23 @@ class GitHubController extends Controller
 
 
 
+
+
+*************************************************************** Points *************************************************************************************************************
+
+1. Implement Socialite Google login functionality.
+      - Fetch user details like name, email, and Google ID after successful login.
+      - If the email already exists in the database, log the user in directly.
+      - If the email does not exist, create a new user in the database.
+     - After login, redirect the user to their dashboard with a success message.
+
+
+2. Implement Socialite GitHub login functionality.
+     - Fetch user details like name, email, and GitHub ID after successful login.
+     - If the email already exists in the database, log the user in directly.
+     - If the email does not exist, create a new user in the database.
+     - After login, redirect the user to their dashboard with a success message.
+      - Display an error message if the GitHub account doesn't provide a valid email.
+
+
+
