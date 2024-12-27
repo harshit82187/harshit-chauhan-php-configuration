@@ -104,3 +104,105 @@ class GoogleController extends Controller
 
 Step :6 login.blade.php
 <a href="{{ route('google.login') }}"><img src="assets/img/icon/google.png" alt="icon"></a>
+
+
+-------------------------------------------------------------- Login with Github -------------------------------------------------------------------------------------------------------------
+Step :1  config/services.php
+
+'github' => [
+        'client_id' => env('GITHUB_CLIENT_ID'),
+        'client_secret' => env('GITHUB_CLIENT_SECRET'),
+        'redirect' => env('GITHUB_REDIRECT_URL'),
+    ],
+
+Step : 2  .env file
+
+GITHUB_CLIENT_ID="Ov23lixnlL3GO9hSqjXp"
+GITHUB_CLIENT_SECRET="647245ab45a0890316974328a0e7d9403525f908"
+GITHUB_REDIRECT_URL="https://test.pearl-developer.com/goatour/public/auth/github/callback"
+
+Step :3 web.php file
+
+Route::controller(GitHubController::class)->group(function () {
+    Route::get('auth/github', 'redirectToGitHub')->name('github.login');
+    Route::get('auth/github/callback', 'handleGitHubCallback');
+
+});
+
+Step :4 GitHubController file
+
+<?php
+
+namespace App\Http\Controllers\auth;
+
+use App\Http\Controllers\Controller;
+use Laravel\Socialite\Facades\Socialite;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
+
+use Hash;
+use Illuminate\Support\Str;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
+use Mail;
+
+class GitHubController extends Controller
+{
+    public function redirectToGitHub()
+    {
+        return Socialite::driver('github')->redirect();
+    }
+
+    public function handleGitHubCallback()
+    {
+        try {
+            $user = Socialite::driver('github')->stateless()->user();
+            // dd($user);
+            $findUser = User::where('email', $user->email)->first();
+            if ($findUser) {
+                Auth::login($findUser);
+                return redirect()->intended('user-dashboard')->with('success', 'Logged in successfully!');
+            } else {
+                // Create a new user
+                $token = Str::random(64);
+                $newUser = User::create([
+                    'name' => $user->nickname,
+                    'email' => $user->email,
+                    'github_id' => $user->id, 
+                    'password' => Hash::make('12345678'),
+                    'status' => '1',
+                    'role'   => '1',
+                    'remember_token' => $token,
+                    'email_verified_at' => now(),
+                ]);               
+                $subject = 'Verification Mail';
+		    	$email = $user->email;
+                $data = [
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'token' => $token,
+                    
+                ];
+                try {
+                    Mail::send('email.verification-link', ['data' => $data], function($message) use ($subject, $email) {
+                        $message->to($email);
+                        $message->subject($subject);
+                    });    
+                    Log::channel('email')->info('Email sent successfully to ' . $email);    
+                } catch (\Exception $mailException) {
+                    Log::channel('email')->info('Failed to send email to ' . $email . '. Error: ' . $mailException->getMessage());
+                    return redirect()->back()->with('error', 'Warning :'. $mailException->getMessage());
+                }
+
+                Auth::login($newUser);
+                return redirect()->intended('user-dashboard')->with('success', 'Logged in successfully!');
+            }
+        } catch (\Exception $e) {
+            return redirect()->route('login')->withErrors(['error' => 'Failed to login with GitHub.']);
+        }
+    }
+}
+
+
+
+
