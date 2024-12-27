@@ -78,7 +78,25 @@
 </html>
 
 
-
+function deleteUser(id) {
+        Swal.fire({
+            title: 'Are you sure?',
+            text: '',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Delete',
+            customClass: {
+                popup: 'swal2-large',
+                content: 'swal2-large'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = "{{ route('vendor.deleteProperty', ':id') }}".replace(':id', id);
+            }
+        });
+    }
 
 
 
