@@ -4,13 +4,14 @@
 
 ************************************ login_details table schema *****************************************
 
-id         : bigint(20) AutoIncrement
-user_id    : bigint(20)
-ip         : varchar(20)
-time       : timestamp
-type       : enum(1 => Login Time, 2 => LogOut Time)
-created_at : timestamp
-updated_at : timestamp
+Schema::create('log_details', function (Blueprint $table) {
+    $table->id();
+    $table->bigInteger('user_id')->unsigned();  
+    $table->string('ip', 250);
+    $table->enum('type', ['1', '2']);
+    $table->timestamp('time')->nullable();
+    $table->timestamps();
+});
 
 
 
