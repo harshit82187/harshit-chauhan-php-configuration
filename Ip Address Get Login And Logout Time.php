@@ -29,6 +29,8 @@ Schema::create('log_details', function (Blueprint $table) {
 
 
 
+Run Command on server : composer dump-autoload
+
 
 
 ***************************************** Controller Side Code ********************************************
