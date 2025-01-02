@@ -53,30 +53,38 @@
 
 
 <script>
-    $(document).ready(function() {
-    $('.status-toggle').change(function() {
-        var status = $(this).prop('checked') == true ? 1 : 0;  
-        var blog_id = $(this).data('id');  
+	$(document).ready(function() {
+		$('.status-toggle').change(function() {
+			var status = $(this).prop('checked') == true ? 1 : 0;
+			var ferry_id = $(this).data('id');
 
-        $.ajax({
-            url: '{{ url('admin/blogs/update-status') }}',  
-            type: 'POST',  
-            data: {
-                '_token': $('meta[name="csrf-token"]').attr('content'), 
-                'blog_id': blog_id,  
-                'status': status  
-            },
-            success: function(response) {
-                alert('Status updated successfully!');
-            },
-            error: function(xhr, status, error) {
-                alert('Error updating status!');
-            }
-        });
-    });
-});
-;
-
+			$.ajax({
+				url: '{{ url('admin/ferry-update-status') }}',
+				type: 'POST',
+				data: {
+					'_token': $('meta[name="csrf-token"]').attr('content'),
+					'ferry_id': ferry_id,
+					'status': status
+				},
+				success: function(response) {
+					iziToast.info({
+						title: 'Info',
+						message: 'ferry status updated successfully!',
+						position: 'topRight',
+						timeout: 3000,
+					});
+				},
+				error: function(xhr, status, error) {
+					iziToast.error({
+						title: 'Error',
+						message: 'Error updating status!',
+						position: 'topRight',
+						timeout: 3000
+					});
+				}
+			});
+		});
+	});
 </script>
 
 Route::post('admin/blogs/update-status', [BlogController::class, 'updateStatus'])->name('admin.blogs.updateStatus');
