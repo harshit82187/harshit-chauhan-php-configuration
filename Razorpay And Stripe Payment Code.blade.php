@@ -399,33 +399,32 @@ public function stripe()
     }
 
 public function stripePost(Request $request)
-    {
+{
+    try {
+       
+        Stripe\Stripe::setApiKey(env('STRIPE_SECRET'));
 
-        Stripe\Stripe::setApiKey(env('STRIPE_SECRET'));  
+     
+        $customer = Stripe\Customer::create([
+            "address" => [
+                "line1" => "Virani Chowk",
+                "postal_code" => "360001",
+                "city" => "Rajkot",
+                "state" => "GJ",
+                "country" => "IN",
+            ],
+            "email" => "demo@gmail.com",
+            "name" => "Hardik Savani",
+            "source" => $request->stripeToken,
+        ]);
 
-        $customer = Stripe\Customer::create(array(
-
-                "address" => [
-                        "line1" => "Virani Chowk",
-                        "postal_code" => "360001",
-                        "city" => "Rajkot",
-                        "state" => "GJ",
-                        "country" => "IN",
-                    ],
-
-                "email" => "demo@gmail.com",
-                "name" => "Hardik Savani",
-                "source" => $request->stripeToken
-            ));
-
-    
-
-        Stripe\Charge::create ([
-                "amount" => 100 * 100,
-                "currency" => "usd",
-                "customer" => $customer->id,
-                "description" => "Test payment from itsolutionstuff.com.",
-                "shipping" => [
+        // Charge the customer
+        $charge = Stripe\Charge::create([
+            "amount" => 100 * 100,
+            "currency" => "usd",
+            "customer" => $customer->id,
+            "description" => "Test payment from itsolutionstuff.com.",
+            "shipping" => [
                 "name" => "Jenny Rosen",
                 "address" => [
                     "line1" => "510 Townsend St",
@@ -434,13 +433,27 @@ public function stripePost(Request $request)
                     "state" => "CA",
                     "country" => "US",
                 ],
-                ]
-        ]);  
-        Session::flash('success', 'Payment successful!');      
+            ],
+        ]);
+
+        // Save payment details in the database
+        Payment::create([
+            'currency' => $charge->currency,
+            'stripe_payment_id' => $charge->id,
+            'merchant_id' => $customer->id,
+            'response' => json_encode($charge),
+        ]);
+
+        // Flash success message
+        Session::flash('success', 'Payment successful!');
 
         return back();
-
+    } catch (\Exception $e) {
+        // Handle errors
+        Session::flash('error', $e->getMessage());
+        return back();
     }
+}
 
 
 
