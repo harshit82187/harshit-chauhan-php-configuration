@@ -1,0 +1,82 @@
+*********************************************************************************** Auth Admin Guard In laravel **********************************************************************
+
+Step 1 : config/auth.php
+
+   'guards' => [
+        'web' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
+
+        'admin' => [
+            'driver' => 'session',
+            'provider' => 'admins', 
+        ],
+    ],
+
+
+
+  'providers' => [
+        'users' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\User::class,
+        ],
+
+        'admins' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Admin::class, 
+        ],
+
+      
+    ],
+
+
+
+Step :2 In Admin Model
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+
+class Admin extends Authenticatable
+{
+    use HasFactory;
+    protected $table = 'admins';
+    protected $guarded = [];
+}
+
+
+Step :3 Contrller Side Controller
+
+public function login(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
+
+        if (Auth::guard('admin')->attempt([
+            'email' => $request->email,
+            'password' => $request->password
+        ])) {
+            return redirect()->route('admin.dashboard');
+        }
+        return back()->withErrors([
+            'email' => 'The provided credentials do not match our records.',
+        ]);
+    }
+
+ public function logout(){
+        Auth::guard('admin')->logout();
+        session()->invalidate();
+        session()->regenerateToken();
+        return redirect()->route('admin.adminLoginForm');
+
+    }
+
+
+
