@@ -1,0 +1,911 @@
+******************************************************************** Booking Process With Razorpay Payment Gateway And Pdf Invoice************************************************
+
+Step :1 .env file
+
+RAZORPAY_KEY=rzp_test_J4ibid4vSMbAbB
+RAZORPAY_SECRET=10o619MmNZGFpP7Bsu9U1B2X
+
+
+Step :2 Blade File Code
+
+<form id="passenger-form" action="{{ route('ferry.booking.store') }}" method="POST">
+							@csrf
+							<input type="hidden" name="ferry_table_id" value="{{ $ferry->id }}">
+							<input type="hidden" name="razorpay_payment_id" id="razorpay_payment_id">
+							<input type="hidden" name="transaction_via" value="razorpay">
+							<input type="hidden" name="amount" id="paid_amount">
+							<input type="hidden" name="adult" id="adult">
+							<input type="hidden" name="children" id="children">
+							<input type="hidden" name="class_type" id="class_type_">
+							<input type="hidden" name="booking_date" id="booking_date_">
+							<input type="hidden" name="merchant_order_id" value="<?= rand(11111, 99999) . time() ?>">
+	<button data-booking-id="{{ $ferry->id }}" type="submit" class="btn btn-primary w-100">Pay</button>
+</form>
+
+
+@push('js')
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+	$(document).ready(function() {
+	       var today = new Date().toISOString().split('T')[0];  
+	       $('#booking_date_new').attr('min', today);  
+	           
+	  function updateSummary() {
+	    let passengerCount = $(".passenger-row").length;
+	    let childrenCount = 0;
+	    let adultCount = 0;
+	    let port_fee = 50;
+	    let package_value = $("input[name='Package']:checked").val();
+	    let totalAmount = 0;
+	       const bookingDate = $("#booking_date_new").val();
+	
+	
+	    $("input[name='age[]']").each(function() {
+	      let age = parseInt($(this).val());
+	      if (!isNaN(age)) {
+	        if (age <= 15) {
+	          childrenCount++;
+	        } else {
+	          adultCount++;
+	        }
+	      }
+	    });
+	    $("#passenger_count").text(passengerCount);
+	
+	
+	    let selectedClass = $("input[name='Package']:checked").closest(".content-two");
+	
+	    if (selectedClass.length > 0) {
+	      let adultPrice = parseFloat(selectedClass.find("h5:contains('Adult Seat')").text().match(/Rs\. (\d+)/)[1]) || 0;
+	      let childPrice = parseFloat(selectedClass.find("h5:contains('Children Seat')").text().match(/Rs\. (\d+)/)[1]) || 0;
+	
+	      totalAmount = (adultCount * adultPrice) + (childrenCount * childPrice) + (passengerCount * port_fee);
+	      $("#adult_count").text(adultCount + ' * ' + adultPrice + ' = ' + (adultCount * adultPrice));
+	      $("#children_count").text(childrenCount + ' * ' + childPrice + ' = ' + (childrenCount * childPrice));
+	      $('#total_amount').text((adultCount * adultPrice) + ' + ' + (childrenCount * childPrice) + ' + ' + (passengerCount * port_fee) + ' = ' + (totalAmount))
+	      $('#package_name').text(package_value);
+	      $('#paid_amount').val(totalAmount);
+	      $('#adult').val(adultCount);
+	      $('#children').val(childrenCount);
+	      $('#class_type_').val(package_value);
+	         $('#booking_date_').val(bookingDate);
+	
+	      console.log("Passenger Count: ", passengerCount);
+	      console.log("Adult Count: ", adultCount);
+	      console.log("Children Count: ", childrenCount);
+	      console.log("Selected Package: ", package_value);
+	      console.log("Adult Price: ", adultPrice);
+	      console.log("Child Price: ", childPrice);
+	      console.log("Total Amount: ", totalAmount);
+	         console.log("Book Date: ", bookingDate);
+	
+	    } else {
+	      $("#total_amount").text("Rs. 0");
+	    }
+	    return totalAmount;
+	  }
+	
+	  $('#add-passenger').on('click', function(e) {
+	    e.preventDefault();
+	    let newRow = $('.passenger-row:first').clone();
+	    newRow.find('input[type="text"], input[type="number"]').val('');
+	    newRow.find('input[type="radio"]').prop('checked', false);
+	    let currentIndex = $('.passenger-row').length;
+	    newRow.find('input[type="radio"]').each(function() {
+	      let nameAttr = $(this).attr('name').replace(/\[\d+\]/, `[${currentIndex}]`);
+	      $(this).attr('name', nameAttr);
+	    });
+	    newRow.find('.delete-row').show();
+	     newRow.find('.delete-row').removeClass('d-none');
+	
+	    $('.form').append(newRow);
+	    // $('.form').append('<hr>');
+	    updateSummary();
+	  });
+	
+	  $(document).on('click', '.delete-row', function() {
+	    $(this).closest('.passenger-row').remove();
+	    $(this).closest('hr').remove();
+	    updateSummary();
+	  });
+	
+	  $(document).on("input", "input[name='age[]']", function() {
+	    updateSummary();
+	  });
+	
+	  $(document).on("change", "input[name='Package']", function() {
+	    selectedPackage = $(this).val();
+	    console.log("Selected Package:", selectedPackage)
+	
+	    updateSummary();
+	  });
+	
+	
+	  var razorpayPaymentId = ""; 
+	  let totalAmount = updateSummary(); 
+	  console.log("Total Amount: ", totalAmount);
+	  var razorpay_options = {
+	    key: "{{env('RAZORPAY_KEY')}}", 
+	    amount: totalAmount * 100,
+	    name: "Goa Tour", 
+	    description: "Ferry Booking Service", 
+	    netbanking: true, 
+	    currency: "INR", 
+	    prefill: {
+	      name: "{{ Auth::User()->name }}", 
+	      email: "{{ Auth::User()->email }}", 
+	      contact: "{{ Auth::User()->mobile }}"
+	    },
+	    handler: function(transaction) {
+	      razorpayPaymentId = transaction.razorpay_payment_id; 
+	      console.log("Payment ID: " + razorpayPaymentId);
+	      document.getElementById('razorpay_payment_id').value = razorpayPaymentId;
+	      document.getElementById('passenger-form').submit(); 
+	    },
+	    modal: {
+	      ondismiss: function() {
+	        location.reload();
+	      }
+	    }
+	  };
+	
+	
+	
+	  function updateRazorpayOptions() {
+	    let totalAmount_ = updateSummary(); 
+	    let totalAmountInPaise = totalAmount_ * 100;
+	    console.log("Amount on Razorpay: " + totalAmountInPaise);
+	    razorpay_options.amount = totalAmountInPaise.toString(); 
+	  }
+	
+	  var razorpay_submit_btn, razorpay_instance;
+	
+	  function razorpaySubmit(el) {
+	    console.log("Function Called");
+	    $('.payAmountBtn').text('Please Wait...'); // Change button text
+	    $('.payAmountBtn').prop('disabled', true); // Disable the button
+	
+	    updateRazorpayOptions(); // Update Razorpay options dynamically before submitting
+	
+	    if (typeof Razorpay === 'undefined') {
+	      console.log("Razorpay is not loaded yet");
+	      setTimeout(() => razorpaySubmit(el), 200); // Retry until Razorpay is loaded
+	      if (!razorpay_submit_btn && el) {
+	        razorpay_submit_btn = el;
+	        el.disabled = true;
+	        el.value = 'Please wait...';
+	      }
+	    } else {
+	      if (!razorpay_instance) {
+	        console.log("Creating Razorpay instance");
+	        razorpay_instance = new Razorpay(razorpay_options); // Create new Razorpay instance
+	        if (razorpay_submit_btn) {
+	          console.log('Payment ID: ' + razorpayPaymentId);
+	          razorpay_submit_btn.disabled = false; // Enable button
+	          razorpay_submit_btn.value = "Pay Now"; // Reset button text
+	        }
+	      }
+	      console.log('Opening Razorpay checkout');
+	      razorpay_instance.open(); // Open the Razorpay checkout
+	    }
+	  }
+	
+	
+	  // Handle form submission
+	  $("#passenger-form").submit(function(e) {
+	    // alert(121);
+	    e.preventDefault();
+	    let isValid = true;
+	    const selectedPackage = $("input[name='Package']:checked").val();
+	    const bookingDate = $("#booking_date_new").val();
+	
+	
+	    $(".passenger-row").each(function() {
+	      const row = $(this);
+	
+	      // Get values from the current row
+	      const passengerName = row.find(".passenger-name").val();
+	      const passengerPhone = row.find(".passenger-phone").val();
+	      const passengerAge = row.find(".passenger-age").val();
+	      const passengerGender = row.find(".passenger-gender:checked").val();
+	
+	
+	      console.log("Passenger Name:", passengerName);
+	      console.log("Passenger Phone:", passengerPhone);
+	      console.log("Passenger Age:", passengerAge);
+	      console.log("Passenger Gender:", passengerGender);
+	      console.log("Selected Package:", selectedPackage);
+	
+	
+	
+	
+	      // Validate name
+	      if (!passengerName) {
+	        row.find(".passenger-name-error").text("Please enter passenger name.");
+	        isValid = false;
+	      } else {
+	        row.find(".passenger-name-error").text("");
+	      }
+	
+	      // Validate phone
+	      if (!passengerPhone || passengerPhone.trim() === "" || passengerPhone.length !== 10) {
+	        row.find(".passenger-phone-error").text("Please enter passenger mobile no.");
+	        isValid = false;
+	      } else {
+	        row.find(".passenger-phone-error").text("");
+	      }
+	
+	      // Validate age
+	      if (!passengerAge || passengerAge <= 0) {
+	        row.find(".passenger-age-error").text("Please enter passenger age.");
+	        isValid = false;
+	      } else {
+	        row.find(".passenger-age-error").text("");
+	      }
+	
+	      if (!passengerGender) {
+	        row.find(".passenger-gender-error").text("Please select a gender.");
+	        isValid = false;
+	      } else {
+	        row.find(".passenger-gender-error").text("");
+	      }
+	    });
+	
+	    if (!selectedPackage) {
+	      $("#package_error").text("Please select at least one package.");
+	      isValid = false;
+	    } else {
+	      $("#package_error").text(""); 
+	    }
+	
+	    
+	
+	    if (isValid === true) {
+	      razorpaySubmit(this);
+	    }
+	  });
+	
+	
+	});
+</script>
+@endpush
+
+
+
+
+
+Step :3 Database Schema
+
+
+CREATE TABLE `payments` (
+  `id` bigint(20) NOT NULL,
+  `r_payment_id` varchar(250) DEFAULT NULL,
+  `merchant_order_id` varchar(250) DEFAULT NULL,
+  `method` varchar(250) DEFAULT NULL,
+  `currency` varchar(250) DEFAULT NULL,
+  `user_email` varchar(250) DEFAULT NULL,
+  `amount` varchar(250) DEFAULT NULL,
+  `json_response` longtext DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+
+
+
+CREATE TABLE `bookings` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `booking_type` enum('1','2','3','') DEFAULT NULL COMMENT '1 => Ferry-Booking\r\n2 => Hotel-Booking\r\n3 => Tour-Package-Booking',
+  `relative_table_id` int(11) DEFAULT NULL,
+  `invoice` longtext DEFAULT NULL,
+  `r_payment_id` varchar(250) DEFAULT NULL,
+  `invoice_pdf` longtext DEFAULT NULL,
+  `adult` varchar(250) DEFAULT NULL,
+  `children` varchar(250) DEFAULT NULL,
+  `booking_date` varchar(250) DEFAULT NULL,
+  `amount` varchar(250) DEFAULT NULL,
+  `passenger_name` longtext DEFAULT NULL,
+  `phone` longtext DEFAULT NULL,
+  `age` longtext DEFAULT NULL,
+  `gender` longtext DEFAULT NULL,
+  `class_type` varchar(250) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+
+
+
+step :4 app/Providers/AppServiceProvider.php file code
+
+public function boot(): void
+    {
+
+        $name = "Harshit Chauhan";
+        $adminEmail = "atul@pearlorganisation.com";
+        View::share('name', $name);
+        View::share('adminEmail', $adminEmail);
+
+
+        View::composer('*', function ($view) {
+            $view->with('settings', Setting::first());
+        });
+    }
+
+
+
+
+Step :5 Pdf Invoice Code
+
+<table width="100%" cellpadding="0" cellspacing="0" style="font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.6;">
+    <tr>
+        <td align="center" style="padding: 20px; background-color: #f4f4f4;">
+            <table width="490" cellpadding="0" cellspacing="0" style="background: #ffffff; border: 1px solid #ddd; border-radius: 8px;">
+                <tr>
+                    <td style="padding: 20px; text-align: center; border-bottom: 1px solid #ddd;">
+                        <span class="logo-name">Just Go Goa</span>
+                        <h2 style="margin: 0; font-size: 20px; color: #333;">Invoice for Ferry Booking</h2>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 20px;">
+                        <p style="margin: 0; font-weight: bold;">Invoice ID: <span style="color: #555;">{{ $booking['invoice'] ?? '---' }}</span></p>
+                        <p style="margin: 5px 0;">Booking Date: <span style="color: #555;">{{ $today ?? '---' }}</span></p>
+                        <p style="margin: 5px 0;">Travel Date: <span style="color: #555;">{{ \Carbon\Carbon::parse($booking['booking_date'])->format('d-M-Y') ?? '---' }}</span></p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 20px; border-bottom: 1px solid #ddd;">
+                        <table width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                                <td style="padding: 10px 0;">
+                                    <p style="margin: 0; font-weight: bold;">User Details</p>
+                                    <p style="margin: 5px 0;">Name: <span style="color: #555;">{{ $user['name'] ?? 'N/A' }}  </span></p>
+                                    <p style="margin: 5px 0;">Contact: <span style="color: #555;">+91 {{  $user['mobile'] ?? '' }}</span></p>
+                                    <p style="margin: 5px 0;">Email: <a href="{{  $user['email'] ?? '' }}" style="color: #007bff; text-decoration: none;">{{  $user['email'] ?? '' }}</a></p>
+                                </td>
+                                <td style="padding: 10px 0; text-align: left;" align="right">
+                                    <p style="margin: 0; font-weight: bold;margin-left:25%;">Ferry Details</p>
+                                    <p style="margin: 5px 0;margin-left:25%;">Ferry Name: <span style="color: #555;">{{ $ferry['name'] ?? '' }}</span></p>
+                                    <p style="margin: 5px 0;margin-left:25%;">Pickup Location : <span style="color: #555;">{{ $ferry['pickup_location'] ?? '' }}</span></p>
+                                    <p style="margin: 5px 0;margin-left:25%;">Departure: <span style="color: #555;">{{ \Carbon\Carbon::parse($booking['booking_date'])->format('d-M-Y') ?? '' }}  {{ \Carbon\Carbon::parse($ferry['pickup_time'])->format('h:i A') ?? '' }} </span></p>
+                                    <p style="margin: 5px 0;margin-left:25%;">Drop Location: <span style="color: #555;">{{ $ferry['drop_location'] ?? '' }}</span></p>
+                                    <p style="margin: 5px 0;margin-left:25%;">Arrival: <span style="color: #555;">{{ \Carbon\Carbon::parse($booking['booking_date'])->format('d-M-Y') ?? '' }}  {{ \Carbon\Carbon::parse($ferry['drop_time'])->format('h:i A') ?? '' }} </span></p>
+
+
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                @php 
+                    $passengerNames = json_decode($booking['passenger_name'], true) ?? [];
+                    $passengerPhone = json_decode($booking['phone'], true) ?? [];
+                    $passengerAge = json_decode($booking['age'], true) ?? [];
+                    $passengerGender = json_decode($booking['gender'], true) ?? [];
+                @endphp 
+
+                @if(!empty($passengerNames))
+                    <tr>
+                        <td style="padding: 20px;">
+                            <p style="margin: 0; font-weight: bold;">Passenger Details</p>
+
+                            <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 10px 0;">
+                                <tr style="background-color: #f8f8f8;">
+                                    <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Passenger Name</th>
+                                    <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Passenger Mobile No</th>
+                                    <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Passenger Age</th>
+                                    <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Passenger Gender</th>
+                                </tr>
+                                @foreach($passengerNames as $index => $type)
+                                <tr>
+                                    <td style="padding: 8px; border: 1px solid #ddd; text-align: left;">{{ $type ?? 'N/A' }}</td>
+                                    <td style="padding: 8px; border: 1px solid #ddd; text-align: left;">{{ $passengerPhone[$index] ?? 'N/A' }}</td>
+                                    <td style="padding: 8px; border: 1px solid #ddd; text-align: left;">{{ $passengerAge[$index] ?? 'N/A' }}</td>
+                                    <td style="padding: 8px; border: 1px solid #ddd; text-align: left;">{{ $passengerGender[$index] ?? 'N/A' }}</td>
+                                </tr>
+                                @endforeach
+
+                            </table>
+                        </td>
+                    </tr>
+                    @else
+                    <tr>
+                        <td style="padding: 20px;">
+                            <p style="margin: 0; color: red;">No passenger details available.</p>
+                        </td>
+                    </tr>
+                @endif
+
+
+                <tr>
+                    <td style="padding: 20px;">
+                        <p style="margin: 0; font-weight: bold;">Payment Details</p>
+                        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 10px 0;">
+                          
+                            <tr>
+                                <td style="padding: 8px; border: 1px solid #ddd;">Passenger </td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ ($booking['adult'] ?? 0) + ($booking['children'] ?? 0) }}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px; border: 1px solid #ddd;">Adult</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $booking['adult'] ?? ''  }}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px; border: 1px solid #ddd;">Children</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;"> {{ $booking['children'] ?? ''  }}</td>
+                            </tr>
+                         
+                            <tr style="font-weight: bold; background-color: #f8f8f8;">
+                                <td style="padding: 8px; border: 1px solid #ddd;">Port Fee (Rs. 50/Passenger)</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ '50' }}</td>
+                            </tr>
+
+                            <tr style="font-weight: bold; background-color: #f8f8f8;">
+                                <td style="padding: 8px; border: 1px solid #ddd;">Total Amount</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $booking['amount'] ?? '' }}</td>
+                            </tr>
+
+                            
+                            <tr style="font-weight: bold; background-color: #f8f8f8;">
+                                <td style="padding: 8px; border: 1px solid #ddd;">Class Type</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $booking['class_type'] ?? '' }}</td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 20px; border-top: 1px solid #ddd;">
+                        <p style="margin: 0;">Thank you for booking with us. Please keep this invoice for your records.</p>
+                        <p style="margin: 10px 0;">For any queries, contact our support team at: 
+                            <a href="mailto:{{$adminEmail ?? '' }}" style="color: #007bff; text-decoration: none;">{{ $adminEmail ?? '' }}</a>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; text-align: center; background-color: #f8f8f8; font-size: 12px; color: #666;">
+                      <p style="margin: 0;">&copy; Copyright   Enchanting Andamans {{ date('Y') }} All rights reserved</p>
+
+                    </td>
+                </tr>
+                
+            </table>
+        </td>
+    </tr>
+</table>
+
+
+
+
+Step :6 Web invoice code
+
+@extends('layout.app')
+@section('content')
+
+
+<table width="100%" cellpadding="0" cellspacing="0" style="font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.6;">
+    <tr>
+        <td align="center" style="padding: 20px; background-color: #f4f4f4;">
+            <table width="900" cellpadding="0" cellspacing="0" style="background: #ffffff; border: 1px solid #ddd; border-radius: 8px;">
+                <tr>
+                    <td style="padding: 20px; text-align: center; border-bottom: 1px solid #ddd;">
+                        <span class="logo-name">Just Go Goa</span>
+                        <h2 style="margin: 0; font-size: 20px; color: #333;">Invoice for Ferry Booking</h2>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 20px;">
+                        <p style="margin: 0; font-weight: bold;">Invoice ID: <span style="color: #555;">{{ $booking['invoice'] ?? '---' }}</span></p>
+                        <p style="margin: 5px 0;">Booking Date: <span style="color: #555;">{{ $today ?? '---' }}</span></p>
+                        <p style="margin: 5px 0;">Travel Date: <span style="color: #555;">{{ \Carbon\Carbon::parse($booking['booking_date'])->format('d-M-Y') ?? '---' }}</span></p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 20px; border-bottom: 1px solid #ddd;">
+                        <table width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                                <td style="padding: 10px 0;">
+                                    <p style="margin: 0; font-weight: bold;">User Details</p>
+                                    <p style="margin: 5px 0;">Name: <span style="color: #555;">{{ $user['name'] ?? 'N/A' }}  </span></p>
+                                    <p style="margin: 5px 0;">Contact: <span style="color: #555;">+91 {{  $user['mobile'] ?? '' }}</span></p>
+                                    <p style="margin: 5px 0;">Email: <a href="{{  $user['email'] ?? '' }}" style="color: #007bff; text-decoration: none;">{{  $user['email'] ?? '' }}</a></p>
+                                </td>
+                                <td style="padding: 10px 0; text-align: left;" align="right">
+                                    <p style="margin: 0; font-weight: bold;margin-left:25%;">Ferry Details</p>
+                                    <p style="margin: 5px 0;margin-left:25%;">Ferry Name: <span style="color: #555;">{{ $ferry['name'] ?? '' }}</span></p>
+                                    <p style="margin: 5px 0;margin-left:25%;">Pickup Location : <span style="color: #555;">{{ $ferry['pickup_location'] ?? '' }}</span></p>
+                                    <p style="margin: 5px 0;margin-left:25%;">Departure: <span style="color: #555;">{{ \Carbon\Carbon::parse($booking['booking_date'])->format('d-M-Y') ?? '' }}  {{ \Carbon\Carbon::parse($ferry['pickup_time'])->format('h:i A') ?? '' }} </span></p>
+                                    <p style="margin: 5px 0;margin-left:25%;">Drop Location: <span style="color: #555;">{{ $ferry['drop_location'] ?? '' }}</span></p>
+                                    <p style="margin: 5px 0;margin-left:25%;">Arrival: <span style="color: #555;">{{ \Carbon\Carbon::parse($booking['booking_date'])->format('d-M-Y') ?? '' }}  {{ \Carbon\Carbon::parse($ferry['drop_time'])->format('h:i A') ?? '' }} </span></p>
+
+
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                @php 
+                    $passengerNames = json_decode($booking['passenger_name'], true) ?? [];
+                    $passengerPhone = json_decode($booking['phone'], true) ?? [];
+                    $passengerAge = json_decode($booking['age'], true) ?? [];
+                    $passengerGender = json_decode($booking['gender'], true) ?? [];
+                @endphp 
+
+                @if(!empty($passengerNames))
+                    <tr>
+                        <td style="padding: 20px;">
+                            <p style="margin: 0; font-weight: bold;">Passenger Details</p>
+
+                            <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 10px 0;">
+                                <tr style="background-color: #f8f8f8;">
+                                    <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Passenger Name</th>
+                                    <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Passenger Mobile No</th>
+                                    <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Passenger Age</th>
+                                    <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Passenger Gender</th>
+                                </tr>
+                                @foreach($passengerNames as $index => $type)
+                                <tr>
+                                    <td style="padding: 8px; border: 1px solid #ddd; text-align: left;">{{ $type ?? 'N/A' }}</td>
+                                    <td style="padding: 8px; border: 1px solid #ddd; text-align: left;">{{ $passengerPhone[$index] ?? 'N/A' }}</td>
+                                    <td style="padding: 8px; border: 1px solid #ddd; text-align: left;">{{ $passengerAge[$index] ?? 'N/A' }}</td>
+                                    <td style="padding: 8px; border: 1px solid #ddd; text-align: left;">{{ $passengerGender[$index] ?? 'N/A' }}</td>
+                                </tr>
+                                @endforeach
+
+                            </table>
+                        </td>
+                    </tr>
+                    @else
+                    <tr>
+                        <td style="padding: 20px;">
+                            <p style="margin: 0; color: red;">No passenger details available.</p>
+                        </td>
+                    </tr>
+                @endif
+
+
+                <tr>
+                    <td style="padding: 20px;">
+                        <p style="margin: 0; font-weight: bold;">Payment Details</p>
+                        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 10px 0;">
+                          
+                            <tr>
+                                <td style="padding: 8px; border: 1px solid #ddd;">Passenger </td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ ($booking['adult'] ?? 0) + ($booking['children'] ?? 0) }}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px; border: 1px solid #ddd;">Adult</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $booking['adult'] ?? ''  }}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px; border: 1px solid #ddd;">Children</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;"> {{ $booking['children'] ?? ''  }}</td>
+                            </tr>
+                         
+                            <tr style="font-weight: bold; background-color: #f8f8f8;">
+                                <td style="padding: 8px; border: 1px solid #ddd;">Port Fee (Rs. 50/Passenger)</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">&#8377; {{ '50' }}</td>
+                            </tr>
+
+                            <tr style="font-weight: bold; background-color: #f8f8f8;">
+                                <td style="padding: 8px; border: 1px solid #ddd;">Total Amount</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">&#8377; {{ $booking['amount'] ?? '' }}</td>
+                            </tr>
+
+                            
+                            <tr style="font-weight: bold; background-color: #f8f8f8;">
+                                <td style="padding: 8px; border: 1px solid #ddd;">Class Type</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $booking['class_type'] ?? '' }}</td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 20px; border-top: 1px solid #ddd;">
+                        <p style="margin: 0;">Thank you for booking with us. Please keep this invoice for your records.</p>
+                        <p style="margin: 10px 0;">For any queries, contact our support team at: 
+                            <a href="mailto:{{$adminEmail ?? '' }}" style="color: #007bff; text-decoration: none;">{{ $adminEmail ?? '' }}</a>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; text-align: center; background-color: #f8f8f8; font-size: 12px; color: #666;">
+                      <p style="margin: 0;">&copy; Copyright   Enchanting Andamans {{ date('Y') }} All rights reserved</p>
+
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                    <button id="printButton" style="display:flex;padding: 10px; background-color: #007bff; color: white; border: none; cursor: pointer;margin:20px auto;border-radius:5px;">
+                        Print Invoice
+                    </button>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+@endsection
+@push('js')
+<script>
+    $(document).ready(function () {
+        $('#printButton').click(function () {
+            var printContents = $('table').html(); 
+            var originalContents = document.body.innerHTML; 
+            document.body.innerHTML = '<table width="100%" cellpadding="0" cellspacing="0" style="font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.6;">' + printContents + '</table>';
+            window.print();
+            document.body.innerHTML = originalContents;
+            location.reload();
+        });
+    });
+</script>
+@endpush
+
+
+
+
+
+
+
+
+
+Step :7 Controller Side Code
+
+use Auth;
+use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
+use Str;
+use Mail;
+use Illuminate\Support\Facades\File;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\View;
+
+
+
+ public function get_curl_handle_razorpay($razorpayPaymentId, $amount, $currencyCode)
+    {
+        $url = 'https://api.razorpay.com/v1/payments/' . $razorpayPaymentId . '/capture';
+        $key_id = env('RAZORPAY_KEY');
+        $key_secret = env('RAZORPAY_SECRET');
+        // $arr = ['amount' => $amount, 'currency' => $currencyCode];
+        $arr = ['amount' => $amount * 100, 'currency' => $currencyCode];
+
+        $arr1 = json_encode($arr);
+        $fields_string = $arr1;
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_USERPWD, $key_id . ':' . $key_secret);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $fields_string);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
+        return $ch;
+    }
+
+    public function proceedPayment($request)
+    {
+        try {
+            if (!empty($request['razorpay_payment_id']) || !empty($request['merchant_order_id'])) {
+                $razorpayPaymentId = $request['razorpay_payment_id'];
+                $merchant_order_id = $request['merchant_order_id'];
+                $currencyCode = "INR";
+                $amount = $request['amount'];
+                $success = false;
+                $error = '';
+
+                Log::info('Starting payment process', [
+                    'razorpay_payment_id' => $razorpayPaymentId,
+                    'merchant_order_id' => $merchant_order_id,
+                    'amount' => $amount,
+                    'currency' => $currencyCode
+                ]);
+                $user = Auth::User();
+                try {
+                    $ch = $this->get_curl_handle_razorpay($razorpayPaymentId, $amount, $currencyCode);
+                    
+                    $result = curl_exec($ch);
+                    // dd($result);
+                    $http_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+                    Log::info('Razorpay cURL Result', ['result' => $result, 'http_status' => $http_status]);
+
+                    if ($result === false) {
+                        $success = false;
+                        $error = 'Curl error: ' . curl_error($ch);
+                        Log::error('Curl execution failed: ' . curl_error($ch));
+                    } else {
+                        $response_array = json_decode($result, true);
+                        Log::info('Razorpay Response', $response_array);
+
+                        if ($http_status === 200 && isset($response_array['status'])) {
+                            if ($response_array['status'] == 'captured') {
+                                $email = Auth::user()->email;
+                                $payment = Payment::create([
+                                    'r_payment_id' => $response_array['id'],
+                                    'merchant_order_id' => $merchant_order_id, 
+                                    'method' => $response_array['method'],
+                                    'currency' => $response_array['currency'],
+                                    'user_email' => $email ?? '',
+                                    'amount' => $response_array['amount'] / 100,
+                                    'json_response' => $result,
+                                ]);
+
+                                Log::info('Payment successfully captured', ['status' => $response_array['status']]);
+                                return 'captured';
+                            } else {
+                                $error = 'Payment capture failed: ' . $response_array['status'];
+                                Log::error('Payment capture failed', ['status' => $response_array['status']]);
+                                return 'failed';
+                            }
+                        } else {
+                            $success = false;
+                            if (!empty($response_array['error']['code'])) {
+                                $error = $response_array['error']['code'] . ': ' . $response_array['error']['description'];
+                            } else {
+                                $error = 'RAZORPAY_ERROR: Invalid Response';
+                            }
+                            Log::error('Razorpay API error', ['error' => $error]);
+                        }
+                    }
+
+                    curl_close($ch);
+                } catch (Exception $e) {
+                    $success = false;
+                    $error = 'OPENCART_ERROR: Request to Razorpay Failed - ' . $e->getMessage();
+                    Log::error('Error processing payment: ' . $e->getMessage());
+                }
+            } else {
+                $error = 'Missing required payment data';
+                Log::error('Error processing payment: ' . $error);
+            }
+        } catch (Exception $e) {
+            $error = 'An error occurred: ' . $e->getMessage();
+            Log::error('Error processing payment: ' . $error);
+        }
+
+        if ($error) {
+            Log::error('Final error during payment: ' . $error);
+            return 'An error occurred. Contact site administrator, please!';
+        }
+
+        return $success;
+    }
+
+    public function thankYou(Request $request){
+        // dd($request->all());
+        $today = Carbon::now()->format('d-M-Y');
+        $type = $request->get('type');
+        $requestType = 'web';
+        $user = User::find($request->get('user'));  
+        if(Auth::User()->id != $request->get('user')){
+            abort(403);
+        }   
+
+       if($type == 1){
+            $booking = Booking::find($request->get('booking'));             
+            $ferry = FerryBooking::find($request->get('ferry'));
+   
+            $data = $request->get('data');
+            $role = $request->get('role');
+            return view('email.web.ferry-booking-invoice', compact('booking','user','ferry','data','role','today'));
+        }
+        
+    }
+
+    public function ferryBookingStore(Request $request)
+    {
+        $request->validate([
+            'ferry_table_id' => 'required|numeric',
+            'razorpay_payment_id' => 'required|string',
+            'transaction_via' => 'required|string',
+            'amount' => 'required|numeric',
+            'adult' => 'required|numeric',
+            'children' => 'required|numeric',
+            'class_type' => 'required',
+            'booking_date' => 'required|date',
+            'merchant_order_id' => 'required|string',
+            'passenger_name' => 'required|array',
+            'phone' => 'required|array',
+            'age' => 'required|array',
+            'gender' => 'required|array',
+        ]);
+
+        if (Auth::check()) {
+            $paymentData = [
+                'razorpay_payment_id' => $request->razorpay_payment_id,
+                'merchant_order_id' => $request->merchant_order_id,
+                'amount' => $request->amount,
+            ];
+
+            $payment = $this->proceedPayment($paymentData);
+
+            if ($payment === 'captured') {
+                $ferry = FerryBooking::find($request->ferry_table_id);
+
+                if (!$ferry) {
+                    return back()->with('error', 'Booking details not found!');
+                }
+
+                $user = Auth::user();
+                $invoiceNumber = now()->format('Ym') . rand(100000, 999999);
+
+                // Create booking
+                $booking = Booking::create([
+                    'user_id' => $user->id,
+                    'booking_type' => '1',
+                    'relative_table_id' => $request->ferry_table_id,
+                    'invoice' => $invoiceNumber,
+                    'r_payment_id' => $request->razorpay_payment_id,
+                    'adult' => $request->adult,
+                    'children' => $request->children,
+                    'booking_date' => $request->booking_date,
+                    'amount' => $request->amount,
+                    'passenger_name' => json_encode($request->passenger_name),
+                    'phone' => json_encode($request->phone),
+                    'age' => json_encode($request->age),
+                    'gender' => json_encode($request->gender),
+                    'class_type' => $request->class_type,
+                ]);
+
+                // Generate invoice and save PDF
+                $year = now()->year;
+                $month = now()->format('M');
+                $today = Carbon::now()->format('d-M-Y');
+                $fileName = "invoice_{$invoiceNumber}.pdf";
+                $directoryPath = public_path("ferry-booking/{$year}/{$month}");
+                $adminEmail = View::shared('adminEmail');
+
+                if (!File::exists($directoryPath)) {
+                    File::makeDirectory($directoryPath, 0777, true);
+                }
+
+                $filePath = "{$directoryPath}/{$fileName}";
+                $pdf = Pdf::loadView('pdf.ferry-booking-invoice', compact('ferry', 'user', 'request', 'booking', 'adminEmail','today'));
+                $pdf->save($filePath);
+
+                // Update booking with generated PDF file path
+                $booking->update([
+                    'invoice_pdf' => "ferry-booking/{$year}/{$month}/{$fileName}",
+                ]);
+
+                // Send emails
+                
+                $this->sendEmail($user->email, $user, $ferry, $booking, 'user');
+                $this->sendEmail($adminEmail, $user, $ferry, $booking, 'admin');
+
+                return redirect()->route('thank.you', [
+                    'string' => Str::random(500),
+                    'ferry' => $ferry,
+                    'user' => $user,
+                    'booking' => $booking,
+                    'type' => 1,
+                ])->with('success', 'Payment successful and booking completed');
+            }
+
+            return back()->with('error', 'Payment failed!');
+        }
+    }
+
+    private function sendEmail($email, $user, $ferry, $booking, $role)
+    {
+        $subject = 'Ferry Booking Invoice';
+        $isAdmin = ($role === 'admin');
+
+        Mail::send('email.email-booking', compact('user', 'ferry', 'booking', 'role', 'isAdmin'), function ($message) use ($email, $subject, $booking) {
+            $message->to($email);
+            $message->subject($subject); 
+            $message->attach(public_path($booking->invoice_pdf)); 
+        });
+    }
+
+
+
+
