@@ -1,5 +1,14 @@
 ******************************************************************** Booking Process With Razorpay Payment Gateway And Pdf Invoice************************************************
 
+
+
+Nessacary Package :
+
+composer require barryvdh/laravel-dompdf
+composer require endroid/qr-code
+
+
+
 Step :1 .env file
 
 RAZORPAY_KEY=rzp_test_J4ibid4vSMbAbB
@@ -302,6 +311,7 @@ CREATE TABLE `bookings` (
   `invoice` longtext DEFAULT NULL,
   `r_payment_id` varchar(250) DEFAULT NULL,
   `invoice_pdf` longtext DEFAULT NULL,
+  `qr_image` longtext DEFAULT NULL,
   `adult` varchar(250) DEFAULT NULL,
   `children` varchar(250) DEFAULT NULL,
   `booking_date` varchar(250) DEFAULT NULL,
@@ -356,6 +366,16 @@ Step :5 Pdf Invoice Code
                         <p style="margin: 5px 0;">Booking Date: <span style="color: #555;">{{ $today ?? '---' }}</span></p>
                         <p style="margin: 5px 0;">Travel Date: <span style="color: #555;">{{ \Carbon\Carbon::parse($booking['booking_date'])->format('d-M-Y') ?? '---' }}</span></p>
                     </td>
+                    <td style="padding: 10px 0; text-align: left;" align="right">
+                        @if($booking['qr_image'])
+                        @php
+                            $imagePath = public_path($booking['qr_image']);
+                            $imageData = base64_encode(file_get_contents($imagePath));
+                            $src = 'data:image/png;base64,' . $imageData;
+                        @endphp
+                        <img src="{{ $src }}" alt="QR Code w dwdf" style="max-width: 100px; max-height: 100px;">
+                        @endif
+                    </td>
                 </tr>
                 <tr>
                     <td style="padding: 20px; border-bottom: 1px solid #ddd;">
@@ -382,12 +402,12 @@ Step :5 Pdf Invoice Code
                     </td>
                 </tr>
 
-                @php 
+                @php
                     $passengerNames = json_decode($booking['passenger_name'], true) ?? [];
                     $passengerPhone = json_decode($booking['phone'], true) ?? [];
                     $passengerAge = json_decode($booking['age'], true) ?? [];
                     $passengerGender = json_decode($booking['gender'], true) ?? [];
-                @endphp 
+                @endphp
 
                 @if(!empty($passengerNames))
                     <tr>
@@ -426,7 +446,7 @@ Step :5 Pdf Invoice Code
                     <td style="padding: 20px;">
                         <p style="margin: 0; font-weight: bold;">Payment Details</p>
                         <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 10px 0;">
-                          
+
                             <tr>
                                 <td style="padding: 8px; border: 1px solid #ddd;">Passenger </td>
                                 <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ ($booking['adult'] ?? 0) + ($booking['children'] ?? 0) }}</td>
@@ -439,7 +459,7 @@ Step :5 Pdf Invoice Code
                                 <td style="padding: 8px; border: 1px solid #ddd;">Children</td>
                                 <td style="padding: 8px; border: 1px solid #ddd; text-align: right;"> {{ $booking['children'] ?? ''  }}</td>
                             </tr>
-                         
+
                             <tr style="font-weight: bold; background-color: #f8f8f8;">
                                 <td style="padding: 8px; border: 1px solid #ddd;">Port Fee (Rs. 50/Passenger)</td>
                                 <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ '50' }}</td>
@@ -450,7 +470,7 @@ Step :5 Pdf Invoice Code
                                 <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $booking['amount'] ?? '' }}</td>
                             </tr>
 
-                            
+
                             <tr style="font-weight: bold; background-color: #f8f8f8;">
                                 <td style="padding: 8px; border: 1px solid #ddd;">Class Type</td>
                                 <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $booking['class_type'] ?? '' }}</td>
@@ -461,7 +481,7 @@ Step :5 Pdf Invoice Code
                 <tr>
                     <td style="padding: 20px; border-top: 1px solid #ddd;">
                         <p style="margin: 0;">Thank you for booking with us. Please keep this invoice for your records.</p>
-                        <p style="margin: 10px 0;">For any queries, contact our support team at: 
+                        <p style="margin: 10px 0;">For any queries, contact our support team at:
                             <a href="mailto:{{$adminEmail ?? '' }}" style="color: #007bff; text-decoration: none;">{{ $adminEmail ?? '' }}</a>
                         </p>
                     </td>
@@ -472,7 +492,7 @@ Step :5 Pdf Invoice Code
 
                     </td>
                 </tr>
-                
+
             </table>
         </td>
     </tr>
@@ -481,7 +501,12 @@ Step :5 Pdf Invoice Code
 
 
 
+
+
 Step :6 Web invoice code
+
+@extends('layout.app')
+@section('content')
 
 @extends('layout.app')
 @section('content')
@@ -502,6 +527,11 @@ Step :6 Web invoice code
                         <p style="margin: 0; font-weight: bold;">Invoice ID: <span style="color: #555;">{{ $booking['invoice'] ?? '---' }}</span></p>
                         <p style="margin: 5px 0;">Booking Date: <span style="color: #555;">{{ $today ?? '---' }}</span></p>
                         <p style="margin: 5px 0;">Travel Date: <span style="color: #555;">{{ \Carbon\Carbon::parse($booking['booking_date'])->format('d-M-Y') ?? '---' }}</span></p>
+                    </td>
+                    <td style="padding: 10px 0; text-align: left;" align="right">
+                        @if($booking['qr_image'])
+                        <img src="{{  asset($booking['qr_image']) }}" alt="QR Code" style="max-width: 100px; max-height: 100px;">
+                        @endif
                     </td>
                 </tr>
                 <tr>
@@ -648,14 +678,83 @@ Step :6 Web invoice code
 @endpush
 
 
+@endsection
+@push('js')
+<script>
+    $(document).ready(function () {
+        $('#printButton').click(function () {
+            var printContents = $('table').html(); 
+            var originalContents = document.body.innerHTML; 
+            document.body.innerHTML = '<table width="100%" cellpadding="0" cellspacing="0" style="font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.6;">' + printContents + '</table>';
+            window.print();
+            document.body.innerHTML = originalContents;
+            location.reload();
+        });
+    });
+</script>
+@endpush
+
+
+
+Step :6 Qr code file code
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Details</title>
+</head>
+<body>
+    <h1>Invoice Details</h1>
+
+    <p><strong>Invoice No:</strong> {{ $booking->invoice ?? '' }}</p>
+    <p><strong>Total Amount:</strong> ?{{ number_format($booking->amount, 2) }}</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 10px 0;">
+        <tr style="background-color: #f8f8f8;">
+            <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Passenger Name</th>
+            <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Passenger Mobile No</th>
+            <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Passenger Age</th>
+            <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Passenger Gender</th>
+        </tr>
+        @foreach($decodedNames as $index => $decodedName)
+        <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; text-align: left;">{{ $decodedName ?? 'N/A' }}</td>
+            <td style="padding: 8px; border: 1px solid #ddd; text-align: left;">{{ $decodedphone[$index] ?? 'N/A' }}</td>
+            <td style="padding: 8px; border: 1px solid #ddd; text-align: left;">{{ $decodedage[$index] ?? 'N/A' }}</td>
+            <td style="padding: 8px; border: 1px solid #ddd; text-align: left;">{{ $decodedgender[$index] ?? 'N/A' }}</td>
+        </tr>
+        @endforeach
+
+    </table>
+
+    <h3>QR Code Image:</h3>
+    {{-- <img src="{{ asset($booking->qr_image) }}" alt="QR Code" style="max-width: 100px; max-height: 100px;"> --}}
+
+</body>
+</html>
+
+
+
+
+Step :7 Web File Code
+
+Route::controller(BookingController::class)->group(function () {
+    Route::get('thank-you', 'thankYou')->name('thank.you');
+    Route::post('ferry-booking-store','ferryBookingStore')->name('ferry.booking.store');
+    Route::get('invoice/{invoiceNumber}','showInvoice')->name('invoice.show');
+
+
+});
 
 
 
 
 
-
-
-Step :7 Controller Side Code
+Step :8 Controller Side Code
 
 use Auth;
 use Illuminate\Support\Facades\Log;
@@ -665,6 +764,8 @@ use Mail;
 use Illuminate\Support\Facades\File;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\View;
+use Endroid\QrCode\QrCode;
+use Endroid\QrCode\Writer\PngWriter;
 
 
 
@@ -800,7 +901,7 @@ use Illuminate\Support\Facades\View;
         
     }
 
-    public function ferryBookingStore(Request $request)
+   public function ferryBookingStore(Request $request)
     {
         $request->validate([
             'ferry_table_id' => 'required|numeric',
@@ -867,17 +968,38 @@ use Illuminate\Support\Facades\View;
                     File::makeDirectory($directoryPath, 0777, true);
                 }
 
-                $filePath = "{$directoryPath}/{$fileName}";
-                $pdf = Pdf::loadView('pdf.ferry-booking-invoice', compact('ferry', 'user', 'request', 'booking', 'adminEmail','today'));
-                $pdf->save($filePath);
 
-                // Update booking with generated PDF file path
-                $booking->update([
-                    'invoice_pdf' => "ferry-booking/{$year}/{$month}/{$fileName}",
-                ]);
+                    // Generate the QR code with the route
+                    $qrCode = new QrCode(route('invoice.show', ['invoiceNumber' => $invoiceNumber]));
+                    $writer = new PngWriter();
+                    $qrCodeContent = $writer->write($qrCode)->getString();
+
+                     // Save QR code to the local path
+                    $qrCodeDirectory = public_path("qr-codes/{$year}/{$month}");
+                    if (!File::exists($qrCodeDirectory)) {
+                        File::makeDirectory($qrCodeDirectory, 0777, true);
+                    }
+
+                     // Define the file path for the QR code
+                    $qrCodeFilePath = "{$qrCodeDirectory}/{$invoiceNumber}-qr.jpg"; // Local file path for QR code
+                    file_put_contents($qrCodeFilePath, $qrCodeContent);
+
+                    $booking->update([
+                        'qr_image' => "qr-codes/{$year}/{$month}/{$invoiceNumber}-qr.jpg",
+                    ]);
+
+                   // Generate the PDF
+                    $filePath = "{$directoryPath}/{$fileName}";
+                    $pdf = Pdf::loadView('pdf.ferry-booking-invoice', compact('ferry', 'user', 'request', 'booking', 'adminEmail', 'today', 'qrCodeFilePath'));
+                    $pdf->save($filePath);
+
+                        // Update booking with generated PDF file path
+                        $booking->update([
+                            'invoice_pdf' => "ferry-booking/{$year}/{$month}/{$fileName}",
+                        ]);
 
                 // Send emails
-                
+
                 $this->sendEmail($user->email, $user, $ferry, $booking, 'user');
                 $this->sendEmail($adminEmail, $user, $ferry, $booking, 'admin');
 
@@ -901,11 +1023,24 @@ use Illuminate\Support\Facades\View;
 
         Mail::send('email.email-booking', compact('user', 'ferry', 'booking', 'role', 'isAdmin'), function ($message) use ($email, $subject, $booking) {
             $message->to($email);
-            $message->subject($subject); 
-            $message->attach(public_path($booking->invoice_pdf)); 
+            $message->subject($subject);
+            $message->attach(public_path($booking->invoice_pdf));
         });
     }
 
+    public function showInvoice($invoiceNumber)
+    {
+        $booking = Booking::where('invoice', $invoiceNumber)->first();
+        if (!$booking) {
+            return abort(404, 'Invoice not found');
+        }
+        $totalAmount = $booking->amount;
+        $decodedNames = json_decode($booking->passenger_name, true);
+        $decodedphone = json_decode($booking->phone, true);
+        $decodedage = json_decode($booking->age, true);
+        $decodedgender = json_decode($booking->gender, true);
+        return view('web-pages.invoice.detail', compact('booking', 'totalAmount','decodedNames','decodedphone','decodedage','decodedgender'));
+    }
 
 
 
