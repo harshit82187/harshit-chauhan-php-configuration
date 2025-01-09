@@ -331,6 +331,8 @@ CREATE TABLE `bookings` (
 
 step :4 app/Providers/AppServiceProvider.php file code
 
+use Illuminate\Support\Facades\View;
+
 public function boot(): void
     {
 
