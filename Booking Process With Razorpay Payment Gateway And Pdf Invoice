@@ -679,8 +679,30 @@ Step :6 Web invoice code
 
 
 
+Step :6 On Email Code
 
-Step :6 Qr code file code
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Booking Invoice</title>
+</head>
+<body>
+    @if($isAdmin)
+        <p>Hello, Admin</p>
+        <p>One booking has been received.</p>
+        <p>Please find the invoice attached below.</p>
+    @else
+        <p>Hello, {{ $user->name ?? 'Customer' }}</p>
+        <p>Your booking is confirmed.</p>
+        <p>Please find your invoice attached below.</p>
+    @endif
+</body>
+</html>
+
+
+
+
+Step :7 Qr code file code
 
 
 
@@ -724,7 +746,7 @@ Step :6 Qr code file code
 
 
 
-Step :7 Web File Code
+Step :8 Web File Code
 
 Route::controller(BookingController::class)->group(function () {
     Route::get('thank-you', 'thankYou')->name('thank.you');
@@ -738,7 +760,7 @@ Route::controller(BookingController::class)->group(function () {
 
 
 
-Step :8 Controller Side Code
+Step :9 Controller Side Code
 
 use Auth;
 use Illuminate\Support\Facades\Log;
