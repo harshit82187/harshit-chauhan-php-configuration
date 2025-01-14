@@ -74,7 +74,14 @@ MAIL_FROM_ADDRESS=harshitk@pearlorganisation.com
 MAIL_FROM_NAME="${APP_NAME}"
 
 
-
+MAIL_MAILER=smtp
+MAIL_HOST=mail.tabsaccol.com.np
+MAIL_PORT=465
+MAIL_USERNAME=admin@tabsaccol.com.np
+MAIL_PASSWORD="Admin@12390"
+MAIL_ENCRYPTION=ssl
+MAIL_FROM_ADDRESS="admin@tabsaccol.com.np"  
+MAIL_FROM_NAME="${APP_NAME}"
 
 
 MAIL_MAILER=smtp
