@@ -1,0 +1,82 @@
+************************************************************ Establish Cron Job in the laravel project **************************************************************************************
+
+Step :1 Open terminal in the cPanel
+
+command : cd www
+command : ls    (Show Laravel Structure)
+command : php artisan make:command SendUserDetails
+
+
+Step 2 : public_html/app/Console/Commands/SendUserDetails.php
+
+<?php
+
+namespace App\Console\Commands;
+
+use Illuminate\Console\Command;
+use App\Models\User;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+
+
+class SendUserDetails extends Command
+{
+    /**
+     * The name and signature of the console command.
+     *
+     * @var string
+     */
+    protected $signature = 'send:user-details';
+
+    /**
+     * The console command description.
+     *
+     * @var string
+     */
+    protected $description = 'Send user table details (name and mobile number)';
+
+    /**
+     * Execute the console command.
+     */
+     public function handle()
+        {
+            try {
+                // Fetch user details
+                $users = User::select('name', 'mobileNo')->get();
+                 $emailData = [
+                    'users' => $users,
+                ];
+                 Mail::send('emails.user_details', $emailData, function($message) {
+                    $message->to('harshitk@pearlorganisation.com')->subject('User Details');
+                });
+    
+                
+                $this->info('User details have been logged successfully.');
+            } catch (\Exception $e) {
+                Log::error('Error sending user details: ' . $e->getMessage());
+                $this->error('Failed to send user details. Check the logs for more information.');
+            }
+        }
+}
+
+
+
+Step :3 kernel.php file
+
+ protected $commands = [
+       Commands\TestCommand::class,
+       Commands\SendUserDetails::class,
+  ];
+    
+ protected function schedule(Schedule $schedule)
+   {
+       $schedule->command('test:log')->everyMinute();
+        $schedule->command('send:user-details')->everyMinute();
+   }
+
+
+Step :4 in cronjob section in the cpannel
+
+this path you provided :- /usr/local/bin/php /home/rtlabtools/public_html/path/to/cron/script
+
+this path you mention :- /usr/local/bin/php /home/rtlabtools/public_html/artisan send:user-details>> /dev/null 2>&1
