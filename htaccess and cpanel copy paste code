@@ -1,0 +1,78 @@
+************************************************** copy And Paste To Cpanel ***********************************************************************
+
+<?php
+
+/**
+ * Transfer Files Server to Server using PHP Copy
+ * @link https://shellcreeper.com/?p=1249
+ */
+ 
+/* Source File URL */
+$remote_file_url = 'http://origin-server-url/files.zip';
+ 
+/* New file name and path for this file */
+$local_file = 'pearlserv.zip';
+ 
+/* Copy the file from source url to server */
+$copy = copy( $remote_file_url, $local_file );
+ 
+/* Add notice for success/failure */
+if( !$copy ) {
+    echo "Doh! failed to copy $file...\n";
+}
+else{
+    echo "WOOT! success to copy $file...\n";
+}
+
+?>
+
+
+
+
+
+Step :2 .htacces file code
+
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{REQUEST_URI} !^/public/
+  RewriteRule ^(.*)$ /public/$1 [L,QSA]
+</IfModule>
+
+
+
+
+
+
+
+<IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews -Indexes
+    </IfModule>
+
+    RewriteEngine On
+
+    # Handle Authorization Header
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Redirect Trailing Slashes If Not A Folder...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Send Requests To Front Controller...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+    
+    Options +FollowSymLinks
+Options -Indexes
+DirectoryIndex index.php
+RewriteEngine on
+RewriteCond $1 !^(index\.php|images|robots\.txt)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php/$1 [L,QSA]
+    
+</IfModule>
