@@ -202,6 +202,25 @@ public function register(Request $req){
             $data['profile_photo'] = "users/{$year}/{$month}/" . $filename;
         }
 
+
+      **************** when image come in array form ****************************
+        if($req->images != null){
+                $uploadedFiles = $req->file('images'); 
+                $images = [];
+                foreach ($uploadedFiles as $file) {
+                    $filename = time() . '-' . uniqid() . '.' . $file->getClientOriginalExtension();
+                    $year = now()->year;
+                    $month = now()->format('M');
+                    $folderPath = public_path("hotel-images/{$year}/{$month}");
+                    if (!file_exists($folderPath)) {
+                        mkdir($folderPath, 0777, true);
+                    }
+                    $file->move($folderPath, $filename);
+                    $images[] = "hotel-images/{$year}/{$month}/" . $filename;
+                }
+                $hotel->images = json_encode($images);
+            }
+
        
 
         User::create($data);
