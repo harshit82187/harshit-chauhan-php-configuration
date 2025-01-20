@@ -124,61 +124,58 @@ Route::get('/test-raw-mail', function () {
 use Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\View;
 
-public function saveContactus(Request $req)
-    {
-        // dd($req->all());
-        try{
+ public function ticketAdd(Request $req){
+        if($req->isMethod('get')){
+            return view('backend.vendor.ticket.add');
+        }else{
+            // dd($req->all());
             $req->validate([
-                'name' => 'required',
-                'email' => 'required',
-                'mobile' => 'required|digits:10',
-                'subject' => 'required',
+                'subject' => 'required|string',
+                'description' => 'required|string',
             ]);
-
+            $vendor_id = Auth::guard('vendor')->user()->id;
+            $yearMonth = Carbon::now()->format('Ym');
+            $today     = Carbon::now()->format('d-M-Y');
+            $randomNumber = rand(100000, 999999);
             $data = [
-                'name'  => $req->name,
-                'email'  => $req->email,
-                'mobile'  => $req->mobile,
-                'subject'  => $req->subject,               
+                'ticket_no' => $yearMonth . $randomNumber,
+                'subject' => $req->subject,
+                'description' => $req->description,
+                'vendor_id' => $vendor_id,
             ];
-
-            if($req->emailNotification == 'on'){
-                $data['emailNotification'] = 'on';
+            if($req->attachment != null){
+                $file = $req->attachment;
+                $filename = time(). '.' . $file->getClientOriginalExtension();
+                $year = now()->year;
+                $month = now()->format('M');
+                $folderPath = public_path("tickets/{$year}/{$month}");
+                if (!file_exists($folderPath)) {
+                    mkdir($folderPath, 0777, true);  
+                }
+                $file->move($folderPath, $filename);
+                $data['attachment'] = "tickets/{$year}/{$month}/" . $filename;
             }
-
-            if($req->whatsappNotification == 'on'){
-                $data['whatsappNotification'] = 'on';
-            }     
-    
-            Contact::create($data);
-            $subject = 'Subscribe Mail';
-			$email = $req->email;
-
+            $ticket = Ticket::create($data);
+            $subject = 'Ticket Notification';
+            $adminEmail = View::shared('adminEmail');
+            $vendorEmail = Auth::guard('vendor')->user()->email ?? null;
             try {
-                Mail::send('mail.contact-us', ['data' => $data], function($message) use ($subject, $email) {
-                    $message->to($email);
+                Mail::send('mails.ticket.ticket-notification', ['ticket' => $ticket, 'adminEmail' => $adminEmail, 'vendorEmail' => $vendorEmail], function ($message) use ($subject, $adminEmail, $vendorEmail) {
+                    $message->to($adminEmail); 
+                    $message->bcc($vendorEmail); 
                     $message->subject($subject);
                 });
-    
-                \Log::info('Success to send email to ' . $email);
-    
-                return redirect()->back()->with('success', 'Your query sent successfully');
+                \Log::info('Success to send email to ' . $adminEmail .' ' . $vendorEmail);
             } catch (\Exception $mailException) {
-                \Log::error('Failed to send email to ' . $email . '. Error: ' . $mailException->getMessage());
-                return redirect()->back()->with('error', 'Sorry! We could not send the email. Please try again later');
+                \Log::error('Failed to send email to ' . $adminEmail . '. Error: ' . $mailException->getMessage());
             }
+            return redirect(route('vendor.ticket.list'))->with('success', 'Ticket added successfully!');
 
-
-            return redirect()->back()->with('success','Your query send successfully');
-
-        }catch (ValidationException $e) {
-            return back()->withErrors($e->validator)->withInput();
-        }catch(\Exception $e){
-            return back()->with('error', 'Warning : ' .$e->getMessage());
+            
         }
-        
-     
     }
 
 
