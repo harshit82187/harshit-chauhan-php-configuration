@@ -113,3 +113,79 @@ Route::post('admin/blogs/update-status', [BlogController::class, 'updateStatus']
             'message' => 'Blog status updated successfully',
         ]);
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+******************************************************** Any text Copy with copy icon ************************************************************************************
+<b>Ticket No :</b><span id="ticketNo">{{ $ticket->ticket_no ?? 'N/A' }} </span>
+<button id="copyButton" title="Copy" style="border: none; background: transparent;">
+	<i class="fas fa-copy"></i>
+</button><br>
+
+
+
+
+
+
+
+<script>
+    $(document).ready(function() {
+        $('table').on('click', '#copyButton', function() {
+            var ticketNo = $(this).siblings('#ticketNo').text(); 
+            var $tempTextArea = $('<textarea>');
+            $('body').append($tempTextArea);
+            $tempTextArea.val(ticketNo).css({
+                position: 'absolute',
+                top: '-9999px',
+                left: '-9999px'
+            });
+            $tempTextArea.select();
+            var successful = document.execCommand('copy');
+            $tempTextArea.remove();
+
+            if (successful) {
+                console.log("Ticket number copied! "+ticketNo);
+                iziToast.info({
+                    title: 'Success',
+                    message: 'Ticket number copied to clipboard!',
+                    position: 'topRight',
+                    timeout: 3000,
+                });
+            } else {
+                console.log("Copy failed!");
+                iziToast.error({
+                    title: 'Error',
+                    message: 'Failed to copy ticket number.',
+                    position: 'topRight',
+                    timeout: 3000,
+                });
+            }
+        });
+    });
+</script>
+
+
