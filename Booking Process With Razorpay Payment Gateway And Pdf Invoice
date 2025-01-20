@@ -394,12 +394,12 @@ Step :5 Pdf Invoice Code
 									</td>
 									<td style="width: 50%; vertical-align: top; text-align: right;">
 										@if($booking['qr_image'])
-											@php
-											$imagePath = public_path($booking['qr_image']);
-											$imageData = base64_encode(file_get_contents($imagePath));
-											$src = 'data:image/png;base64,' . $imageData;
-											@endphp
-											<img src="{{ $src }}" alt="QR Code" style="max-width: 100px; max-height: 100px;">
+										@php
+										$imagePath = public_path($booking['qr_image']);
+										$imageData = base64_encode(file_get_contents($imagePath));
+										$src = 'data:image/png;base64,' . $imageData;
+										@endphp
+										<img src="{{ $src }}" alt="QR Code" style="max-width: 100px; max-height: 100px;">
 										@endif
 									</td>
 								</tr>
@@ -433,19 +433,36 @@ Step :5 Pdf Invoice Code
 						</table>
 					</td>
 				</tr>
+				<!-- Hotel Details Section -->
+				<tr>
+					<td style="padding: 20px;">
+						<p style="margin: 0; font-weight: bold;">Hotel Details</p>
+						<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 10px 0;">
+							<tr>
+								<td style="padding: 8px; border: 1px solid #ddd;">Hotel Name</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $property['title'] ?? 'N/A' }}</td>
+							</tr>
+							<tr>
+								<td style="padding: 8px; border: 1px solid #ddd;">Hotel Address</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $property['address'] ?? '' }}</td>
+							</tr>
+						
+						</table>
+					</td>
+				</tr>
 				<!-- Payment Details Section -->
 				<tr>
 					<td style="padding: 20px;">
 						<p style="margin: 0; font-weight: bold;">Payment Details</p>
 						<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 10px 0;">
 							<tr>
-                                <td style="padding: 8px; border: 1px solid #ddd;">Check In Date </td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ \Carbon\Carbon::parse($booking['check_in'])->format('d-M-Y') ?? '---' }}</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px; border: 1px solid #ddd;">Check Out Date </td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ \Carbon\Carbon::parse($booking['check_out'])->format('d-M-Y') ?? '---' }}</td>
-                            </tr>
+								<td style="padding: 8px; border: 1px solid #ddd;">Check In Date </td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ \Carbon\Carbon::parse($booking['check_in'])->format('d-M-Y') ?? '---' }}</td>
+							</tr>
+							<tr>
+								<td style="padding: 8px; border: 1px solid #ddd;">Check Out Date </td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ \Carbon\Carbon::parse($booking['check_out'])->format('d-M-Y') ?? '---' }}</td>
+							</tr>
 							<tr>
 								<td style="padding: 8px; border: 1px solid #ddd;">Payment Method</td>
 								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">
@@ -685,7 +702,6 @@ Step :6 Web invoice code
 </script>
 
 @endpush
-
 
 
 
