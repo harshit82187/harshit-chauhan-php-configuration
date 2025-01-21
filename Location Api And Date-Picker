@@ -1,0 +1,45 @@
+Step :1 
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDuMG2WaY4Vwi0iM3XqPdUrNAcvjHtR8wE&libraries=places"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+
+Step : 2
+
+    <input type="text" class="location" id="location" placeholder="Enter Your Location">
+    <div id="suggestions"></div>
+    <input type="text" name="start_date" class="date-picker" id="check-in" placeholder="Check-In Date">
+		<input type="text" name="start_date" class="date-picker" id="check-out" placeholder="Check-Out Date">
+
+
+<script>
+    $(document).ready(function () {
+      const input = document.getElementById('location');
+      const autocomplete = new google.maps.places.Autocomplete(input);
+      autocomplete.setFields(['address_components', 'geometry', 'formatted_address']);
+      autocomplete.addListener('place_changed', function () {
+        const place = autocomplete.getPlace();
+
+        if (place.formatted_address) {
+          console.log('Selected Place:', place.formatted_address);
+        } else {
+          alert('No valid address selected');
+        }
+      });
+    });
+  </script>
+
+
+<script>
+    $(document).ready(function () {
+      $('.date-picker').flatpickr({
+        dateFormat: "Y-m-d", 
+        altInput: true,      
+        altFormat: "F j, Y", 
+        allowInput: true     
+      });
+    });
+  </script>
+
