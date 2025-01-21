@@ -1,0 +1,253 @@
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
+
+<form action="{{ url()->current() }}" method="get" >  
+            <div class="search-bar">
+                <input type="text" class="location" id="location" name="location" placeholder="Enter Your Location">
+                <div id="suggestions"></div>
+                <div class="date-picker-container">
+                    <input type="text" name="check-in" class="date-picker" id="check-in" placeholder="Check-In Date">
+                </div>
+                <div class="date-picker-container">
+                    <input type="text" name="check-out" class="date-picker" id="check-out" placeholder="Check-Out Date">
+                </div>
+                <div class="date-picker-container">
+                    <input type="text" class="guests" name="" readonly>
+                    <input type="hidden" name="guest" readonly>
+                    <input type="hidden" name="room" readonly>
+                
+                    <!-- Beautiful Modal for Selecting Rooms and Guests -->
+                    <div class="modal" id="guestRoomModal">
+                        <div class="modal-content">
+                            <div class="calendar">
+                                <div class="hide-button">
+                                    <span>Rooms</span>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <button type="button" class="increment" data-counter="roomCounter">+</button>
+                                        <span id="roomCounter">1</span>
+                                        <button type="button" class="decrement" data-counter="roomCounter">-</button>
+                                    </div>
+                                </div>
+                                <div class="hide-button">
+                                    <span>Guest</span>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <button type="button" class="increment" data-counter="guestCounter">+</button>
+                                        <span id="guestCounter">1</span>
+                                        <button type="button" class="decrement" data-counter="guestCounter">-</button>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" id="closeModal" class="close-btn">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button class="search-btn">Search</button>
+            </div>
+</form>
+
+
+
+
+
+*************************************************** script file code ************************************************************
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDuMG2WaY4Vwi0iM3XqPdUrNAcvjHtR8wE&libraries=places"></script>
+
+
+
+
+<script>
+    $(document).ready(function() {
+        $('.guests').click(function() {
+            $('#guestRoomModal').fadeIn();
+        });
+        $('#closeModal').click(function() {
+            $('#guestRoomModal').fadeOut();
+        });
+        $('.increment').click(function() {
+            var counterId = $(this).data('counter');
+            var currentValue = parseInt($('#' + counterId).text());
+            currentValue++;
+            $('#' + counterId).text(currentValue);
+            updateHiddenInputs();
+        });
+
+        $('.decrement').click(function() {
+            var counterId = $(this).data('counter');
+            var currentValue = parseInt($('#' + counterId).text());
+
+            // Prevent going below 1
+            if (currentValue > 1) {
+                currentValue--;
+                $('#' + counterId).text(currentValue);
+            }
+            updateHiddenInputs();
+        });
+        function updateHiddenInputs() {
+            var roomValue = $('#roomCounter').text();
+            var guestValue = $('#guestCounter').text();
+            $('input[name="room"]').val(roomValue);
+            $('input[name="guest"]').val(guestValue);
+            $('input.guests').val(roomValue + ' Room(s) | ' + guestValue + ' Guest(s)');
+        }
+        updateHiddenInputs();
+    });
+</script>
+
+<script>
+    $(document).ready(function () {
+      const input = document.getElementById('location');
+      const autocomplete = new google.maps.places.Autocomplete(input);
+      autocomplete.setFields(['address_components', 'geometry', 'formatted_address']);
+      autocomplete.addListener('place_changed', function () {
+        const place = autocomplete.getPlace();
+
+        if (place.formatted_address) {
+          console.log('Selected Place:', place.formatted_address);
+        } else {
+          alert('No valid address selected');
+        }
+      });
+    });
+</script>
+
+<script>
+    $(document).ready(function () {
+      $('.date-picker').flatpickr({
+        dateFormat: "Y-m-d", 
+        altInput: true,      
+        altFormat: "F j, Y", 
+        allowInput: true     
+      });
+    });
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+***************************************************************************** css file code ****************************************************************************
+
+/* 21-01-2025  @harshit date-picker*/
+.date-picker{
+    padding: 8px 12px;
+    margin: 0 5px;
+    border-radius: 4px;
+    background: #f7f7f7;
+    flex: 1;
+    border: 1px solid hsla(0, 0%, 60%, .4);
+}
+
+
+    /* Modal Content */
+    #guestRoomModal .modal-content {
+        background-color: #fff;
+    padding: 20px;
+    margin: 15% auto;
+    /* width: 90%; */
+    max-width: 350px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    animation: modalIn 0.5s ease;
+    width: 100%;
+    max-height: 225px;
+    }
+
+    /* Modal Header */
+    #guestRoomModal .calendar {
+        font-family: Arial, sans-serif;
+    }
+
+    #guestRoomModal .hide-button {
+        margin-bottom: 15px;
+    }
+
+    #guestRoomModal .hide-button span {
+        font-size: 16px;
+        font-weight: bold;
+        display: block;
+        margin-bottom: 8px;
+    }
+
+    #guestRoomModal .d-flex {
+        display: flex;
+        align-items: center;
+    }
+
+    #guestRoomModal .gap-2 {
+        gap: 10px;
+    }
+
+    #guestRoomModal .increment, 
+    #guestRoomModal .decrement {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        font-size: 16px;
+        cursor: pointer;
+        border-radius: 5px;
+        transition: background-color 0.3s;
+    }
+
+    #guestRoomModal .increment:hover, 
+    #guestRoomModal .decrement:hover {
+        background-color: #0056b3;
+    }
+
+    #guestRoomModal .modal-footer {
+        margin-top: 20px;
+        text-align: center;
+    }
+
+    #guestRoomModal .close-btn {
+        background-color: #f44336;
+        color: white;
+        padding: 10px 20px;
+        font-size: 16px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+
+    #guestRoomModal .close-btn:hover {
+        background-color: #d32f2f;
+    }
+
+    /* Modal Animation */
+    @keyframes modalIn {
+        from {
+            opacity: 0;
+            transform: scale(0.7);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    /* For the 'guests' input field */
+    .guests {
+        width: 100%;
+        padding: 8px;
+        font-size: 16px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        cursor: pointer;
+        background-color: #f9f9f9;
+    }
