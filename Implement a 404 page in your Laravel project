@@ -81,3 +81,47 @@ public function render($request, Throwable $exception)
 
         return parent::render($request, $exception);
     }
+
+
+Step :4 
+   @if (Session::has('success') || Session::has('error') || isset($errors) && $errors->any())
+        <script>
+            @if(Session::has('success'))
+                var messageType = 'success';
+                var messageColor = 'blue';
+                var message = "{{ Session::get('success') }}";
+            @elseif(Session::has('error'))
+                var messageType = 'warning';
+                var messageColor = 'orange';
+                var message = "{{ Session::get('error') }}";
+            @elseif($errors->any())
+                var messageType = 'error';
+                var messageColor = 'red';
+                var message = @json($errors->all());
+            @endif
+
+            if (Array.isArray(message)) {
+                message.forEach(function (msg) {
+                    iziToast[messageType]({
+                        message: msg,
+                        position: 'topRight',
+                        timeout: 4000,
+                        displayMode: 0,
+                        color: messageColor,
+                        theme: 'light',
+                        messageColor: 'black',
+                    });
+                });
+            } else {
+                iziToast[messageType]({
+                    message: message,
+                    position: 'topRight',
+                    timeout: 4000,
+                    displayMode: 0,
+                    color: messageColor,
+                    theme: 'light',
+                    messageColor: 'black',
+                });
+            }
+        </script>
+    @endif
