@@ -119,13 +119,33 @@
 
 <script>
     $(document).ready(function () {
-      $('.date-picker').flatpickr({
-        dateFormat: "Y-m-d", 
-        altInput: true,      
-        altFormat: "F j, Y", 
-        allowInput: true     
-      });
-    });
+       let today = new Date().toISOString().split('T')[0];
+   
+       $('#check_in').flatpickr({
+           dateFormat: "Y-m-d",
+           altInput: true,
+           altFormat: "F j, Y",
+           minDate: today, 
+           allowInput: true,
+           onChange: function (selectedDates, dateStr) {
+               $('#check_out').flatpickr({
+                   dateFormat: "Y-m-d",
+                   altInput: true,
+                   altFormat: "F j, Y",
+                   minDate: dateStr, 
+                   allowInput: true,
+               });
+           },
+       });
+   
+       $('#check_out').flatpickr({
+           dateFormat: "Y-m-d",
+           altInput: true,
+           altFormat: "F j, Y",
+           minDate: today, 
+           allowInput: true,
+       });
+   });
 </script>
 
 
