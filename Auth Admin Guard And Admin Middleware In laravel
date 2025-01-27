@@ -119,55 +119,56 @@ Step :6 Contrller Side Controller
 
 
 
+<?php
 
-public function login(Request $req){
+namespace App\Http\Controllers\admin;
 
-    try{
-        if($req->isMethod('get')){
-            // dd(121);
-            // dd(Auth::guard('admin')->check());
-            return view('backend.auth.login');
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
 
-        }else{
+use App\Models\Admin;
 
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\View;
+
+use Mail;
+use Auth;
+
+
+class AuthController extends Controller
+{
+    public function login(Request $req)
+    {
+       if($req->isMethod('get')){
+         return view('admin.login');
+
+       }else{
             $req->validate([
                 'email' => 'required|email',
-                'password' => 'required'
+                'password' => 'required',
             ]);
-
-            $email = $req->email;
-            $password = $req->password;
-
-            $admin = Admin::where('email',$email)->first();
-            if($admin){
-                if(Auth::guard('admin')->attempt([ 'email' => $email, 'password' => $password ])){
-                    return redirect()->route('admin.dashboard')->with('success','Login Successfully!');
-                }else{
-                    return back()->with('error','Wrong Credentials!');
-                }    
-            }else{
-                return back()->with('error','Record Not Found!');
-            }   
-            
-        }
-
-    }catch (ValidationException $e) {
-        return back()->withErrors($e->validator)->withInput();
-    }catch(\Exception $e){
-        return back()->with('error', 'Warning : ' .$e->getMessage());
+            $redirectUrl = $req->input('redirect_url');
+            $admin = Admin::where('email',$req->email)->where('status','1')->first();
+            if ($admin && Hash::check($req->password, $admin->password)) {
+                Auth::guard('admin')->login($admin);
+                    if ($redirectUrl) {
+                        return redirect()->to($redirectUrl);
+                    }
+                    return redirect()->intended('admin/dashboard')->with('success', 'Admin Login successfully!');
+               
+            } else {
+                return back()->with('error', 'Invalid credentials')->withInput();
+            }
+       }
     }
 
-    
-}
-
- public function logout(){
+    public function logout(){
         Auth::guard('admin')->logout();
         session()->invalidate();
         session()->regenerateToken();
         return redirect()->route('admin.adminLoginForm');
 
     }
-
-
-
+}
 
