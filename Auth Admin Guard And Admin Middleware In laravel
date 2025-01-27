@@ -1,0 +1,173 @@
+*********************************************************************************** Auth Admin Guard In laravel **********************************************************************
+
+Step 1 : config/auth.php
+
+   'guards' => [
+        'web' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
+
+        'admin' => [
+            'driver' => 'session',
+            'provider' => 'admins', 
+        ],
+    ],
+
+
+
+  'providers' => [
+        'users' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\User::class,
+        ],
+
+        'admins' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Admin::class, 
+        ],
+
+      
+    ],
+
+
+
+Step :2 In Admin Model
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+
+class Admin extends Authenticatable
+{
+    use HasFactory;
+    protected $table = 'admins';
+    protected $guarded = [];
+}
+
+
+
+Step :3 
+
+////////////////////////////// app\Http\Middleware\AdminMiddleware //////////////////////////////
+<?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class AdminMiddleware
+{
+    public function handle(Request $request, Closure $next)
+    {
+        // dd('Middleware executed');
+        // Check if the user is authenticated and is an admin
+        if (!Auth::guard('admin')->check()) {
+            return redirect()->route('admin.login')->with('error','Unautorized user!'); // Redirect to admin login if not authenticated
+        }
+
+        return $next($request);
+    }
+}
+
+
+Step :4 
+//////////////////////////// app\http\kernal.php /////////////////////////////////////////////////
+protected $middlewareAliases = [
+
+  'admin'    => \App\Http\Middleware\AdminMiddleware::class,
+];
+
+
+Step :5 
+///////////////////////// web.php //////////////////////////////////////////////////////////////
+
+Route::get('/clear', function () {
+    Artisan::call('route:clear');
+    Artisan::call('config:clear');
+    Artisan::call('cache:clear');
+    Artisan::call('view:clear');
+    Artisan::call('optimize:clear');
+    
+    dd('clear');
+});
+
+
+Route::match(['get','post'], 'admin/login', [AuthController::class, 'login'])->name('admin.login');
+
+Route::prefix('admin/')->name('admin.')->middleware('admin')->group(function(){
+        Route::controller(AuthController::class)->group(function(){
+            Route::get('dashboard', 'dashboard')->name('dashboard');
+            Route::get('users', 'users')->name('users');
+
+            Route::get('logout', 'logout')->name('logout');
+
+        });
+});
+
+
+
+Step :6 Contrller Side Controller
+
+
+
+
+
+
+public function login(Request $req){
+
+    try{
+        if($req->isMethod('get')){
+            // dd(121);
+            // dd(Auth::guard('admin')->check());
+            return view('backend.auth.login');
+
+        }else{
+
+            $req->validate([
+                'email' => 'required|email',
+                'password' => 'required'
+            ]);
+
+            $email = $req->email;
+            $password = $req->password;
+
+            $admin = Admin::where('email',$email)->first();
+            if($admin){
+                if(Auth::guard('admin')->attempt([ 'email' => $email, 'password' => $password ])){
+                    return redirect()->route('admin.dashboard')->with('success','Login Successfully!');
+                }else{
+                    return back()->with('error','Wrong Credentials!');
+                }    
+            }else{
+                return back()->with('error','Record Not Found!');
+            }   
+            
+        }
+
+    }catch (ValidationException $e) {
+        return back()->withErrors($e->validator)->withInput();
+    }catch(\Exception $e){
+        return back()->with('error', 'Warning : ' .$e->getMessage());
+    }
+
+    
+}
+
+ public function logout(){
+        Auth::guard('admin')->logout();
+        session()->invalidate();
+        session()->regenerateToken();
+        return redirect()->route('admin.adminLoginForm');
+
+    }
+
+
+
+
