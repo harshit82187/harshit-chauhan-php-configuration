@@ -822,6 +822,7 @@ use Endroid\QrCode\Writer\PngWriter;
         $key_secret = env('RAZORPAY_SECRET');
         // $arr = ['amount' => $amount, 'currency' => $currencyCode];
         $arr = ['amount' => $amount * 100, 'currency' => $currencyCode];
+        Log::channel('razorpay')->info('Razorpay Key ' . $key_id. 'And Secret Key ' . $key_secret);
 
         $arr1 = json_encode($arr);
         $fields_string = $arr1;
@@ -857,27 +858,27 @@ use Endroid\QrCode\Writer\PngWriter;
                 $user = Auth::User();
                 try {
                     $ch = $this->get_curl_handle_razorpay($razorpayPaymentId, $amount, $currencyCode);
-                    
+
                     $result = curl_exec($ch);
                     // dd($result);
                     $http_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-                    Log::info('Razorpay cURL Result', ['result' => $result, 'http_status' => $http_status]);
+                    Log::channel('razorpay')->info('Razorpay cURL Result', ['result' => $result, 'http_status' => $http_status]);
 
                     if ($result === false) {
                         $success = false;
                         $error = 'Curl error: ' . curl_error($ch);
-                        Log::error('Curl execution failed: ' . curl_error($ch));
+                        Log::channel('razorpay')->error('Curl execution failed: ' . curl_error($ch));
                     } else {
                         $response_array = json_decode($result, true);
-                        Log::info('Razorpay Response', $response_array);
+                        Log::channel('razorpay')->info('Razorpay Response', $response_array);
 
                         if ($http_status === 200 && isset($response_array['status'])) {
                             if ($response_array['status'] == 'captured') {
                                 $email = Auth::user()->email;
                                 $payment = Payment::create([
                                     'r_payment_id' => $response_array['id'],
-                                    'merchant_order_id' => $merchant_order_id, 
+                                    'merchant_order_id' => $merchant_order_id,
                                     'method' => $response_array['method'],
                                     'currency' => $response_array['currency'],
                                     'user_email' => $email ?? '',
@@ -885,11 +886,11 @@ use Endroid\QrCode\Writer\PngWriter;
                                     'json_response' => $result,
                                 ]);
 
-                                Log::info('Payment successfully captured', ['status' => $response_array['status']]);
+                                Log::channel('razorpay')->info('Payment successfully captured', ['status' => $response_array['status']]);
                                 return 'captured';
                             } else {
                                 $error = 'Payment capture failed: ' . $response_array['status'];
-                                Log::error('Payment capture failed', ['status' => $response_array['status']]);
+                                Log::channel('razorpay')->error('Payment capture failed', ['status' => $response_array['status']]);
                                 return 'failed';
                             }
                         } else {
@@ -899,7 +900,7 @@ use Endroid\QrCode\Writer\PngWriter;
                             } else {
                                 $error = 'RAZORPAY_ERROR: Invalid Response';
                             }
-                            Log::error('Razorpay API error', ['error' => $error]);
+                            Log::channel('razorpay')->error('Razorpay API error', ['error' => $error]);
                         }
                     }
 
@@ -907,26 +908,26 @@ use Endroid\QrCode\Writer\PngWriter;
                 } catch (Exception $e) {
                     $success = false;
                     $error = 'OPENCART_ERROR: Request to Razorpay Failed - ' . $e->getMessage();
-                    Log::error('Error processing payment: ' . $e->getMessage());
+                    Log::channel('razorpay')->error('Error processing payment: ' . $e->getMessage());
                 }
             } else {
                 $error = 'Missing required payment data';
-                Log::error('Error processing payment: ' . $error);
+                Log::channel('razorpay')->error('Error processing payment: ' . $error);
             }
         } catch (Exception $e) {
             $error = 'An error occurred: ' . $e->getMessage();
-            Log::error('Error processing payment: ' . $error);
+            Log::channel('razorpay')->error('Error processing payment: ' . $error);
         }
 
         if ($error) {
-            Log::error('Final error during payment: ' . $error);
+            Log::channel('razorpay')->error('Final error during payment: ' . $error);
             return 'An error occurred. Contact site administrator, please!';
         }
 
         return $success;
     }
 
-    public function thankYou(Request $request){
+   public function hotelBookingThankYou(Request $request){
         // dd($request->all());
         $today = Carbon::now()->format('d-M-Y');
         $type = $request->get('type');
@@ -938,140 +939,167 @@ use Endroid\QrCode\Writer\PngWriter;
 
        if($type == 1){
             $booking = Booking::find($request->get('booking'));             
-            $ferry = FerryBooking::find($request->get('ferry'));
+            $hotel = Hotel::find($request->get('hotel'));
+            $hotelBookingDetail = HotelBookingDetail::find($request->get('hotelBookingDetail'));
    
             $data = $request->get('data');
             $role = $request->get('role');
-            return view('email.web.ferry-booking-invoice', compact('booking','user','ferry','data','role','today'));
+            return view('email.web.hotel-booking-invoice', compact('booking','user','hotelBookingDetail','hotel','data','role','today'));
         }
         
     }
 
-   public function ferryBookingStore(Request $request)
-    {
-        $request->validate([
-            'ferry_table_id' => 'required|numeric',
-            'razorpay_payment_id' => 'required|string',
-            'transaction_via' => 'required|string',
-            'amount' => 'required|numeric',
-            'adult' => 'required|numeric',
-            'children' => 'required|numeric',
-            'class_type' => 'required',
-            'booking_date' => 'required|date',
-            'merchant_order_id' => 'required|string',
-            'passenger_name' => 'required|array',
-            'phone' => 'required|array',
-            'age' => 'required|array',
-            'gender' => 'required|array',
-        ]);
+   public function hotelBookingStore(Request $request){
+            // dd($request->all());
+          DB::beginTransaction();
+        try{
+            
+            $request->validate([
+                'hotel_table_id' => 'required|numeric',
+                'razorpay_payment_id' => 'required|string',
+                'transaction_via' => 'required|string',
+                'amount' => 'required|numeric',
+                'admin_commision' => 'required|numeric',
+                'gst' => 'required|numeric',
+                'name' => 'required',
+                'email' => 'required',
+                'merchant_order_id' => 'required|string',
+                'mobile_no' => 'required',
+                'address' => 'required',
+                'check_in' => 'required|date',
+                'check_out' => 'required|date',
+            ]);
 
-        if (Auth::check()) {
-            $paymentData = [
-                'razorpay_payment_id' => $request->razorpay_payment_id,
-                'merchant_order_id' => $request->merchant_order_id,
-                'amount' => $request->amount,
-            ];
-
-            $payment = $this->proceedPayment($paymentData);
-
-            if ($payment === 'captured') {
-                $ferry = FerryBooking::find($request->ferry_table_id);
-
-                if (!$ferry) {
-                    return back()->with('error', 'Booking details not found!');
-                }
-
-                $user = Auth::user();
-                $invoiceNumber = now()->format('Ym') . rand(100000, 999999);
-
-                // Create booking
-                $booking = Booking::create([
-                    'user_id' => $user->id,
-                    'booking_type' => '1',
-                    'relative_table_id' => $request->ferry_table_id,
-                    'invoice' => $invoiceNumber,
-                    'r_payment_id' => $request->razorpay_payment_id,
-                    'adult' => $request->adult,
-                    'children' => $request->children,
-                    'booking_date' => $request->booking_date,
+            if (Auth::check()) {
+                $paymentData = [
+                    'razorpay_payment_id' => $request->razorpay_payment_id,
+                    'merchant_order_id' => $request->merchant_order_id,
                     'amount' => $request->amount,
-                    'passenger_name' => json_encode($request->passenger_name),
-                    'phone' => json_encode($request->phone),
-                    'age' => json_encode($request->age),
-                    'gender' => json_encode($request->gender),
-                    'class_type' => $request->class_type,
-                ]);
-
-                // Generate invoice and save PDF
-                $year = now()->year;
-                $month = now()->format('M');
-                $today = Carbon::now()->format('d-M-Y');
-                $fileName = "invoice_{$invoiceNumber}.pdf";
-                $directoryPath = public_path("ferry-booking/{$year}/{$month}");
-                $adminEmail = View::shared('adminEmail');
-
-                if (!File::exists($directoryPath)) {
-                    File::makeDirectory($directoryPath, 0777, true);
-                }
-
-
-                    // Generate the QR code with the route
-                    $qrCode = new QrCode(route('invoice.show', ['invoiceNumber' => $invoiceNumber]));
-                    $writer = new PngWriter();
-                    $qrCodeContent = $writer->write($qrCode)->getString();
-
-                     // Save QR code to the local path
-                    $qrCodeDirectory = public_path("qr-codes/{$year}/{$month}");
-                    if (!File::exists($qrCodeDirectory)) {
-                        File::makeDirectory($qrCodeDirectory, 0777, true);
+                ];
+                $payment = $this->proceedPayment($paymentData);
+                
+                if ($payment === 'captured') {
+                    $hotel = Hotel::find($request->hotel_table_id);
+                    if (!$hotel) {
+                        return back()->with('error', 'Hotel details not found!');
                     }
+                    $user = Auth::user();
+                    $invoiceNumber = now()->format('Ym') . rand(100000, 999999);
+                    // Create booking
+                    $booking = Booking::create([
+                        'user_id' => $user->id,
+                        'booking_type' => '2',
+                        'relative_table_id' => $request->hotel_table_id,
+                        'invoice' => $invoiceNumber,
+                        'r_payment_id' => $request->razorpay_payment_id,
 
-                     // Define the file path for the QR code
-                    $qrCodeFilePath = "{$qrCodeDirectory}/{$invoiceNumber}-qr.jpg"; // Local file path for QR code
-                    file_put_contents($qrCodeFilePath, $qrCodeContent);
-
-                    $booking->update([
-                        'qr_image' => "qr-codes/{$year}/{$month}/{$invoiceNumber}-qr.jpg",
+                        'adult' => $request->adult,
+                        'children' => $request->children,
+                        'booking_date' => $request->booking_date,
+                        'amount' => $request->amount,
+                        'passenger_name' => json_encode($request->passenger_name),
+                        'phone' => json_encode($request->phone),
+                        'age' => json_encode($request->age),
+                        'gender' => json_encode($request->gender),
+                        'class_type' => $request->class_type,
                     ]);
 
-                   // Generate the PDF
-                    $filePath = "{$directoryPath}/{$fileName}";
-                    $pdf = Pdf::loadView('pdf.ferry-booking-invoice', compact('ferry', 'user', 'request', 'booking', 'adminEmail', 'today', 'qrCodeFilePath'));
-                    $pdf->save($filePath);
+                    $hotelBookingDetail = HotelBookingDetail::create([
+                        'booking_table_id' => $booking->id,
+                        'name' => $request->name,
+                        'email' => $request->email,
+                        'mobile_no' => $request->mobile_no,
+                        'address' => $request->address,
+                        'amount' => $request->amount,
+                        'admin_commision' => $request->admin_commision,
+                        'gst' => $request->gst,
+                        'check_in' => $request->check_in,
+                        'check_out' => $request->check_out,
+                    ]);
 
-                        // Update booking with generated PDF file path
+                    // Generate invoice and save PDF
+                    $year = now()->year;
+                    $month = now()->format('M');
+                    $today = Carbon::now()->format('d-M-Y');
+                    $fileName = "invoice_{$invoiceNumber}.pdf";
+                    $directoryPath = public_path("hotel-booking/{$year}/{$month}");
+                    $adminEmail = View::shared('adminEmail');
+
+                    if (!File::exists($directoryPath)) {
+                        File::makeDirectory($directoryPath, 0777, true);
+                    }
+
+
+                        // Generate the QR code with the route
+                        $qrCode = new QrCode(route('hotel.booking.invoice', ['invoiceNumber' => $invoiceNumber]));
+                        $writer = new PngWriter();
+                        $qrCodeContent = $writer->write($qrCode)->getString();
+
+                        // Save QR code to the local path
+                        $qrCodeDirectory = public_path("qr-codes/{$year}/{$month}");
+                        if (!File::exists($qrCodeDirectory)) {
+                            File::makeDirectory($qrCodeDirectory, 0777, true);
+                        }
+
+                        // Define the file path for the QR code
+                        $qrCodeFilePath = "{$qrCodeDirectory}/{$invoiceNumber}-qr.jpg"; 
+                        file_put_contents($qrCodeFilePath, $qrCodeContent);
+
                         $booking->update([
-                            'invoice_pdf' => "ferry-booking/{$year}/{$month}/{$fileName}",
+                            'qr_image' => "qr-codes/{$year}/{$month}/{$invoiceNumber}-qr.jpg",
                         ]);
 
-                // Send emails
+                    // Generate the PDF
+                        $filePath = "{$directoryPath}/{$fileName}";
+                        $pdf = Pdf::loadView('pdf.hotel-booking-invoice', compact('hotel', 'user', 'request', 'booking','hotelBookingDetail', 'adminEmail', 'today', 'qrCodeFilePath'));
+                        $pdf->save($filePath);
 
-                $this->sendEmail($user->email, $user, $ferry, $booking, 'user');
-                $this->sendEmail($adminEmail, $user, $ferry, $booking, 'admin');
+                            // Update booking with generated PDF file path
+                            $booking->update([
+                                'invoice_pdf' => "hotel-booking/{$year}/{$month}/{$fileName}",
+                            ]);
 
-                return redirect()->route('thank.you', [
-                    'string' => Str::random(500),
-                    'ferry' => $ferry,
-                    'user' => $user,
-                    'booking' => $booking,
-                    'type' => 1,
-                ])->with('success', 'Payment successful and booking completed');
+                    // Send emails
+
+                    $this->sendEmail($user->email, $user, $hotel, $booking, $hotelBookingDetail, 'user');
+                    $this->sendEmail($adminEmail, $user, $hotel, $booking, $hotelBookingDetail, 'admin');
+                    DB::commit();
+                    return redirect()->route('hotel.booking.thank.you', [
+                        'string' => Str::random(500),
+                        'hotel' => $hotel,
+                        'user' => $user,
+                        'booking' => $booking,
+                        'hotelBookingDetail' => $hotelBookingDetail,
+                        'type' => 1,
+                    ])->with('success', 'Payment successful and booking completed');
+                }
+
+                return back()->with('error', 'Payment failed!');
             }
 
-            return back()->with('error', 'Payment failed!');
+        }catch (\Exception $e){
+            DB::rollBack();
+            return back()->with('error', 'Warning : ' .$e->getMessage());
         }
+
     }
 
-    private function sendEmail($email, $user, $ferry, $booking, $role)
+ private function sendEmail($email, $user, $hotel, $booking, $hotelBookingDetail, $role)
     {
-        $subject = 'Ferry Booking Invoice';
-        $isAdmin = ($role === 'admin');
+        try{
+            $subject = 'Hotel Booking Invoice';
+            $isAdmin = ($role === 'admin');
 
-        Mail::send('email.email-booking', compact('user', 'ferry', 'booking', 'role', 'isAdmin'), function ($message) use ($email, $subject, $booking) {
-            $message->to($email);
-            $message->subject($subject);
-            $message->attach(public_path($booking->invoice_pdf));
-        });
+            Mail::send('email.email-booking', compact('user', 'hotel', 'booking', 'hotelBookingDetail', 'role', 'isAdmin'), function ($message) use ($email, $subject, $booking) {
+                $message->to($email);
+                $message->subject($subject);
+                $message->attach(public_path($booking->invoice_pdf));
+            });
+
+        }catch (\Exception $mailException) {
+            Log::channel('razorpay')->error('Failed to send email to ' . $email . '. Error: ' . $mailException->getMessage());
+        }
+        
     }
 
     public function showInvoice($invoiceNumber)
