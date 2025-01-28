@@ -510,16 +510,32 @@ Step :5 Pdf Invoice Code
 
 Step :6 Web invoice code
 
-@extends('front.layout.app');
+@extends('layout.app')
 @section('content')
+<style>
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+        #tableArea, #tableArea * {
+            visibility: visible;
+        }
+        #tableArea {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+        }
+    }
+</style>
 <br><br>
-<table width="100%" cellpadding="0" cellspacing="0" style="font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.6;">
+<table id="tableArea" width="100%" cellpadding="0" cellspacing="0" style="font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.6;">
     <tr>
         <td align="center" style="padding: 20px; background-color: #f4f4f4;">
             <table width="900" cellpadding="0" cellspacing="0" style="background: #ffffff; border: 1px solid #ddd; border-radius: 8px;">
                 <tr>
-                    <td style="padding: 20px; text-align: center; border-bottom: 1px solid #ddd;background-color: #d93025;">
-                        <img src="{{ asset('front/img/logo/chockwisehotel_logo.png') }}" height="110px" width="300px" alt="logo">
+                    <td style="padding: 20px; text-align: center; border-bottom: 1px solid #ddd;background-color: #1e4d91;">
+                        <img src="{{ asset('assets/img/common/dashboard-user.png') }}" height="80px" width="270px" alt="logo">
                         <h2 style="margin: 0; font-size: 20px; color: #fff;">Invoice for Hotel Booking</h2>
                     </td>
                 </tr>
@@ -529,19 +545,19 @@ Step :6 Web invoice code
                             <div>
                                 <div class="detail_item" style=" display: flex;gap: 20px;margin-bottom: 5px;">
                                     <p style=" width: 46%;margin: 0;font-weight: bold;white-space: nowrap;">Invoice ID:</p>
-                                    <span style="color: #555;">{{ $booking['invoice'] ?? '---' }}</span>
+                                    <span style="color: #555;margin-left:16%;">{{ $booking['invoice'] ?? '---' }}</span>
                                 </div>
                                 <div class="detail_item" style=" display: flex;gap: 20px;margin-bottom: 5px;">
                                     <p style=" width: 46%;margin: 0;font-weight: bold;white-space: nowrap;">Booking Date:</p>
-                                    <span style="color: #555;">{{ $today ?? '---' }}</span>
+                                    <span style="color: #555;margin-left:10%;">{{ $today ?? '---' }}</span>
                                 </div>
                                 <div class="detail_item" style=" display: flex;gap: 20px;margin-bottom: 5px;">
                                     <p style=" width: 46%;margin: 0;font-weight: bold;white-space: nowrap;">Check In Date:</p>
-                                    <span style="color: #555;">{{ \Carbon\Carbon::parse($booking['check_in'])->format('d-M-Y') ?? '---' }}</span>
+                                    <span style="color: #555;margin-left:10%;">{{ \Carbon\Carbon::parse($hotelBookingDetail['check_in'])->format('d-M-Y') ?? '---' }}</span>
                                 </div>
                                 <div class="detail_item" style=" display: flex;gap: 20px;margin-bottom: 5px;">
                                     <p style=" width: 46%;margin: 0;font-weight: bold;white-space: nowrap;">Check Out Date:</p>
-                                    <span style="color: #555;">{{ \Carbon\Carbon::parse($booking['check_out'])->format('d-M-Y') ?? '---' }}</span>
+                                    <span style="color: #555;margin-left:10%;">{{ \Carbon\Carbon::parse($hotelBookingDetail['check_out'])->format('d-M-Y') ?? '---' }}</span>
                                 </div>
                             </div>
                             <div>
@@ -566,19 +582,19 @@ Step :6 Web invoice code
 
                             <tr>
                                 <td style="padding: 8px; border: 1px solid #ddd;">Name </td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $booking['name'] ?? 'N/A' }}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $hotelBookingDetail['name'] ?? 'N/A' }}</td>
                             </tr>
                             <tr>
                                 <td style="padding: 8px; border: 1px solid #ddd;">Contact </td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">+91 {{ $booking['mobile_no'] ?? '' }}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">+91 {{ $hotelBookingDetail['mobile_no'] ?? '' }}</td>
                             </tr>
                             <tr>
                                 <td style="padding: 8px; border: 1px solid #ddd;">Email </td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;"><a href="{{  $booking['email'] ?? '' }}" style="color: #007bff; text-decoration: none;">{{ $booking['email'] ?? '' }}</a></td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;"><a href="{{  $hotelBookingDetail['email'] ?? '' }}" style="color: #007bff; text-decoration: none;">{{ $hotelBookingDetail['email'] ?? '' }}</a></td>
                             </tr>
                             <tr>
                                 <td style="padding: 8px; border: 1px solid #ddd;">Address </td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $booking['address'] ?? 'N/A' }}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $hotelBookingDetail['address'] ?? 'N/A' }}</td>
                             </tr>
 
 
@@ -593,11 +609,11 @@ Step :6 Web invoice code
 
                             <tr>
                                 <td style="padding: 8px; border: 1px solid #ddd;">Hotel Name </td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $property['title'] ?? '' }}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $hotel['name'] ?? '' }}</td>
                             </tr>
                             <tr>
                                 <td style="padding: 8px; border: 1px solid #ddd;">Hotel Address </td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $property['address'] ?? '' }}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{!! $hotel['address']  !!}</td>
                             </tr>
 
                         </table>
@@ -612,35 +628,31 @@ Step :6 Web invoice code
 
                             <tr>
                                 <td style="padding: 8px; border: 1px solid #ddd;">Check In Date </td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ \Carbon\Carbon::parse($booking['check_in'])->format('d-M-Y') ?? '---' }}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ \Carbon\Carbon::parse($hotelBookingDetail['check_in'])->format('d-M-Y') ?? '---' }}</td>
                             </tr>
                             <tr>
                                 <td style="padding: 8px; border: 1px solid #ddd;">Check Out Date </td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ \Carbon\Carbon::parse($booking['check_out'])->format('d-M-Y') ?? '---' }}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ \Carbon\Carbon::parse($hotelBookingDetail['check_out'])->format('d-M-Y') ?? '---' }}</td>
                             </tr>
                             <tr>
                                 <td style="padding: 8px; border: 1px solid #ddd;">Payment Method </td>
                                 <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">
-                                    @if($booking['payment_method'] == '1')
-                                             {{ 'Online' }}
-                                        @else
-                                          {{ 'Pay On Property' }}
-                                    @endif
+                                   Online
                                 </td>
                             </tr>
                             <tr>
                                 <td style="padding: 8px; border: 1px solid #ddd;">Service Charge Amount</td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;"> {{ $booking['admin_commision'] ?? ''  }}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;"> {{ $hotelBookingDetail['admin_commision'] ?? ''  }}</td>
                             </tr>
 
                             <tr style="font-weight: bold; background-color: #f8f8f8;">
                                 <td style="padding: 8px; border: 1px solid #ddd;">Gst Amount</td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $booking['gst'] ?? '' }}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $hotelBookingDetail['gst'] ?? '' }}</td>
                             </tr>
 
                             <tr style="font-weight: bold; background-color: #f8f8f8;">
                                 <td style="padding: 8px; border: 1px solid #ddd;">Total Amount</td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ number_format($booking['amount'] ?? 0, 2) }}
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ ($hotelBookingDetail['amount'] ?? '0') }}
                                 </td>
                             </tr>
 
@@ -678,17 +690,11 @@ Step :6 Web invoice code
 
 @push('js')
 <script>
-    $(document).ready(function() {
-        $('#printButton').click(function() {
-            var printContents = $('table').html();
-            var originalContents = document.body.innerHTML;
-            document.body.innerHTML = '<table width="100%" cellpadding="0" cellspacing="0" style="font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.6;">' + printContents + '</table>';
-            window.print();
-            document.body.innerHTML = originalContents;
-            location.reload();
-        });
+    document.getElementById('printButton').addEventListener('click', function() {
+        window.print();
     });
 </script>
+
 <script>
     $(document).ready(function () {
         history.pushState(null, null, location.href);
@@ -702,6 +708,7 @@ Step :6 Web invoice code
 </script>
 
 @endpush
+
 
 
 
