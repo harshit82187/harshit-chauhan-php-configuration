@@ -8,6 +8,13 @@ composer require barryvdh/laravel-dompdf
 composer require endroid/qr-code
 
 
+Step :1  confid/logginf.php file
+	'razorpay' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/razorpay.log'), 
+            'level' => 'info', 
+        ],
+
 
 Step :1 .env file
 
