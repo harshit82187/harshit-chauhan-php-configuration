@@ -1088,5 +1088,10 @@ use Endroid\QrCode\Writer\PngWriter;
         return view('web-pages.invoice.detail', compact('booking', 'totalAmount','decodedNames','decodedphone','decodedage','decodedgender'));
     }
 
-
+1. Implement admin commission and gst amount functionality.
+2. When the user clicks the "Pay" button, Razorpay payment gateway modal should open. The payment amount should be dynamically fetched and accurately displayed in the Razorpay modal. Ensure that the gateway supports secure and seamless transactions.
+3. Once the payment is successfully completed, generate a detailed invoice. The invoice should be sent via email to both the user and the admin as a soft copy attachment. 
+4. After payment confirmation, redirect the user to thank you, where they can view the full booking invoice. This invoice should include detailed booking information, passenger details, and a breakdown of the paid amount.
+5. Implement functionality to generate a unique QR code when the invoice is created. The QR code should be displayed prominently on the invoice. 
+6. When the QR code is scanned using a mobile device, it should display the most important details, such as the invoice number, total paid amount, and passenger details.
 
