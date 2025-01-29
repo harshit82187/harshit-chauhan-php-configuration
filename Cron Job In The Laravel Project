@@ -80,3 +80,205 @@ Step :4 in cronjob section in the cpannel
 this path you provided :- /usr/local/bin/php /home/rtlabtools/public_html/path/to/cron/script
 
 this path you mention :- /usr/local/bin/php /home/rtlabtools/public_html/artisan send:user-details>> /dev/null 2>&1
+
+
+
+
+
+****************************************************** Second Method To Send Mail Via Cron Job ******************************************************************************************
+
+Step :1 Create cron-job channel (config/logging.php)
+       'cron-job' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/cron-job.log'),
+            'level' => 'debug', 
+        ],
+
+
+Step :2 Create app/Console/Commands/SendPendingTicketDetails.php
+
+<?php
+
+namespace App\Console\Commands;
+
+use Illuminate\Console\Command;
+use App\Models\User;
+use App\Models\Ticket;
+
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\File;
+
+
+class SendPendingTicketDetails extends Command
+{
+    /**
+     * The name and signature of the console command.
+     *
+     * @var string
+     */
+    protected $signature = 'send:pending-ticket-details';
+
+    /**
+     * The console command description.
+     *
+     * @var string
+     */
+    protected $description = 'Send Pending Ticket Details (Ticket No, Vendor Name, Subject and Description)';
+
+    /**
+     * Execute the console command.
+     */
+     public function handle()
+    {
+        try {
+            // Fetch user details
+            Log::channel('cron-job')->info('Pending Ticket Details  load successfully.');
+            $tickets = Ticket::select('ticket_no', 'vendor_id','subject')->where('status','1')->get();
+            if ($tickets->isEmpty()) {
+                $this->info('No pending tickets to send.');
+                Log::channel('cron-job')->info('No pending tickets to send.');
+
+                return;
+            }
+            Log::channel('cron-job')->info('Tickets Data: ' . json_encode($tickets));
+            $year = now()->year;
+            $month = now()->format('M');
+            $randomNumber = now()->format('Ym') . rand(100000, 999999);
+            $fileName = "pending_ticket_{$randomNumber}.pdf";
+            $directoryPath = public_path("cron-job/pending-ticket-pdfs/{$year}/{$month}");
+            if (!File::exists($directoryPath)) {
+                File::makeDirectory($directoryPath, 0777, true);
+            }
+            $filePath = "{$directoryPath}/{$fileName}";
+            $adminEmail = View::shared('adminEmail');  
+            Log::channel('cron-job')->info('About to generate PDF.');  
+            $pdf = Pdf::loadView('mails.cron-job.pdf.pending-ticket-detail', compact('tickets','adminEmail'))->save($filePath);
+            Log::channel('cron-job')->info('PDF generated and saved successfully.');
+            $emailData = [
+                'tickets' => $tickets,
+            ];
+            Log::channel('cron-job')->info('Sending email.');
+            Mail::send('mails.cron-job.pending-ticket-detail', $emailData, function($message) use ($filePath) {
+                $message->to('harshitk@pearlorganisation.com')->subject('Pending Ticket Details');
+                $message->attach($filePath);
+            }); 
+            Log::channel('cron-job')->info('Email sent successfully.');
+            $this->info('Pending Ticket Details  have been logged successfully.');
+            Log::channel('cron-job')->info('Pending Ticket Details have been logged successfully.');
+
+        } catch (\Exception $e) {
+            Log::channel('cron-job')->error('Error sending Pending Ticket Details: ' . $e->getMessage());
+            $this->error('Failed to send Pending Ticket Details. Check the logs for more information.');
+        }
+    }
+}
+
+
+Step :3 app/Console/Kernel.php 
+<?php
+
+namespace App\Console;
+
+use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
+
+class Kernel extends ConsoleKernel
+{
+    /**
+     * Define the application's command schedule.
+     */
+    protected function schedule(Schedule $schedule): void
+    {
+        $schedule->command('send:pending-ticket-details')->dailyAt('13:00');
+    }
+
+    /**
+     * Register the commands for the application.
+     */
+    protected function commands(): void
+    {
+        $this->load(__DIR__.'/Commands');        
+        require base_path('routes/console.php');
+    }
+}
+
+
+
+
+Step :4 mails.cron-job.pending-ticket-detail file code
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Booking Invoice</title>
+</head>
+<body>
+   
+        <p>Hello, Admin</p>
+        <p>Please find the pending ticket query attached below.</p>
+</body>
+</html>
+
+
+Step :5 mails.cron-job.pdf.pending-ticket-detail file code
+
+<table width="100%" cellpadding="0" cellspacing="0" style="font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.6;">
+	<tr>
+		<td align="center" style="padding: 20px; background-color: #f4f4f4;">
+			<table width="100%" cellpadding="0" cellspacing="0" style="background: #ffffff; border: 1px solid #ddd; border-radius: 8px;">
+				<tr>
+					<td style="padding: 5px 20px; text-align: center; border-bottom: 1px solid #ddd; background-color: #d93025;">
+						@php
+						$logoPath = public_path('front/img/logo/chockwisehotel_logo.png');
+						$logoData = base64_encode(file_get_contents($logoPath));
+						$logoSrc = 'data:image/png;base64,' . $logoData;
+						@endphp
+						<img src="{{$logoSrc}}" height="80px" width="300px" alt="logo">
+						<h2 style="margin: 0; font-size: 20px; color: #fff;">Invoice for Hotel Booking</h2>
+					</td>
+				</tr>
+				<tr>
+					<td style="padding: 20px;">
+						<p style="margin: 0; font-weight: bold;">Pending Ticket  Details  </p>
+						<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 10px 0;">
+							<thead>
+								<tr>
+									<th style="padding: 8px; border: 1px solid #ddd; width: 33.33%;">Ticket No</th>
+									<th style="padding: 8px; border: 1px solid #ddd; width: 33.33%;">Vendor Name</th>
+									<th style="padding: 8px; border: 1px solid #ddd; width: 33.33%;">Subject</th>
+								</tr>
+							</thead>
+							<tbody>
+								@foreach($tickets as $ticket)
+								<tr>
+									<td style="padding: 8px; border: 1px solid #ddd; width: 33.33%;">{{ $ticket->ticket_no ?? ''  }}</td>
+									<td style="padding: 8px; border: 1px solid #ddd; width: 33.33%;">{{ $ticket->vendorDetail->name ?? ''  }}</td>
+									<td style="padding: 8px; border: 1px solid #ddd; width: 33.33%;"> {{ $ticket->subject ?? '' }}</td>
+								</tr>
+								@endforeach
+							</tbody>
+						</table>
+					</td>
+				</tr>
+				<tr>
+					<td style="padding: 20px; border-top: 1px solid #ddd;">
+						<p style="margin: 0;">Thank you for booking with us. Please keep this invoice for your records.</p>
+						<p style="margin: 10px 0;">For any queries, contact our support team at:
+							<a href="{{ $adminEmail ?? '' }}" style="color: #007bff; text-decoration: none;">{{ $adminEmail ?? '' }}</a>
+						</p>
+					</td>
+				</tr>
+				<tr>
+					<td style="padding: 10px; text-align: center; background-color: #f4f4f4; border-top: 1px solid #ddd;">
+						<p style="font-size: 12px; color: #888;">� 2025 All rights reserved.</p>
+					</td>
+				</tr>
+			</table>
+		</td>
+	</tr>
+</table>
+
+
