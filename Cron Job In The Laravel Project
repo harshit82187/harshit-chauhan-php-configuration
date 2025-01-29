@@ -61,7 +61,7 @@ class SendUserDetails extends Command
 
 
 
-Step :3 kernel.php file
+Step :3  public_html/app/Console/kernel.php file
 
  protected $commands = [
        Commands\TestCommand::class,
