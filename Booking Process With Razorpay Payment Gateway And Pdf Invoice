@@ -152,6 +152,9 @@ Step :2 Blade File Code
 	      email: "{{ Auth::User()->email }}", 
 	      contact: "{{ Auth::User()->mobile }}"
 	    },
+	    "theme": {
+	            "color": "#3399cc"
+	     },
 	    handler: function(transaction) {
 	      razorpayPaymentId = transaction.razorpay_payment_id; 
 	      console.log("Payment ID: " + razorpayPaymentId);
