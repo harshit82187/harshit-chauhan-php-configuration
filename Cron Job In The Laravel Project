@@ -282,3 +282,34 @@ Step :5 mails.cron-job.pdf.pending-ticket-detail file code
 </table>
 
 
+
+
+Step :6 
+
+cron job path :- /usr/local/bin/php /home/x75zkcnusxxf/public_html/path/to/cron/script
+our path (Every Command Will run but you setup command method in kernel.php)  :- /usr/local/bin/php /home/x75zkcnusxxf/public_html/artisan schedule:run >> /dev/null 2>&1
+
+
+Method					Description
+everyMinute()			Runs the task every minute
+everyFiveMinutes()		Runs the task every 5 minutes
+everyTenMinutes()		Runs the task every 10 minutes
+everyFifteenMinutes()		Runs the task every 15 minutes
+hourly()			Runs the task every hour
+daily()				Runs the task every day at midnight
+dailyAt('09:00')		Runs the task daily at 9:00 AM
+twiceDaily(1, 13)		Runs the task twice daily (at 1 AM and 1 PM)
+weekly()			Runs the task every Sunday at midnight
+monthly()			Runs the task on the 1st of every month at midnight
+yearly()			Runs the task once per year
+mondays()->at('10:00')		Runs every Monday at 10 AM
+
+
+
+
+
+
+
+
+
+
