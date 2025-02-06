@@ -241,3 +241,77 @@ use Illuminate\Support\Facades\View;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+********************************************************************************* Sending queue email in laravel *************************************************************************
+
+
+
+Step :1 web.php file
+    Route::get('send-mail-to-active-users', 'sendMailToActiveUsers')->name('send-mail-to-active-users');
+
+
+Step :2 Controller Side Code
+
+use App\Mail\MyCustomMail;
+use Mail;
+use App\Models\User;
+
+public function sendMailToActiveUsers()
+{
+        try{
+            $users = User::where('status', 1)->get();
+            if ($users->isEmpty()) {
+                return response()->json(['message' => 'No active users found.']);
+            }
+            // dd($users);
+             Mail::to('harshitk@pearlorganisation.com')->queue(new MyCustomMail($users)); 
+            return response()->json(['message' => 'Emails sent successfully to active users!']);
+        }catch(\Exception $e){
+            return response()->json(['message' => 'Error: ' . $e->getMessage()]);
+        }
+}
+
+
+
+Step :3 app/Mail/MyCustomMail.php
+
+<?php
+
+namespace App\Mail;
+
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Mail\Mailable;
+use Illuminate\Queue\SerializesModels;
+
+class MyCustomMail extends Mailable implements ShouldQueue
+{
+    use Queueable, SerializesModels;
+
+    public $users;
+
+    public function __construct($users)
+    {
+        $this->users = $users;
+    }
+
+    public function build()
+    {
+        return $this->from(env('MAIL_FROM_ADDRESS'))
+                    ->subject('Important Notification')
+                    ->view('email.web.custom-mail')
+                    ->with('users', $this->users);
+    }
+}
+
+
