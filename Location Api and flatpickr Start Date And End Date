@@ -102,18 +102,20 @@
 
 <script>
     $(document).ready(function () {
-      const input = document.getElementById('location');
-      const autocomplete = new google.maps.places.Autocomplete(input);
-      autocomplete.setFields(['address_components', 'geometry', 'formatted_address']);
-      autocomplete.addListener('place_changed', function () {
-        const place = autocomplete.getPlace();
-
-        if (place.formatted_address) {
-          console.log('Selected Place:', place.formatted_address);
-        } else {
-          alert('No valid address selected');
-        }
-      });
+        const input = document.getElementById('location');
+        const options = {
+            types: ['(cities)'] 
+        };
+        const autocomplete = new google.maps.places.Autocomplete(input, options);
+        autocomplete.setFields(['address_components', 'geometry', 'formatted_address']);
+        autocomplete.addListener('place_changed', function () {
+            const place = autocomplete.getPlace();
+            if (place.formatted_address) {
+                console.log('Selected City:', place.formatted_address);
+            } else {
+                alert('No valid city selected');
+            }
+        });
     });
 </script>
 
