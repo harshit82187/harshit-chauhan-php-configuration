@@ -1,0 +1,181 @@
+*********************************************** Implement Phonepay Payment Gateway In Laravel project ********************************************************************************
+
+
+Step : 1 Web File Code
+
+Route::controller(PhonePeController::class)->group(function () {
+    Route::get('/phone-pay', 'index')->name('phonepe.index');
+    Route::post('/pay', 'initiatePayment')->name('phonepe.pay');
+    Route::match(['GET', 'POST'], '/payment-success', 'paymentSuccess')->name('payment.success');
+    Route::post('/payment-callback', 'paymentCallback')->name('payment.callback');
+});
+
+
+
+Step : 2 Controller Side Code 
+
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+class PhonePeController extends Controller
+{
+    private $merchantId = 'FIRSTCHOICEUAT';
+    private $apiKey = 'ab640917-dd5f-4500-b56e-1753248959af';
+    private $phonePeUrl = "https://api-preprod.phonepe.com/apis/pg-sandbox/pg/v1/pay";
+
+
+    public function index()
+    {
+        return view('phonepay.index');
+    }
+
+    public function initiatePayment(Request $request)
+    {
+        $request->validate([
+            'amount' => 'required|numeric|min:1'
+        ], [
+            'amount.required' => 'Amount is required',
+            'amount.numeric' => 'Amount must be a valid number',
+            'amount.min' => 'Amount must be greater than zero',
+        ]);
+
+        try {
+            $amount = $request->input('amount');
+            $order_id = uniqid();
+            $redirectUrl = route('payment.callback');
+
+            $transaction_data = [
+                'merchantId' => $this->merchantId,
+                'merchantTransactionId' => $order_id,
+                'merchantUserId' => $order_id,
+                'amount' => $amount * 100,
+                'redirectUrl' => $redirectUrl,
+                'redirectMode' => 'POST',
+                'callbackUrl' => route('payment.callback'),
+                'paymentInstrument' => [
+                    'type' => 'PAY_PAGE',
+                ],
+            ];
+
+            $payloadMain = base64_encode(json_encode($transaction_data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $hashString = $payloadMain . "/pg/v1/pay" . $this->apiKey;
+            $sha256 = hash("sha256", $hashString);
+            $final_x_header = $sha256 . '###1'; // Salt index = 1
+            $requestBody = json_encode(['request' => $payloadMain]);
+
+            Log::info('PhonePe API Request:', ['payload' => $transaction_data]);
+
+            $curl = curl_init();
+            curl_setopt_array($curl, [
+                CURLOPT_URL => $this->phonePeUrl,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 30,
+                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                CURLOPT_CUSTOMREQUEST => "POST",
+                CURLOPT_POSTFIELDS => $requestBody,
+                CURLOPT_HTTPHEADER => [
+                    "Content-Type: application/json",
+                    "X-VERIFY: " . $final_x_header,
+                    "accept: application/json"
+                ],
+            ]);
+
+            $response = curl_exec($curl);
+            $httpStatus = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+            $err = curl_error($curl);
+            curl_close($curl);
+
+            if ($err) {
+                Log::error('cURL Error: ' . $err);
+                return back()->with('error', 'Payment request failed. Please try again.');
+            }
+
+            $res = json_decode($response);
+            Log::info('PhonePe API Response:', ['response' => $res, 'httpStatus' => $httpStatus]);
+            if ($httpStatus !== 200) {
+                return back()->with('error', 'Payment initiation failed. Unexpected response from PhonePe.');
+            }
+
+            if (isset($res->code)) {
+                if ($res->code == 'PAYMENT_INITIATED' && isset($res->data->instrumentResponse->redirectInfo->url)) {
+                    return redirect()->away($res->data->instrumentResponse->redirectInfo->url);
+                } elseif ($res->code == 'TOO_MANY_REQUESTS') {
+                    sleep(5);
+                    return back()->with('error', 'Too many requests. Please try again in a few minutes.');
+                } else {
+                    return back()->with('error', 'Payment initiation failed: ' . ($res->message ?? 'Unknown error.'));
+                }
+            } else {
+                return back()->with('error', 'Invalid response from PhonePe.');
+            }
+        } catch (\Exception $e) {
+            Log::error('Payment initiation exception:', ['message' => $e->getMessage()]);
+            return back()->with('error', 'Something went wrong. Please try again later.');
+        }
+    }
+
+
+
+    public function paymentCallback(Request $request)
+    {
+        Log::info('PhonePe Callback Received', ['request' => $request->all()]);
+
+        $responseData = $request->all(); // Fix: Get request data directly
+
+        if (!$responseData || !isset($responseData['code'])) {
+            Log::error('Invalid JSON in callback');
+            return response()->json(['error' => 'Invalid JSON payload'], 400);
+        }
+
+        if ($responseData['code'] === 'PAYMENT_SUCCESS') {
+            $transactionId = $responseData['transactionId'] ?? null;
+            $providerReferenceId = $responseData['providerReferenceId'] ?? null;
+            $amount = $responseData['amount'] ?? 'N/A'; // Ensure amount is extracted
+
+            DB::table('transactions')->insert([
+                'transaction_id' => $transactionId,
+                'provider_reference_id' => $providerReferenceId,
+                'amount' => $amount,
+                'status' => 'success',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+
+
+            Log::info('Payment Successful', ['transactionId' => $transactionId, 'amount' => $amount]);
+
+            return view('phonepay.success', compact('providerReferenceId', 'transactionId', 'amount'));
+        }
+
+        Log::error('Payment Failed', ['error_code' => $responseData['code']]);
+        return response()->json(['error' => 'Payment failed: ' . $responseData['code']], 400);
+    }
+
+}
+
+
+
+Step : 3 App\Http\Middleware\VerifyCsrfToken.php file 
+
+<?php
+
+namespace App\Http\Middleware;
+
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken as Middleware;
+
+class VerifyCsrfToken extends Middleware
+{
+    /**
+     * The URIs that should be excluded from CSRF verification.
+     *
+     * @var array<int, string>
+     */
+    protected $except = [
+          'payment-callback'
+    ];
+}
