@@ -1,0 +1,654 @@
+******************************************************************* Stripe-Payment Gateway In Laravel With Invoice And QR-Code ****************************************************************
+
+Nessacary Package :
+
+composer require stripe/stripe-php
+composer require barryvdh/laravel-dompdf
+composer require endroid/qr-code
+
+
+
+Step :1  config/logging.php file
+	'stripe' => [
+        'driver' => 'single',
+        'path' => storage_path('logs/stripe.log'), 
+        'level' => 'info', 
+    ],
+
+
+Step :2 .env file
+
+STRIPE_KEY=pk_test_51PkJ4d06ShRfWNZFtQI3nuM25eMT1cbHjjSJRFHbNozetlH26nH2PENmyDVQt7F166VQk2KgSm48OKnrqE291A4A00F4WbmBYM
+STRIPE_SECRET=sk_test_51PkJ4d06ShRfWNZFV7KHIsD30YoFGbrNyraAoieOKqTg79e5Boh2RNr9tIrOui5lOZcwbqXSbqok42HxxsUAGS3m00QtRBYLdk
+
+
+Step :3 Blade File Code
+
+<form  role="form" action="{{ route('stripe.post') }}" method="post"  class="require-validation" data-cc-on-file="false" data-stripe-publishable-key="{{ env('STRIPE_KEY') }}"  id="payment-form" >
+				@csrf
+                <div class="input-div-box">
+					{{-- <label for="">Email</label> --}}
+					<input type="hidden" name="amount" value="{{ $total_amount }}">
+					<input type="hidden" name="property_id" value="{{ $property_id }}">
+					<input type="hidden" name="check_in" value="{{ $check_in }}">
+					<input type="hidden" name="check_out" value="{{ $check_out }}">
+					<input type="hidden" name="guests" value="{{ $guests }}">
+					<input type="hidden" name="children" value="{{ $children }}">
+					<input type="email" placeholder="Email Address" readonly value="{{ $user->email }}" required>
+				</div>
+				<div class="input-div-box-name">
+					<input type="text" placeholder="Full name on card" autocomplete='off' required>
+				</div>
+				<div class="input-div-box-carddetail">
+					<div class="information-cardd">
+						<input type="text" placeholder="1234 1234 1234"  class="card-number" autocomplete='off' required>
+					</div>
+					<div class="input-div-box-date">
+						<input type="text" class="card-expiry-month" placeholder='MM' autocomplete='off' required>
+                        <input type="text" class="card-expiry-year" placeholder='YY' autocomplete='off' required>
+						<input type="text" placeholder="CVV" class="card-cvc" autocomplete='off' required>
+					</div>
+				</div>
+				
+				<div class="input-div-box-country">
+					<label for="">Country or region</label>
+					<select required name="country"  id="country">
+						<option value="">Select Country</option>
+						<option value="USA">USA</option>
+						<option value="Canada">Canada</option>
+						<option value="UK">UK</option>
+						<option value="Australia">Australia</option>
+					</select>
+				</div>
+				
+				<div class="input-div-box-check">
+					<div class='col-md-12 error form-group hide'>
+						<div class='alert-danger alert'>Please correct the errors and try
+							again.</div>
+					</div>
+				</div>
+				
+				<button type="submit" class="pay-now-button">Pay with Card</button>
+			</form>
+
+
+@push('js')
+<script type="text/javascript" src="https://js.stripe.com/v2/"></script>
+<script type="text/javascript" src="{{ asset('front/js/stripe.js') }}" ></script>
+@endpush
+
+
+****************************************************** in  stripe.js file code *************************************************************************
+  
+$(function() {
+    
+    var $form = $(".require-validation");
+    $('form.require-validation').bind('submit', function(e) {
+        var $form = $(".require-validation"),
+        inputSelector = ['input[type=email]', 'input[type=password]',
+                         'input[type=text]', 'input[type=file]',
+                         'textarea'].join(', '),
+        $inputs = $form.find('.required').find(inputSelector),
+        $errorMessage = $form.find('div.error'),
+        valid = true;
+        $errorMessage.addClass('hide');
+    
+        $('.has-error').removeClass('has-error');
+        $inputs.each(function(i, el) {
+          var $input = $(el);
+          if ($input.val() === '') {
+            $input.parent().addClass('has-error');
+            $errorMessage.removeClass('hide');
+            e.preventDefault();
+          }
+        });
+     
+        if (!$form.data('cc-on-file')) {
+          e.preventDefault();
+          Stripe.setPublishableKey($form.data('stripe-publishable-key'));
+          Stripe.createToken({
+            number: $('.card-number').val(),
+            cvc: $('.card-cvc').val(),
+            exp_month: $('.card-expiry-month').val(),
+            exp_year: $('.card-expiry-year').val()
+          }, stripeResponseHandler);
+        }
+    
+    });
+      
+    function stripeResponseHandler(status, response) {
+        if (response.error) {
+            $('.error')
+                .removeClass('hide')
+                .find('.alert')
+                .text(response.error.message);
+        } else {
+            /* token contains id, last4, and card type */
+            var token = response['id']; 
+            $form.find('input[type=text]').empty();
+            $form.append("<input type='hidden' name='stripeToken' value='" + token + "'/>");
+            $form.get(0).submit();
+        }
+    }
+     
+});
+
+
+
+$(document).ready(function() {
+    $('.card-number').on('input', function() {
+        let value = $(this).val().replace(/\D/g, ''); 
+        value = value.substring(0, 16); 
+        let formattedValue = value.replace(/(\d{4})/g, '$1 ').trim();
+        $(this).val(formattedValue);
+    });
+
+    $('.card-expiry-month').on('input', function() {
+        let value = $(this).val().replace(/\D/g, ''); 
+        value = value.substring(0, 2);
+        $(this).val(value);
+    });
+
+    $('.card-expiry-year').on('input', function() {
+        let value = $(this).val().replace(/\D/g, ''); 
+        value = value.substring(0, 2); 
+        $(this).val(value);
+    });
+
+    $('.card-cvc').on('input', function() {
+        let value = $(this).val().replace(/\D/g, ''); 
+        value = value.substring(0, 3); 
+        $(this).val(value);
+    });
+});
+
+
+
+
+Step :4 Pdf Blade File 
+
+<table width="100%" cellpadding="0" cellspacing="0" style="font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.6;">
+	<tr>
+		<td align="center" style="padding: 20px; background-color: #f4f4f4;">
+			<table width="100%" cellpadding="0" cellspacing="0" style="background: #ffffff; border: 1px solid #ddd; border-radius: 8px;">
+				<tr>
+					<td style="padding: 5px 20px; text-align: center; border-bottom: 1px solid #ddd; background-color: #d93025;">
+						
+						<img src="{{$logoSrc}}" height="80px" width="300px" alt="logo">
+						<h2 style="margin: 0; font-size: 20px; color: #fff;">Invoice for Property Booking</h2>
+					</td>
+				</tr>
+				<tr>
+					<td style="padding: 20px;">
+						<table style="width: 100%; border-collapse: collapse;">
+							<tbody>
+								<tr>
+									<td style="width: 50%; vertical-align: top;">
+										<table width="100%">
+											<tr>
+												<td style="padding: 5px; font-weight: bold; white-space: nowrap;">Invoice ID:</td>
+												<td style="padding: 5px; color: #555;">{{ $payment['invoice'] ?? '---' }}</td>
+											</tr>
+											<tr>
+												<td style="padding: 5px; font-weight: bold; white-space: nowrap;">Booking Date:</td>
+												<td style="padding: 5px; color: #555;">{{ $today ?? '---' }}</td>
+											</tr>
+											<tr>
+												<td style="padding: 5px; font-weight: bold; white-space: nowrap;">Check-In Date:</td>
+												<td style="padding: 5px; color: #555;">{{ \Carbon\Carbon::parse($payment['check_in'])->format('d-M-Y') ?? '---' }}</td>
+											</tr>
+											<tr>
+												<td style="padding: 5px; font-weight: bold; white-space: nowrap;">Check-Out Date:</td>
+												<td style="padding: 5px; color: #555;">{{ \Carbon\Carbon::parse($payment['check_out'])->format('d-M-Y') ?? '---' }}</td>
+											</tr>
+										</table>
+									</td>
+									<td style="width: 50%; vertical-align: top; text-align: right;">
+										@if($payment['qr_image'])
+										@php
+										$imagePath = public_path($payment['qr_image']);
+										$imageData = base64_encode(file_get_contents($imagePath));
+										$src = 'data:image/png;base64,' . $imageData;
+										@endphp
+										<img src="{{ $src }}" alt="QR Code" style="max-width: 100px; max-height: 100px;">
+										@endif
+									</td>
+								</tr>
+							</tbody>
+						</table>
+					</td>
+				</tr>
+				<!-- User Details Section -->
+				<tr>
+					<td style="padding: 20px;">
+						<p style="margin: 0; font-weight: bold;">User Details</p>
+						<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 10px 0;">
+							<tr>
+								<td style="padding: 8px; border: 1px solid #ddd;">Name</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $user['name'] ?? 'N/A' }}</td>
+							</tr>
+							<tr>
+								<td style="padding: 8px; border: 1px solid #ddd;">Contact</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">+91 {{ $user['mobile'] ?? '' }}</td>
+							</tr>
+							<tr>
+								<td style="padding: 8px; border: 1px solid #ddd;">Email</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">
+									<a href="mailto:{{ $user['email'] ?? '' }}" style="color: #007bff; text-decoration: none;">{{ $user['email'] ?? '' }}</a>
+								</td>
+							</tr>
+							<tr>
+								<td style="padding: 8px; border: 1px solid #ddd;">Address</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $user['address'] ?? 'N/A' }}</td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+				<!-- Property Details Section -->
+				<tr>
+					<td style="padding: 20px;">
+						<p style="margin: 0; font-weight: bold;">Property Details</p>
+						<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 10px 0;">
+							<tr>
+								<td style="padding: 8px; border: 1px solid #ddd;">Property Name</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $property['name'] ?? 'N/A' }}</td>
+							</tr>
+							<tr>
+								<td style="padding: 8px; border: 1px solid #ddd;">Property Address</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $property['address'] ?? '' }}</td>
+							</tr>
+						
+						</table>
+					</td>
+				</tr>
+				<!-- Payment Details Section -->
+				<tr>
+					<td style="padding: 20px;">
+						<p style="margin: 0; font-weight: bold;">Payment Details</p>
+						<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 10px 0;">
+							<tr>
+								<td style="padding: 8px; border: 1px solid #ddd;">Check In Date </td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ \Carbon\Carbon::parse($payment['check_in'])->format('d-M-Y') ?? '---' }}</td>
+							</tr>
+							<tr>
+								<td style="padding: 8px; border: 1px solid #ddd;">Check Out Date </td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ \Carbon\Carbon::parse($payment['check_out'])->format('d-M-Y') ?? '---' }}</td>
+							</tr>
+							
+							<tr>
+								<td style="padding: 8px; border: 1px solid #ddd;">Cleaning fee</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;"></td>
+							</tr>
+							<tr style="font-weight: bold; background-color: #f8f8f8;">
+								<td style="padding: 8px; border: 1px solid #ddd;">City / Tourism tax</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;"></td>
+							</tr>
+							<tr style="font-weight: bold; background-color: #f8f8f8;">
+								<td style="padding: 8px; border: 1px solid #ddd;">VAT / GST</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;"></td>
+							</tr>.
+							<tr style="font-weight: bold; background-color: #f8f8f8;">
+								<td style="padding: 8px; border: 1px solid #ddd;">Damage deposit</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;"></td>
+							</tr>
+							<tr style="font-weight: bold; background-color: #f8f8f8;">
+								<td style="padding: 8px; border: 1px solid #ddd;">Paid Amount</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ number_format($payment['amount'] ?? 0, 2) }}</td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+				<!-- Footer Section -->
+				<tr>
+					<td style="padding: 20px; border-top: 1px solid #ddd;">
+						<p style="margin: 0;">Thank you for booking with us. Please keep this invoice for your records.</p>
+						<p style="margin: 10px 0;">For any queries, contact our support team at:
+							<a href="mailto:{{ $adminEmail ?? '' }}" style="color: #007bff; text-decoration: none;">{{ $adminEmail ?? '' }}</a>
+						</p>
+					</td>
+				</tr>
+				<tr>
+					<td style="padding: 10px; text-align: center; background-color: #f4f4f4; border-top: 1px solid #ddd;">
+						<p style="font-size: 12px; color: #888;">  2025 All rights reserved.</p>
+					</td>
+				</tr>
+			</table>
+		</td>
+	</tr>
+</table>
+
+
+
+Step :5 Email Side Code
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Booking Invoice</title>
+</head>
+<body>
+    @if($isAdmin)
+        <p>Hello, Admin</p>
+        <p>One booking has been received.</p>
+        <p>Please find the invoice attached below.</p>
+    @else
+        <p>Hello, {{ $user->name ?? 'Customer' }}</p>
+        <p>Your booking is confirmed.</p>
+        <p>Please find your invoice attached below.</p>
+    @endif
+</body>
+</html>
+
+
+
+Step : 6 Create App\Mails\BookingInvoiceMail file
+
+<?php
+
+namespace App\Mail;
+
+use App\Models\User;
+use App\Models\Payment;
+use Illuminate\Bus\Queueable;
+use Illuminate\Mail\Mailable;
+use Illuminate\Queue\SerializesModels;
+
+class BookingInvoiceMail extends Mailable
+{
+    use Queueable, SerializesModels;
+
+    public $user;
+    public $payment;
+    public $role;
+    public $isAdmin;
+
+    public function __construct(User $user, Payment $payment, $role)
+    {
+        $this->user = $user;
+        $this->payment = $payment;
+        $this->role = $role;
+        $this->isAdmin = ($role === 'admin');
+    }
+
+    public function build()
+    {
+        return $this->subject('Property Booking Invoice')
+                    ->view('email-template.stripe.invoice')
+                    ->attach(public_path($this->payment->invoice_pdf));
+    }
+}
+
+
+
+
+
+Step : 7 Controller Side Code 
+
+<?php
+
+namespace App\Http\Controllers\front;
+
+use App\Http\Controllers\Controller;
+
+use App\Models\Payment;
+use App\Models\Property;
+
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+
+use Auth;
+use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
+use Str;
+use Mail;
+use Illuminate\Support\Facades\File;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\View;
+use Endroid\QrCode\QrCode;
+use Endroid\QrCode\Writer\PngWriter;
+use Session;
+use Stripe;
+use App\Mail\BookingInvoiceMail;
+use Illuminate\Support\Facades\DB;
+
+class StripeController extends Controller
+{
+    public function stripePost(Request $request)
+    {
+        try {
+            DB::beginTransaction();
+            Stripe\Stripe::setApiKey(env('STRIPE_SECRET'));
+    
+            $user = Auth::user();
+            $property = Property::findOrFail($request->property_id);
+            $amount = (int) ($request->amount * 100); 
+    
+            $customer = $this->createStripeCustomer($request, $user);
+            $charge = $this->chargeCustomer($amount, $customer, $user, $request);
+            $invoiceNumber = $this->generateInvoiceNumber();
+            $payment = $this->storePaymentInfo($charge, $user, $request, $invoiceNumber);
+            $this->generateInvoiceAndSavePDF($payment, $user, $property, $invoiceNumber);
+    
+            // Send email to user and admin
+            $this->sendEmail($user->email, $user, $payment, 'user');
+            $this->sendEmail(View::shared('adminEmail'), $user, $payment, 'admin');
+            DB::commit();
+    
+            return redirect()->route('thank.you', [
+                'random_string' => Str::random(100),
+                'transaction_id' => $payment->transaction_id,
+            ])->with([
+                'success' => 'Payment successful!',
+                'amount' => $payment->amount,
+                'reference_id' => $payment->reference_id
+            ]);
+    
+        } catch (\Stripe\Exception\ApiErrorException $e) {
+            Log::error("Stripe Error: " . $e->getMessage());
+            Log::channel('stripe')->error("Stripe Error: " . $e->getMessage());
+            DB::rollBack();
+            return back()->with('error', 'Payment processing failed. Please try again.');
+        } catch (\Exception $e) {
+            Log::error("Error: " . $e->getMessage());
+            Log::channel('stripe')->error("Error: " . $e->getMessage());
+            DB::rollBack();
+            return back()->with('error', 'Something went wrong. Please try again.');
+        }
+    }
+    
+    private function createStripeCustomer(Request $request, $user)
+    {
+        return Stripe\Customer::create([
+            "address" => [
+                "line1" => $request->address ?? 'N/A',
+                "country" => $request->country,
+            ],
+            "email" => $user->email,
+            "name" => $user->name,
+            "phone" => $user->mobile,
+            "source" => $request->stripeToken,
+        ]);
+    }
+    
+    private function chargeCustomer($amount, $customer, $user, $request)
+    {
+        return Stripe\Charge::create([
+            "amount" => $amount,
+            "currency" => "sar",
+            "customer" => $customer->id,
+            "description" => "Property Booking",
+            "shipping" => [
+                "name" => $user->name,
+                "address" => [
+                    "line1" => $user->address ?? 'N/A',
+                ],
+            ],
+            'metadata' => [
+                'property_id' => $request->property_id,
+                'check_in' => $request->check_in,
+                'check_out' => $request->check_out,
+                'guests' => $request->guests,
+                'children' => $request->children,
+            ],
+        ]);
+    }
+    
+    private function generateInvoiceNumber()
+    {
+        return now()->format('Ym') . rand(100000, 999999);
+    }
+    
+    private function storePaymentInfo($charge, $user, $request, $invoiceNumber)
+    {
+        $payment = new Payment();
+        $payment->user_id = $user->id;
+        $payment->invoice = $invoiceNumber;
+        $payment->amount = $request->amount;
+        $payment->currency = "sar";
+        $payment->transaction_id = $charge->id;
+        $payment->reference_id = $charge->balance_transaction; 
+        $payment->status = $charge->status; 
+        $payment->payment_method = $charge->payment_method; 
+        $payment->receipt_url = $charge->receipt_url; 
+        $payment->property_id = $request->property_id;
+        $payment->check_in = $request->check_in;
+        $payment->check_out = $request->check_out;
+        $payment->guests = $request->guests;
+        $payment->children = $request->children;
+        $payment->save();        
+        return $payment;
+    }
+    
+    private function generateInvoiceAndSavePDF($payment, $user, $property, $invoiceNumber)
+    {
+        $year = now()->year;
+        $month = now()->format('M');
+        $today = Carbon::now()->format('d-M-Y');
+        $fileName = "invoice_{$invoiceNumber}.pdf";
+        $directoryPath = public_path("property-booking/{$year}/{$month}");
+    
+        if (!File::exists($directoryPath)) {
+            File::makeDirectory($directoryPath, 0777, true);
+        }
+    
+        $qrCode = new QrCode(route('invoice.show', ['invoiceNumber' => $invoiceNumber]));
+        $writer = new PngWriter();
+        $qrCodeContent = $writer->write($qrCode)->getString();
+    
+        $qrCodeDirectory = public_path("qr-codes/{$year}/{$month}");
+        if (!File::exists($qrCodeDirectory)) {
+            File::makeDirectory($qrCodeDirectory, 0777, true);
+        }
+    
+        $qrCodeFilePath = "{$qrCodeDirectory}/{$invoiceNumber}-qr.jpg"; 
+        file_put_contents($qrCodeFilePath, $qrCodeContent);
+    
+        $payment->update([
+            'qr_image' => "qr-codes/{$year}/{$month}/{$invoiceNumber}-qr.jpg",
+        ]);
+    
+        // Generate PDF and save it
+        $filePath = "{$directoryPath}/{$fileName}";
+        $pdf = Pdf::loadView('pdf.stripe.invoice', compact('user', 'payment', 'property', 'today', 'qrCodeFilePath'));
+        $pdf->save($filePath);
+    
+        $payment->update([
+            'invoice_pdf' => "property-booking/{$year}/{$month}/{$fileName}",
+        ]);
+        Log::channel('stripe')->info('Invoice PDF saved to ' . $filePath);
+    }
+    
+    private function sendEmail($email, $user, $payment, $role)
+    {
+        try {
+            Mail::to($email)->queue(new BookingInvoiceMail($user, $payment, $role));
+            Log::channel('stripe')->info('Email sent to ' . $email);
+        } catch (\Exception $mailException) {
+            Log::channel('stripe')->error('Failed to send email to ' . $email . '. Error: ' . $mailException->getMessage());
+        }
+    }
+
+    public function thankYou(Request $request){
+        $payment = Payment::where('transaction_id', $request->transaction_id)->first();
+        if(!$payment){
+            return redirect()->route('index')->with('error', 'Payment not found');
+        }
+        return view('front.property.thank-you', compact('payment'));
+    }
+
+   
+    
+    
+}
+
+
+
+Step :8 Thank You Blade Page
+
+	.thank-you-card {
+		background: #fff;
+		padding: 30px;
+		border-radius: 12px;
+		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+		text-align: center;
+		max-width: 824px;
+		width: 134%;
+		margin-left: 23%;
+		margin-top: 2%;
+		margin-bottom: 2%;
+	}
+	.thank-you-card h2 {
+		color: #28a745;
+		font-size: 24px;
+		margin-bottom: 15px;
+	}
+	.thank-you-card p {
+		font-size: 18px;
+		color: #333;
+		margin: 10px 0;
+	}
+	.thank-you-card .details {
+		background: #e9ecef;
+		padding: 15px;
+		border-radius: 8px;
+		margin-top: 20px;
+	}
+	.thank-you-card .details p {
+		margin: 5px 0;
+		font-weight: bold;
+	}
+	.btn {
+		display: inline-block;
+		margin-top: 20px;
+		padding: 10px 20px;
+		background: #007bff;
+		color: #fff;
+		text-decoration: none;
+		border-radius: 5px;
+		font-size: 16px;
+	}
+	.btn:hover {
+		background: #0056b3;
+	}
+
+
+
+@extends('front.layout.app')
+@section('content')
+    <div class="thank-you-card">
+        <h2>Thank You for Your Payment!</h2>
+        <div class="details">
+            <p><strong>Payment Amount:</strong> {{ $payment->amount }} &#x62F;.&#x625;</p>
+            <p><strong>Transaction ID:</strong> {{ $payment->transaction_id }}</p>
+            <p><strong>Reference ID:</strong> {{ $payment->reference_id }}</p>
+        </div>
+        <div style="display: flex;justify-content: space-between;align-items: center;"> >
+            <a href="{{ url('/') }}" class="btn">Go to Homepage</a>
+            <a href="{{ asset($payment->invoice_pdf) }}" download="{{ $payment->invoice_pdf }}" class="btn btn-success">Download Invoice</a>
+        </div>
+    </div>
+@endsection
