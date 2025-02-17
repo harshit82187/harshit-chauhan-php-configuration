@@ -8,6 +8,30 @@ composer require endroid/qr-code
 
 
 
+CREATE TABLE `payments` (
+  `id` bigint(20) NOT NULL,
+  `user_id` bigint(20) DEFAULT NULL,
+  `property_id` int(11) DEFAULT NULL,
+  `invoice` longtext DEFAULT NULL,
+  `invoice_pdf` longtext DEFAULT NULL,
+  `qr_image` longtext DEFAULT NULL,
+  `amount` int(20) DEFAULT NULL,
+  `currency` varchar(250) DEFAULT NULL,
+  `transaction_id` longtext NOT NULL,
+  `reference_id` longtext NOT NULL,
+  `status` longtext NOT NULL,
+  `payment_method` longtext NOT NULL,
+  `receipt_url` longtext NOT NULL,
+  `check_in` date DEFAULT NULL,
+  `check_out` date DEFAULT NULL,
+  `guests` int(11) DEFAULT NULL,
+  `children` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+
 Step :1  config/logging.php file
 	'stripe' => [
         'driver' => 'single',
