@@ -577,7 +577,7 @@ class StripeController extends Controller
     
         // Generate PDF and save it
         $filePath = "{$directoryPath}/{$fileName}";
-        $pdf = Pdf::loadView('pdf.stripe.invoice', compact('user', 'payment', 'property', 'today', 'qrCodeFilePath'));
+        $pdf = Pdf::loadView('pdf.stripe.invoice', compact('user', 'payment', 'property', 'today', 'qrCodeFilePath'))->setPaper('a4')->setOptions(['defaultFont' => 'arial', 'isRemoteEnabled'=> true]);
         $pdf->save($filePath);
     
         $payment->update([
