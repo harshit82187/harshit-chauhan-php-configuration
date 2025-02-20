@@ -155,6 +155,8 @@ composer create-project laravel/laravel:^10.0 ecommerece
 
 
 *************************************** Controller Side Code To Add ************************************************************
+use Illuminate\Support\Facades\File;
+
 public function register(Request $req){
         // dd($req->all());
 
