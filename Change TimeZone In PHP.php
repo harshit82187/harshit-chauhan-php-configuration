@@ -1,6 +1,6 @@
 ******************************* Change TimeZone In Database **********************************************
 
-open app.php file  cofig/app.php
+open  cofig/app.php
 
 	'timezone' => 'Asia/Kolkata',
 
