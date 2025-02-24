@@ -1,0 +1,96 @@
+******************************************************************** PWA Functionality In Laravel ******************************************************************************
+
+Step 1 : Make manifest.json file in public folder.
+
+{
+    "name": "First Choice",
+    "short_name": "FirstChoice",
+    "start_url": "https://firstchoicee.com/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#000000",
+    "icons": [
+        {
+            "src": "https://firstchoicee.com/public/icons/icon-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "https://firstchoicee.com/public/icons/icon-192x192.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}
+
+
+Step 2 : js code in app file
+
+// Function to create and show the Install button
+function showInstallButton() {
+    let installBtn = document.createElement("button");
+    installBtn.innerText = "Install App";
+    installBtn.style.position = "fixed";
+    installBtn.style.bottom = "130px";
+    installBtn.style.right = "20px";
+    installBtn.style.padding = "10px";
+    installBtn.style.background = "#101820";
+    installBtn.style.color = "#fff";
+    installBtn.style.border = "none";
+    installBtn.style.borderRadius = "5px";
+    installBtn.style.cursor = "pointer";
+    installBtn.style.zIndex = "999";
+
+    document.body.appendChild(installBtn);
+
+    installBtn.addEventListener("click", () => {
+        if (isPWAInstalled()) {
+            alert("The app is already installed on your device.");
+        } else if (isIOS()) {
+            showIOSInstallInstructions();
+        } else {
+            installAndroidPWA();
+        }
+    });
+
+    detectAndroidPWA(installBtn); // Check if Android install prompt is available
+}
+
+// Function to check if the user is on iOS
+function isIOS() {
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+// Function to check if PWA is already installed
+function isPWAInstalled() {
+    return window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+}
+
+// Function to show iOS installation instructions
+function showIOSInstallInstructions() {
+    alert("To install this app on your iPhone:\n1. Open Safari.\n2. Tap the 'Share' button.\n3. Select 'Add to Home Screen'.");
+}
+
+// Function to trigger PWA install prompt on Android
+function installAndroidPWA() {
+    if (window.deferredPrompt) {
+        window.deferredPrompt.prompt();
+        window.deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === "accepted") {
+                console.log("User installed the app");
+            }
+            window.deferredPrompt = null;
+        });
+    } else {
+        alert("This app cannot be installed automatically. Try adding it manually from your browser settings.");
+    }
+}
+
+// Function to detect Android installation prompt
+function detectAndroidPWA(installBtn) {
+    window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        window.deferredPrompt = e;
+        installBtn.style.display = "block"; // Show button if install prompt is available
+    });
+}
