@@ -161,21 +161,46 @@ Step :7 in admin/website-setting/index.blade.php
 
 
 @push('js')
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@10">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
     <script>
-        $('#maintenanceToggle').on('change', function() {
-            // alert(121);
-            let status = this.checked ? 'on' : 'off';
-            $.ajax({
-                url: "{{ route('admin.toggle.maintenance') }}",
-                type: "POST",
-                data: {
-                    status: status,
-                    _token: "{{ csrf_token() }}"
-                },
-                success: function(response) {
-                    alert(response.message);
-                }
-            });
+    $('#maintenanceToggle').on('change', function () {
+        const checkbox = $(this);
+        // Show confirmation popup with SweetAlert2
+        Swal.fire({
+            title: 'Are you sure?',
+            text: 'Do you want to change the maintenance mode setting?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, update it!',
+            customClass: {
+                popup: 'swal2-large',
+                content: 'swal2-large'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                let status = checkbox.is(':checked') ? 'on' : 'off';
+                $.ajax({
+                    url: "{{ route('admin.toggle.maintenance') }}",
+                    type: "POST",
+                    data: {
+                        status: status,
+                        _token: "{{ csrf_token() }}"
+                    },
+                    success: function (response) {
+                        Swal.fire('Updated!', response.message, 'success');
+                    },
+                    error: function () {
+                        Swal.fire('Error!', 'An error occurred while updating maintenance mode.', 'error');
+                        checkbox.prop('checked', !checkbox.is(':checked'));
+                    }
+                });
+            } else {
+                checkbox.prop('checked', !checkbox.is(':checked'));
+            }
         });
-    </script>
+    });
+</script>
 @endpush
