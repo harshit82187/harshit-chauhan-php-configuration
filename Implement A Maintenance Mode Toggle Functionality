@@ -1,0 +1,181 @@
+************************************************************ Implement A Maintenance Mode Toggle Functionality ************************************************************************************************
+
+Step 1 : Setting Model
+
+<?php 
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Setting extends Model
+{
+    use HasFactory;
+
+    protected $fillable = ['keys', 'value'];
+
+    public static function get($key)
+    {
+        return self::where('keys', $key)->value('value');
+    }
+
+    public static function set($key, $value)
+    {
+        return self::updateOrCreate(['keys' => $key], ['value' => $value]);
+    }
+}
+
+
+
+CREATE TABLE `settings` (
+  `id` bigint(20) NOT NULL,
+  `keys` varchar(250) DEFAULT NULL,
+  `value` varchar(250) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+
+Step 2 : app/Http/Middleware/MaintenanceMode.php
+
+<?php 
+
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use App\Models\Setting;
+
+class MaintenanceMode
+{
+    public function handle(Request $request, Closure $next)
+    {
+        if (Setting::get('maintenance_mode') === 'on' && !$request->is('admin/*')) {
+            return response()->view('front.maintenance.index');
+        }
+        return $next($request);
+    }
+}
+
+Step :3 app/Http/Kernel.php
+
+protected $middleware = [
+    \App\Http\Middleware\MaintenanceMode::class,
+];
+
+
+Step :4 resources/views/front/maintenance/index.blade.php
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maintenance Mode</title>
+    <style>
+        body { text-align: center; padding: 50px; font-family: Arial, sans-serif; }
+        img { max-width: 100%; height: auto; }
+        h1{
+            margin-bottom: 0.75rem;
+            font-weight: 500;
+            line-height: 1.2;
+            color: black;
+        }
+    </style>
+</head>
+<body>
+   
+    <img src="{{ asset('front/images/maintenance-mode.jpg') }}" alt="Maintenance Mode">
+    <h1>Our website is currently under maintenance.</h1>
+    <p style="font-size: 27px;font-weight: 500;">Please come back later</p>
+</body>
+</html>
+
+
+Step :5 in web and controller side code
+
+Route::post('toggle-maintenance','toggleMaintenance')->name('toggle.maintenance');
+
+public function toggleMaintenance(Request $request)
+  {
+      // dd($request->all());
+      $status = $request->input('status') === 'on' ? 'on' : 'off';
+      Setting::set('maintenance_mode', $status);
+
+      return response()->json(['message' => 'Maintenance mode updated successfully!']);
+  }
+
+Step :7 in admin/website-setting/index.blade.php
+
+@extends('admin.layouts.app')
+@section('admin-content')
+<style>
+	.maintenance-mode{
+		border: 1px solid #0177cd;
+		border-radius:4px;	
+		padding: 10px;
+		font-weight: 900;
+		}
+		.card-maintenance{
+			background: white;
+			padding: 20px;
+			box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+			border-radius: 14px;
+		}
+</style>
+    <div class="main-content demo">
+        <section class="section">
+            <div class="row">
+                <div class="col-xl-12 col-lg-12">
+                    <div class="card">
+                        <div class="card-header" style="display: flex;justify-content: space-between;align-items: center;">
+                            <h4>Website Setting</h4>
+                        </div>
+
+                    </div>
+                    <div class="card-maintenance">
+						<div class="card-body maintenance-mode">
+							<div class="row">
+								<div class="col-12">
+									<div class="d-flex justify-content-between alig-items-center">
+										<label style="color:#0177cd; margin:0px">Maintenance Mode:</label>
+										<label class="switch">
+											<input type="checkbox" id="maintenanceToggle"
+												{{ \App\Models\Setting::get('maintenance_mode') === 'on' ? 'checked' : '' }}>
+											<span class="slider round"></span>
+										</label>
+										
+									</div>
+								</div>
+							</div>
+						</div>
+						<p>*By turning the, "Maintenance Mode"ON All your apps and customer website will be disabled until you turn this mode OFF Only the Admin Panel & Vendor Panel will be functional</p>
+					</div>
+                </div>
+            </div>
+        </section>
+    </div>
+@endsection
+
+
+@push('js')
+    <script>
+        $('#maintenanceToggle').on('change', function() {
+            // alert(121);
+            let status = this.checked ? 'on' : 'off';
+            $.ajax({
+                url: "{{ route('admin.toggle.maintenance') }}",
+                type: "POST",
+                data: {
+                    status: status,
+                    _token: "{{ csrf_token() }}"
+                },
+                success: function(response) {
+                    alert(response.message);
+                }
+            });
+        });
+    </script>
+@endpush
