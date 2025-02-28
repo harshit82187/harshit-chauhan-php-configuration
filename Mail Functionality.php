@@ -257,33 +257,54 @@ use Illuminate\Support\Facades\View;
 
 
 Step :1 web.php file
-    Route::get('send-mail-to-active-users', 'sendMailToActiveUsers')->name('send-mail-to-active-users');
+        Route::post('get-in-touch', 'getInTouch')->name('get-in-touch');
 
 
 Step :2 Controller Side Code
 
-use App\Mail\MyCustomMail;
 use Mail;
-use App\Models\User;
+use App\Mail\GetInTouchMail;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Request;
 
-public function sendMailToActiveUsers()
-{
-        try{
-            $users = User::where('status', 1)->get();
-            if ($users->isEmpty()) {
-                return response()->json(['message' => 'No active users found.']);
-            }
-            // dd($users);
-             Mail::to('harshitk@pearlorganisation.com')->queue(new MyCustomMail($users)); 
-            return response()->json(['message' => 'Emails sent successfully to active users!']);
-        }catch(\Exception $e){
-            return response()->json(['message' => 'Error: ' . $e->getMessage()]);
+
+ public function getInTouch(Request $req){
+        // dd($req->all());
+        $req->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'mobile_no' => 'required|numeric',
+            'message' => 'required|string',
+        ]);
+        $getInTouch = new GetInTouch();
+        $getInTouch->name = $req->name;
+        $getInTouch->email = $req->email;
+        $getInTouch->mobile_no = $req->mobile_no;
+        $getInTouch->message = $req->message;
+        $getInTouch->save();
+        $data = [
+            'name' => $req->name,
+            'email' => $req->email,
+            'mobile_no' => $req->mobile_no,
+            'message' => $req->message,
+        ];
+        $email = $req->email;
+        try {
+            Mail::to($email)->queue(new GetInTouchMail($data));
+            Log::channel('email')->info('Success to send email to ' . $email);
+        } catch (\Exception $mailException) {
+            \Log::error('Failed to send email to ' . $email . '. Error: ' . $mailException->getMessage());
         }
-}
+
+    
+        return back()->with('success','We will get back to you soon!');
+
+    }
 
 
 
-Step :3 app/Mail/MyCustomMail.php
+
+Step :3 app/Mail/GetInTouchMail.php
 
 <?php
 
@@ -294,24 +315,166 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 
-class MyCustomMail extends Mailable implements ShouldQueue
+class GetInTouchMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
-    public $users;
+    public $data;
 
-    public function __construct($users)
+    public function __construct($data)
     {
-        $this->users = $users;
+        $this->data = $data;
     }
 
     public function build()
     {
-        return $this->from(env('MAIL_FROM_ADDRESS'))
-                    ->subject('Important Notification')
-                    ->view('email.web.custom-mail')
-                    ->with('users', $this->users);
+        return $this->subject('New Contact Inquiry')
+                    ->view('email-template.customer.get-in-touch')
+                    ->with('data', $this->data);
     }
 }
+
+
+
+Step 4 : get-in-touch blade file code
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>New Contact Inquiry</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background-color: #f4f4f4; 
+            text-align: center; 
+            padding: 30px; 
+        }
+        .card { 
+            background: #fff; 
+            max-width: 600px; 
+            margin: auto; 
+            padding: 20px; 
+            border-radius: 12px; 
+            box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.15); 
+            text-align: center;
+        }
+        .logo { 
+            width: 120px; 
+            margin-bottom: 15px; 
+        }
+        h2 { 
+            color: #333; 
+            margin-bottom: 15px; 
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 15px; 
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th, td { 
+            padding: 12px; 
+            text-align: left; 
+            border-bottom: 1px solid #ddd; 
+        }
+        th { 
+            background: #000; 
+            color: white; 
+            text-transform: uppercase; 
+        }
+        tr:nth-child(even) { background: #f9f9f9; }
+        tr:nth-child(odd) { background: #e3f2fd; }
+        .footer { 
+            margin-top: 20px; 
+            font-size: 12px; 
+            color: #666; 
+        }
+        .card-section{
+			background: white;
+			padding: 20px;
+			box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+			border-radius: 14px;
+		}
+        .section-body{
+            border: 1px solid #000;
+            border-radius:4px;	
+            padding: 10px;
+            font-weight: 900;
+            width: 102%;
+		}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="card-section">
+            <div class="card-body section-body">
+                <img src="{{ asset('front/images/logo/logo.png') }}" alt="Company Logo" class="logo">
+                <h2>We will get back to you soon</h2>
+                <table>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Mobile No</th>
+                        <th>Message</th>
+                    </tr>
+                    <tr>
+                        <td>{{ $data['name'] ?? '' }}</td>
+                        <td><a href="mailto:{{ $data['email'] }}" style="color: #000; text-decoration: none;">{{ $data['email'] ?? '' }}</a></td>
+                        <td>{{ $data['mobile_no'] ?? '' }}</td>
+                        <td>{{ $data['message'] ?? '' }}</td>
+                    </tr>
+                </table>
+                <p class="footer">{{ date('Y') }} © All Rights Reserved. <i class="fa fa-heart heart text-danger"></i> By
+                    <a href="{{ url('/') }}" target="_blank" style="color: #FF8000;">Makh Stay</a> & Powered By 
+                    <a href="https://www.pearlorganisation.com/" target="_blank" style="color: #FF8000;">Pearl Organisation</a>
+                </p>
+
+            </div>
+           
+        </div>
+        
+    </div>
+</body>
+</html>
+
+
+
+Step :5 js file code
+
+$("#get-in-touch-email").on("keyup", function() {
+		console.log("blur event fired");
+        let email = $(this).val();
+        let emailRegex = /^[a-zA-Z0-9._%+-]+@(gmail\.com|yahoo\.com|rediffmail\.com|pearlorganisation\.com)$/;
+
+        if (email === "") {
+			$('#get-in-touch-email-error').text('Email field cannot be empty.');
+			$('#get-in-touch-submit').prop('disabled', true);
+        } else if (!emailRegex.test(email)) {
+			$('#get-in-touch-email-error').text('Please enter a valid email address');
+			$('#get-in-touch-submit').prop('disabled', true);
+        }else{
+			$('#get-in-touch-email-error').text('');
+			$('#get-in-touch-submit').prop('disabled', false);
+		}
+    });
+
+	$("input[type='number'], .number").on("input", function () {
+        this.value = this.value.replace(/[^0-9.]/g, ''); 
+         if (this.value.length > 15) {
+          this.value = this.value.slice(0, 15); 
+      }
+    });
+
+	$(".alphabet").on("input", function () {
+        this.value = this.value.replace(/[^a-zA-Z\s]/g, ''); 
+    });
+
+    $(document).on('submit', '#get-in-touch-form', function() {
+        let btn = $('button[type="submit"]');
+        btn.html('<span class="spinner-border spinner-border-sm"></span> Please Wait...')
+            .prop('disabled', true);
+    });
+                            
 
 
