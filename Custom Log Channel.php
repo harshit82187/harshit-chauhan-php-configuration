@@ -7,8 +7,8 @@
 
     'email' => [
         'driver' => 'single',
-        'path' => storage_path('logs/email.log'), // Custom log file for email logs
-        'level' => 'info', // You can change this to any level: debug, info, error, etc.
+        'path' => storage_path('logs/email.log'), 
+        'level' => 'debug', 
     ],
 ],
 
