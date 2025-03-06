@@ -1,0 +1,248 @@
+**************************************************************** Bussiness Setting Implement In Laravel *****************************************************************************
+
+Step :1 Make Sql In The Database
+
+CREATE TABLE `business_settings` (
+  `id` bigint(20) NOT NULL,
+  `type` longtext DEFAULT NULL,
+  `value` longtext DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+Step :2 Controller Side Code
+use App\Models\BussinessSetting;
+
+ public function websiteSetting(){
+      $settings = BussinessSetting::whereIn('id',[3,4,5,6,7,8,9])->pluck('value','id');
+      return view('admin.website-setting.index', compact('settings'));
+  }
+
+
+Step :3 index.blade.php file code
+
+@extends('admin.layouts.app')
+@section('admin-content')
+<style>
+	.maintenance-mode{
+	border: 1px solid #0177cd;
+	border-radius:4px;	
+	padding: 10px;
+	font-weight: 900;
+	}
+	.card-maintenance{
+	background: white;
+	padding: 20px;
+	box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+	border-radius: 14px;
+	}
+	.website-setting-menu{
+	display: flex;
+	justify-content: center;
+	align-items: center
+	gap: 10px;
+	margin: 0
+	}
+	.website-setting-menu li{
+	list-style-type:none;
+	}
+	.website-setting-menu li a{
+	text-decoration: none;
+	border-left: 3px solid rgba(0, 0, 0, 0.568);
+	padding: 0 33px;
+	font-size: 16px;
+	font-weight:700;
+	}
+</style>
+<div class="main-content demo">
+	<section class="section">
+		<div class="row">
+			<div class="col-xl-12 col-lg-12">
+				<div class="card">
+					<div class="card-header" style="display: flex; justify-content: start; align-items: center;">
+						<h4>Website Setting</h4>
+						<ul class="website-setting-menu p-0">
+							<li><a href="#">Whatsapp</a></li>
+							<li><a href="#">Mail Config</a></li>
+							<li><a href="#"> Data Backup</a></li>
+							<li><a href="#"> Social Media</a></li>
+							<li><a href="#"> Commnication</a></li>
+							<li><a href="#"> Social Media</a></li>
+						</ul>
+					</div>
+				</div>
+				<div class="card-maintenance">
+					<div class="card-body maintenance-mode">
+						<div class="row">
+							<div class="col-12">
+								<div class="d-flex justify-content-between alig-items-center">
+									<label style="color:#0177cd; margin:0px">Maintenance Mode:</label>
+									<label class="switch">
+									<input type="checkbox" id="maintenanceToggle"
+									{{ \App\Models\Setting::get('maintenance_mode') === 'on' ? 'checked' : '' }}>
+									<span class="slider round"></span>
+									</label>
+								</div>
+							</div>
+						</div>
+					</div>
+					<p>*By turning the, "Maintenance Mode"ON your website will be disabled until you turn this mode OFF Only the Admin Panel  will be functional</p>
+				</div> <br><br>
+
+                <div class="card-maintenance">
+					<div class="card-body">
+                        <form action="{{ route('admin.website-profile') }}" method="POST" enctype="multipart/form-data" >
+                            @csrf
+                            <div class="row">
+                                @if(isset($settings[3]) && $settings[3] != null)
+                                <div class="col-12">                                   
+                                    <img src="{{ asset($settings[3]) }}" alt="Website Logo" style="margin-left:45%;" width="100">
+                                </div>
+                                @endif
+                                <div class="col-6">
+                                    <label style="color: black" >Website Logo</label>
+                                    <input type="file" class="form-control" name="logo" >								
+                                </div>
+                                <div class="col-6">
+                                    <label style="color: black" >Name</label>
+                                    <input type="text" class="form-control alphabet" name="name" value="{{ $settings[4] ?? '' }}" >								
+                                </div>
+                                <div class="col-6" style="margin-top: 2%;" >
+                                    <label style="color: black" >Mobile No</label>
+                                    <input type="text" class="form-control number" name="mobile_no1" value="{{ $settings[5] ?? '' }}">								
+                                </div>
+                                <div class="col-6" style="margin-top: 2%;" >
+                                    <label style="color: black" >Mobile No 2</label>
+                                    <input type="text" class="form-control number" name="mobile_no2" value="{{ $settings[8] ?? '' }}">								
+                                </div>
+                                <div class="col-6" style="margin-top: 2%;" >
+                                    <label style="color: black" >Email</label>
+                                    <input type="email" class="form-control" name="email" value="{{ $settings[6] ?? '' }}">								
+                                </div>
+                                <div class="col-6" style="margin-top: 2%;" >
+                                    <label style="color: black" >Address</label>
+                                    <input type="text" class="form-control" name="address" value="{{ $settings[7] ?? '' }}">								
+                                </div>
+                                <div class="col-6" style="margin-top: 2%;" >
+                                    <label style="color: black" >Google Map Link</label>
+                                    <input type="text" class="form-control" name="map_link" value="{{ $settings[9] ?? '' }}">								
+                                </div>                                
+                            </div>
+                            <div class="row" style="margin-top: 2%;" >
+                                <div class="col-2">
+                                    <input type="submit" class="btn btn-primary btn-sm"  value="Save Information" >
+                                </div>
+                            </div>
+                        </form>
+						
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+</div>
+@endsection
+@push('js')
+<script>
+	$('#maintenanceToggle').on('change', function () {
+	    const checkbox = $(this);
+	    // Show confirmation popup with SweetAlert2
+	    Swal.fire({
+	        title: 'Are you sure?',
+	        text: 'Do you want to change the maintenance mode setting?',
+	        icon: 'warning',
+	        showCancelButton: true,
+	        confirmButtonColor: '#d33',
+	        cancelButtonColor: '#3085d6',
+	        confirmButtonText: 'Yes, update it!',
+	        customClass: {
+	            popup: 'swal2-large',
+	            content: 'swal2-large'
+	        }
+	    }).then((result) => {
+	        if (result.isConfirmed) {
+	            let status = checkbox.is(':checked') ? 'on' : 'off';
+	            $.ajax({
+	                url: "{{ route('admin.toggle.maintenance') }}",
+	                type: "POST",
+	                data: {
+	                    status: status,
+	                    _token: "{{ csrf_token() }}"
+	                },
+	                success: function (response) {
+	                    Swal.fire('Updated!', response.message, 'success');
+	                },
+	                error: function () {
+	                    Swal.fire('Error!', 'An error occurred while updating maintenance mode.', 'error');
+	                    checkbox.prop('checked', !checkbox.is(':checked'));
+	                }
+	            });
+	        } else {
+	            checkbox.prop('checked', !checkbox.is(':checked'));
+	        }
+	    });
+	});
+</script>
+
+<script>
+    $(document).ready(function () {
+        $(".number").on("input", function () {
+            this.value = this.value.replace(/[^0-9.]/g, ''); 
+            if (this.value.length > 15) {
+            this.value = this.value.slice(0, 15); 
+        }
+        });
+
+        $(".alphabet").on("input", function () {
+            this.value = this.value.replace(/[^a-zA-Z\s]/g, ''); 
+        });
+    });
+</script>
+
+@endpush
+
+
+Step : 4 Controller Side Code
+
+use App\Models\BussinessSetting;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\View;
+
+  public function websiteProfile(Request $req){
+        // dd($req->all());
+        $fields = [
+            4 => 'name',
+            5 => 'mobile_no1',
+            6 => 'email',
+            7 => 'address',
+            8 => 'mobile_no2',
+            9 => 'map_link',
+        ];
+
+        foreach ($fields as $id => $field) {
+            $row = BussinessSetting::find($id);
+            if ($row) {
+                $row->update(['value' => $req->$field]);
+            }
+        }
+
+        if ($req->hasFile('logo')) {
+            $file = $req->file('logo');
+            $filename = time() . '.' . $file->getClientOriginalExtension();
+            $year = now()->year;
+            $month = now()->format('M');
+            $folderPath = public_path("app/logo/{$year}/{$month}");
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0777, true);
+            }
+            $file->move($folderPath, $filename);
+            $logoRow = BussinessSetting::find(3);
+            if ($logoRow) {
+                $logoRow->update(['value' => "app/logo/{$year}/{$month}/" . $filename]);
+            }
+        }
+        return back()->with('success', 'Details updated successfully!');
+
+
+   }
