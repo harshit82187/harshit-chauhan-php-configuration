@@ -112,11 +112,11 @@ Step :7 in admin/website-setting/index.blade.php
 @extends('admin.layouts.app')
 @section('admin-content')
 <style>
-	.maintenance-mode{
-		border: 1px solid #0177cd;
-		border-radius:4px;	
-		padding: 10px;
-		font-weight: 900;
+	    .maintenance-mode{
+            border: 1px solid #0177cd;
+            border-radius:4px;	
+            padding: 10px;
+            font-weight: 900;
 		}
 		.card-maintenance{
 			background: white;
@@ -124,17 +124,46 @@ Step :7 in admin/website-setting/index.blade.php
 			box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
 			border-radius: 14px;
 		}
+        .website-setting-menu{
+          
+            display: flex;
+            justify-content: center;
+            align-items: center
+            gap: 10px;
+            margin: 0
+        }
+        .website-setting-menu li{
+            list-style-type:none;
+        }
+        .website-setting-menu li a{
+            text-decoration: none;
+            border-left: 3px solid rgba(0, 0, 0, 0.568);
+            padding: 0 33px;
+            font-size: 16px;
+            font-weight:700;
+        }
 </style>
     <div class="main-content demo">
         <section class="section">
             <div class="row">
                 <div class="col-xl-12 col-lg-12">
                     <div class="card">
-                        <div class="card-header" style="display: flex;justify-content: space-between;align-items: center;">
+                        <div class="card-header" style="display: flex; justify-content: start; align-items: center;">
                             <h4>Website Setting</h4>
+                            <ul class="website-setting-menu p-0">
+                                <li><a href="#">Whatsapp</a></li>
+                                <li><a href="#">Mail Config</a></li>
+                                <li><a href="#"> Data Backup</a></li>
+                                <li><a href="#"> Social Media</a></li>
+                                <li><a href="#"> Commnication</a></li>
+                                <li><a href="#"> Social Media</a></li>
+                            </ul>
                         </div>
+                         
 
                     </div>
+
+                    
                     <div class="card-maintenance">
 						<div class="card-body maintenance-mode">
 							<div class="row">
@@ -151,7 +180,7 @@ Step :7 in admin/website-setting/index.blade.php
 								</div>
 							</div>
 						</div>
-						<p>*By turning the, "Maintenance Mode"ON All your apps and customer website will be disabled until you turn this mode OFF Only the Admin Panel & Vendor Panel will be functional</p>
+						<p>*By turning the, "Maintenance Mode"ON your website will be disabled until you turn this mode OFF Only the Admin Panel  will be functional</p>
 					</div>
                 </div>
             </div>
@@ -161,9 +190,7 @@ Step :7 in admin/website-setting/index.blade.php
 
 
 @push('js')
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@10">
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
-    <script>
+<script>
     $('#maintenanceToggle').on('change', function () {
         const checkbox = $(this);
         // Show confirmation popup with SweetAlert2
@@ -203,4 +230,6 @@ Step :7 in admin/website-setting/index.blade.php
         });
     });
 </script>
+
 @endpush
+
