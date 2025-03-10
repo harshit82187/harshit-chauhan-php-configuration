@@ -11,67 +11,289 @@ CREATE TABLE `business_settings` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
-Step :2 Controller Side Code
+
+Step : 2 menu bar
+
+<div class="card">
+    <div class="card-header" style="display: flex; justify-content: start; align-items: center;">
+        <a href="{{ route('admin.website-setting') }}" style="text-decoration: none; color: inherit;" ><h4>Website Setting </h4></a>
+        <ul class="website-setting-menu p-0">
+            <li><a href="{{ route('admin.social-media-chat') }}"   class="{{ Request::routeIs('admin.social-media-chat') ? 'active' : '' }}">WhatsApp</a></li>
+            <li><a href="{{ route('admin.mail-configuration') }}" class="{{ Request::routeIs('admin.mail-configuration') ? 'active' : '' }}">Mail Config</a></li>
+            <li><a href="{{ route('admin.data-file-backup') }}" class="{{ Request::routeIs('admin.data-file-backup') ? 'active' : '' }}"> Data Backup & Clear Cache</a></li>
+            <li><a href="{{ route('admin.social-media') }}" class="{{ Request::routeIs('admin.social-media') ? 'active' : '' }}"> Social Media</a></li>
+        </ul>
+    </div>
+</div>
+
+Step : 3 Controller Side Code
+
+<?php
+
+namespace App\Http\Controllers\admin;
+use App\Http\Controllers\Controller;
+
 use App\Models\BussinessSetting;
 
- public function websiteSetting(){
-      $settings = BussinessSetting::whereIn('id',[3,4,5,6,7,8,9])->pluck('value','id');
-      return view('admin.website-setting.index', compact('settings'));
-  }
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Artisan;
+
+use Auth;
+use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
+use Str;
+use Mail;
+
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\View;
+use ZipArchive;
+use Illuminate\Support\Facades\DB;
+use Symfony\Component\Process\Process;
+use Symfony\Component\Process\Exception\ProcessFailedException;
+use Illuminate\Support\Facades\Response;
 
 
-Step :3 index.blade.php file code
+class BussinessSettingController extends Controller
+{
+   public function websiteProfile(Request $req){
+        // dd($req->all());
+        $fields = [
+            4 => 'name',
+            5 => 'mobile_no1',
+            6 => 'email',
+            7 => 'address',
+            8 => 'mobile_no2',
+            9 => 'map_link',
+        ];
+
+        foreach ($fields as $id => $field) {
+            $row = BussinessSetting::find($id);
+            if ($row) {
+                $row->update(['value' => $req->$field]);
+            }
+        }
+
+        if ($req->hasFile('logo')) {
+            $file = $req->file('logo');
+            $filename = time() . '.' . $file->getClientOriginalExtension();
+            $year = now()->year;
+            $month = now()->format('M');
+            $folderPath = public_path("app/logo/{$year}/{$month}");
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0777, true);
+            }
+            $file->move($folderPath, $filename);
+            $logoRow = BussinessSetting::find(3);
+            if ($logoRow) {
+                $logoRow->update(['value' => "app/logo/{$year}/{$month}/" . $filename]);
+            }
+        }
+        return back()->with('success', 'Details updated successfully!');
+
+
+   }
+
+   public function socialMediaChat(Request $req){
+        if($req->isMethod('get')){
+            $setting = BussinessSetting::find(10);
+            return view('admin.website-setting.whatsapp',compact('setting'));
+        }else{
+            // dd($req->all());
+            $row = BussinessSetting::find(10);
+            $row->update(['value' => $req->whatsapp]);
+            return back()->with('success', 'Details updated successfully!');
+        }
+   }
+
+    public function mailConfiguration(Request $req){
+        if($req->isMethod('get')){
+            $setting = BussinessSetting::find(11);
+            $mailConfig = json_decode($setting->value, true);
+            // dd($setting,$mailConfig);
+            return view('admin.website-setting.mail-configuration',compact('setting','mailConfig'));
+        }else{
+            // dd($req->all());
+
+            $req->validate([
+                'name' => 'required|string',
+                'host' => 'required|string',
+                'driver' => 'required|string',
+                'port' => 'required|numeric',
+                'username' => 'required|string',
+                'email' => 'required|email',
+                'encryption' => 'required|string',
+                'password' => 'required|string',
+
+            ]);
+            $formattedName = str_replace(' ', '', $req->name);
+            $mailConfig = [
+                'name' => $formattedName,
+                'host' => $req->host,
+                'driver' => $req->driver,
+                'port' => $req->port,
+                'username' => $req->username,
+                'email' => $req->email,
+                'encryption' => $req->encryption,
+                'password' => $req->password,
+            ];
+
+            BussinessSetting::where('id', 11)->update(['value' => json_encode($mailConfig)]);
+            $this->updateEnvFile($mailConfig);
+            return back()->with('success', 'Mail Configuration Updated Successfully!');
+        
+        }
+    }
+
+    private function updateEnvFile($config)
+    {
+        $envFile = base_path('.env');
+        $envContent = file_get_contents($envFile);
+        $envContent = preg_replace('/^MAIL_HOST=.*/m', "MAIL_HOST={$config['host']}", $envContent);
+        $envContent = preg_replace('/^MAIL_MAILER=.*/m', "MAIL_MAILER={$config['driver']}", $envContent);
+        $envContent = preg_replace('/^MAIL_PORT=.*/m', "MAIL_PORT={$config['port']}", $envContent);
+        $envContent = preg_replace('/^MAIL_USERNAME=.*/m', "MAIL_USERNAME={$config['username']}", $envContent);
+        $envContent = preg_replace('/^MAIL_FROM_ADDRESS=.*/m', "MAIL_FROM_ADDRESS={$config['email']}", $envContent);
+        $envContent = preg_replace('/^MAIL_ENCRYPTION=.*/m', "MAIL_ENCRYPTION={$config['encryption']}", $envContent);
+        file_put_contents($envFile, $envContent);
+        Artisan::call('config:clear');
+        Artisan::call('config:cache');
+    }
+
+    public function sendMail(Request $req){
+        // dd($req->all());
+        $toEmail = $req->email;
+        $subject = 'Test Email';
+        $body = 'This is a test email sent using raw content to check if email functionality is working.';
+        try {
+            Mail::raw($body, function ($message) use ($toEmail, $subject) {
+                $message->to($toEmail)
+                        ->subject($subject);
+            });
+            \Log::channel('email')->info('Success to send email to ' . $toEmail);
+        } catch (\Exception $mailException) {
+            return back()->with('error','Failed to send email to ' . $toEmail . '. Error: ' . $mailException->getMessage());
+        }
+        return back()->with('success','Mail Send Successfully!');
+        
+    }
+
+    public function dataFileBackup(Request $req){
+            return view('admin.website-setting.data-file-backup');      
+    }
+
+    public function dataFileBackupDownload(Request $request)
+    {
+        if ($request->has('sql_backup')) {
+            return $this->backupDatabase();
+        } elseif ($request->has('clear_cache')) {
+            return $this->cacheClear();
+        }
+
+        return back()->with('error', 'Invalid request.');
+    }
+
+    private function backupDatabase()
+    {
+        try {
+            $dbHost = env('DB_HOST');
+            $dbName = env('DB_DATABASE');
+            $dbUser = env('DB_USERNAME');
+            $dbPass = env('DB_PASSWORD');
+            $year = date('Y');
+            $month = date('m');
+    
+            // Define storage path
+            $storagePath = public_path("app/sql-backup/{$year}/{$month}");
+            if (!File::exists($storagePath)) {
+                File::makeDirectory($storagePath, 0755, true);
+            }
+    
+            // Backup file name
+            $backupFile = "{$storagePath}/backup-" . date('Y-m-d_H-i-s') . '.sql';
+    
+            // Detect OS and set mysqldump path
+            $mysqldumpPath = 'mysqldump'; // Linux/macOS default
+            if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+                $mysqldumpPath = '"C:\\xampp\\mysql\\bin\\mysqldump.exe"'; // Update for your MySQL installation
+            }
+    
+            // Command as string for debugging
+            $command = "{$mysqldumpPath} --user={$dbUser} --password={$dbPass} --host={$dbHost} {$dbName} > {$backupFile}";
+    
+            // Run command using shell_exec and log output
+            $output = shell_exec($command . ' 2>&1'); // Capture errors
+            \Log::error('MySQL Dump Output: ' . $output);
+    
+            // Check if file exists
+            if (file_exists($backupFile)) {
+                return response()->download($backupFile)->deleteFileAfterSend(true);
+            }
+    
+            return redirect()->back()->with('error', 'Backup file was not created.');
+        } catch (\Exception $e) {
+            \Log::error('Backup Error: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Error downloading backup: ' . $e->getMessage());
+        }
+    }
+
+    public function socialMedia(Request $req){
+        if($req->isMethod('get')){
+            $row = BussinessSetting::find(12);
+            $socialMediaConfig = json_decode($row->value, true);
+            return view('admin.website-setting.social-media', compact('socialMediaConfig'));  
+        }else{
+
+            // dd($req->all());
+
+            $req->validate([
+                'facebook' => 'required|string',
+                'instagram' => 'required|string',
+                'youtube' => 'required|string',            
+            ]);
+            $socialMediaConfig = [
+                'facebook' => $req->facebook,
+                'instagram' => $req->instagram,
+                'youtube' => $req->youtube,               
+            ];
+
+            BussinessSetting::where('id', 12)->update(['value' => json_encode($socialMediaConfig)]);
+            return back()->with('success', 'Social Media Updated Successfully!');
+        }
+    }
+    
+    
+
+    private function cacheClear()
+    {
+        Artisan::call('cache:clear');
+        Artisan::call('config:clear');
+        Artisan::call('route:clear');
+        Artisan::call('view:clear');
+        return back()->with('success', 'Cache Clear Successfully!');
+    }
+
+   
+
+   
+}
+
+
+
+
+Step : 4 website profile blade file code
 
 @extends('admin.layouts.app')
 @section('admin-content')
-<style>
-	.maintenance-mode{
-	border: 1px solid #0177cd;
-	border-radius:4px;	
-	padding: 10px;
-	font-weight: 900;
-	}
-	.card-maintenance{
-	background: white;
-	padding: 20px;
-	box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
-	border-radius: 14px;
-	}
-	.website-setting-menu{
-	display: flex;
-	justify-content: center;
-	align-items: center
-	gap: 10px;
-	margin: 0
-	}
-	.website-setting-menu li{
-	list-style-type:none;
-	}
-	.website-setting-menu li a{
-	text-decoration: none;
-	border-left: 3px solid rgba(0, 0, 0, 0.568);
-	padding: 0 33px;
-	font-size: 16px;
-	font-weight:700;
-	}
-</style>
 <div class="main-content demo">
 	<section class="section">
 		<div class="row">
 			<div class="col-xl-12 col-lg-12">
-				<div class="card">
-					<div class="card-header" style="display: flex; justify-content: start; align-items: center;">
-						<h4>Website Setting</h4>
-						<ul class="website-setting-menu p-0">
-							<li><a href="#">Whatsapp</a></li>
-							<li><a href="#">Mail Config</a></li>
-							<li><a href="#"> Data Backup</a></li>
-							<li><a href="#"> Social Media</a></li>
-							<li><a href="#"> Commnication</a></li>
-							<li><a href="#"> Social Media</a></li>
-						</ul>
-					</div>
-				</div>
+				@include('admin.website-setting.website-setting-menu')
 				<div class="card-maintenance">
 					<div class="card-body maintenance-mode">
 						<div class="row">
@@ -203,46 +425,198 @@ Step :3 index.blade.php file code
 @endpush
 
 
-Step : 4 Controller Side Code
 
-use App\Models\BussinessSetting;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\View;
+Step : 5 whatsapp bladde file code
 
-  public function websiteProfile(Request $req){
-        // dd($req->all());
-        $fields = [
-            4 => 'name',
-            5 => 'mobile_no1',
-            6 => 'email',
-            7 => 'address',
-            8 => 'mobile_no2',
-            9 => 'map_link',
-        ];
+<form action="{{ route('admin.social-media-chat') }}" method="POST" enctype="multipart/form-data" >
+    @csrf
+    <div class="row">                                
+	<div class="col-12">
+	    <img src="{{ asset('front/images/whatsapp.png') }}" style="max-width: 100%;max-height:26%; " ><label style="color: black;margin-left:1%;" >Whatsapp Number <span class="text-danger" >*</span></label>
+	    <input type="text" class="form-control number" required value="{{ $setting->value ?? '' }}" name="whatsapp" >								
+	</div>
+				     
+    </div>
+    <div class="row" style="margin-top: 1%;" >
+	<div class="col-2">
+	    <input type="submit" class="btn btn-primary"  value="Save" >
+	</div>
+    </div>
+</form>
 
-        foreach ($fields as $id => $field) {
-            $row = BussinessSetting::find($id);
-            if ($row) {
-                $row->update(['value' => $req->$field]);
-            }
+Step : 6 mail-configuration blade file code
+
+@extends('admin.layouts.app')
+@section('admin-content')
+<div class="main-content demo">
+	<section class="section">
+		<div class="row">
+			<div class="col-xl-12 col-lg-12">
+				@include('admin.website-setting.website-setting-menu')			
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="mail-menu">
+                           <div style="display: flex; align-items:center; gap:10px; cursor:pointer;">
+                            <img src="{{ asset('front/images/mail-config.png') }}" style=" width:28px; " >
+                            <h1 class="tab-btn" data-target="mail-configuration-body">Mail Configuration</h1>
+                           </div>
+                           <div style="display: flex; align-items:center; gap:10px;cursor:pointer;">
+                            <img src="{{ asset('front/images/send-test-mail.png') }}" style=" width:28px; " > 
+                            <h1 class="tab-btn" data-target="send-mail-body">Send Test Mail</h1>
+                           </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-maintenance">
+					<div class="card-body " id="mail-configuration-body">
+                        <form action="{{ route('admin.mail-configuration') }}" method="POST" enctype="multipart/form-data" >
+                            @csrf
+                            <div class="row">     
+                                <div class="col-6">
+                                    <label style="color: black;margin-left:1%;" >Mailer name <span class="text-danger" >*</span></label>
+                                    <input type="text" class="form-control " required  name="name" value="{{ $mailConfig['name'] ?? '' }}" >								
+                                </div>                           
+                                <div class="col-6">
+                                    <label style="color: black;margin-left:1%;" >Host <span class="text-danger" >*</span></label>
+                                    <input type="text" class="form-control " required  name="host" value="{{ $mailConfig['host'] ?? '' }}" >								
+                                </div>
+                                <div class="col-6" style="margin-top:2%">
+                                    <label style="color: black;margin-left:1%;" >Driver <span class="text-danger" >*</span></label>
+                                    <input type="text" class="form-control " required  name="driver" value="{{ $mailConfig['driver'] ?? '' }}" >								
+                                </div>
+                                <div class="col-6" style="margin-top:2%">
+                                    <label style="color: black;margin-left:1%;" >Port <span class="text-danger" >*</span></label>
+                                    <input type="text" class="form-control " required  name="port" value="{{ $mailConfig['port'] ?? '' }}" >								
+                                </div>
+                                <div class="col-6" style="margin-top:2%">
+                                    <label style="color: black;margin-left:1%;" >Username <span class="text-danger" >*</span></label>
+                                    <input type="text" class="form-control " required  name="username" value="{{ $mailConfig['username'] ?? '' }}" >								
+                                </div>
+                                <div class="col-6" style="margin-top:2%">
+                                    <label style="color: black;margin-left:1%;" >Email ID <span class="text-danger" >*</span></label>
+                                    <input type="text" class="form-control " required  name="email" value="{{ $mailConfig['email'] ?? '' }}" >								
+                                </div>
+                                <div class="col-6" style="margin-top:2%">
+                                    <label style="color: black;margin-left:1%;" >Encryption<span class="text-danger" >*</span></label>
+                                    <input type="text" class="form-control " required  name="encryption" value="{{ $mailConfig['encryption'] ?? '' }}" >								
+                                </div>
+                                <div class="col-6" style="margin-top:2%">
+                                    <label style="color: black;margin-left:1%;" >Password<span class="text-danger" >*</span></label>
+                                    <input type="text" class="form-control " required  name="password" value="{{ $mailConfig['password'] ?? '' }}" >								
+                                </div>
+                                                             
+                            </div>
+                            <div class="row" style="margin-top: 1%;" >
+                                <div class="col-2">
+                                    <input type="submit" class="btn btn-primary"  value="Save" >
+                                </div>
+                            </div>
+                        </form>
+						
+					</div>
+
+                    <div class="card-body " id="send-mail-body"  style="display: none;">
+                        <form action="{{ route('admin.send-mail') }}" method="POST" enctype="multipart/form-data" >
+                            @csrf
+                            <div class="row">                                
+                                <div class="col-6">
+                                    <label style="color: black;margin-left:1%;" >Email <span class="text-danger" >*</span></label>
+                                    <input type="email" class="form-control " required  name="email" >				
+                                </div>               
+                            </div>
+                            <div class="row" style="margin-top: 1%;" >
+                                <div class="col-2">
+                                    <input type="submit" class="btn btn-primary"  value="Send Mail" >
+                                </div>
+                            </div>
+                        </form>
+						
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+</div>
+@endsection
+@push('js')
+
+
+<script>
+    $(document).ready(function () {
+        $(".number").on("input", function () {
+            this.value = this.value.replace(/[^0-9.]/g, ''); 
+            if (this.value.length > 15) {
+            this.value = this.value.slice(0, 15); 
         }
+        });
+    });
+</script>
 
-        if ($req->hasFile('logo')) {
-            $file = $req->file('logo');
-            $filename = time() . '.' . $file->getClientOriginalExtension();
-            $year = now()->year;
-            $month = now()->format('M');
-            $folderPath = public_path("app/logo/{$year}/{$month}");
-            if (!file_exists($folderPath)) {
-                mkdir($folderPath, 0777, true);
-            }
-            $file->move($folderPath, $filename);
-            $logoRow = BussinessSetting::find(3);
-            if ($logoRow) {
-                $logoRow->update(['value' => "app/logo/{$year}/{$month}/" . $filename]);
-            }
-        }
-        return back()->with('success', 'Details updated successfully!');
+<script>
+    $(document).ready(function () {
+        $("#mail-configuration-body").show();
+        $(".tab-btn").first().addClass("active");
+        $(".tab-btn").click(function () {
+            $(".tab-btn").removeClass("active");
+            $(this).addClass("active");
+            $(".card-body").hide();
+            $("#" + $(this).data("target")).show();
+        });
+    });
+</script>
+
+@endpush
 
 
-   }
+Step : 7 data-file-backup file code
+
+<div class="card-maintenance">
+  <div class="card-body">
+	<form action="{{ route('admin.data-file-backup-download') }}" method="POST" enctype="multipart/form-data" >
+	    @csrf
+	    <div class="row">                                
+		<div class="col-4">
+		    <button class="form-control btn btn-primary" type="submit" name="sql_backup">Download SQL</button>							
+		</div>		
+		<div class="col-4">
+		    <button class="form-control btn btn-dark" type="submit" name="clear_cache">Clear Cache</button>							
+		</div> 						     
+	    </div>		   
+	</form>			
+  </div>
+</div>
+
+
+sTEP : 8 social-media BLADE FIEL CODE
+
+<div class="card-maintenance">
+   <div class="card-body ">
+	<form action="{{ route('admin.social-media') }}" method="POST" enctype="multipart/form-data" >
+	    @csrf
+	    <div class="row">     
+		<div class="col-12">
+		    <label style="color: black;margin-left:1%;" >Facebook <span class="text-danger" >*</span></label>
+		    <input type="text" class="form-control " required  name="facebook" value="{{ $socialMediaConfig['facebook'] ?? '' }}" >								
+		</div>                           
+		<div class="col-12" style="margin-top:2%">
+		    <label style="color: black;margin-left:1%;" >Instagram <span class="text-danger" >*</span></label>
+		    <input type="text" class="form-control " required  name="instagram" value="{{ $socialMediaConfig['instagram'] ?? '' }}" >								
+		</div>
+		<div class="col-12" style="margin-top:2%">
+		    <label style="color: black;margin-left:1%;" >Youtube <span class="text-danger" >*</span></label>
+		    <input type="text" class="form-control " required  name="youtube" value="{{ $socialMediaConfig['youtube'] ?? '' }}" >								
+		</div>                            
+		
+					     
+	    </div>
+	    <div class="row" style="margin-top: 1%;" >
+		<div class="col-2">
+		    <input type="submit" class="btn btn-primary"  value="Update" >
+		</div>
+	    </div>
+	</form>						
+  </div>
+</div>
+
