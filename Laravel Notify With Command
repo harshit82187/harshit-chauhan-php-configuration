@@ -15,11 +15,42 @@ protected $middlewareAliases = [
 
 Step :3 app.blade.php
 
-@notifyCss
-@notifyJs
+<link rel="stylesheet" href="/vendor/mckenziearts/laravel-notify/dist/notify.css">
+<script>
+ document.addEventListener("DOMContentLoaded", function() {
+    let notifyScript = document.createElement("script");
+    notifyScript.type = "text/javascript";
+    notifyScript.src = "/vendor/mckenziearts/laravel-notify/js/notify.js";
+    document.body.appendChild(notifyScript);
+
+    // Fetch and insert Notify HTML in a scoped container
+    fetch("{{ route('get-notify-content') }}")
+        .then(response => response.text())
+        .then(html => {
+            let notifyDiv = document.createElement("div");
+            notifyDiv.classList.add("notify-container");
+            notifyDiv.innerHTML = html;
+            document.body.appendChild(notifyDiv);
+            setTimeout(() => {
+                notifyDiv.remove();
+            }, 5000);
+        });
+
+});
+</script>
+
+
+Step :4 in web.php file code
+
+Route::get('/get-notify-content', function () {
+    return view('notify-content');
+})->name('get-notify-content');
+
+Step :5 create notify-content.blade.php file 
 <x-notify::notify />
 
-Step :4 In Controller Side Code 
+
+Step :6 In Controller Side Code 
 
 notify()->success('Success message', 'Title');
 notify()->info('Info message', 'Title');
