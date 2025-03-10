@@ -117,10 +117,16 @@ var razorpay_options = {
     image:razorpay_logo,
     netbanking: true,
     currency: "INR",
-    prefill: {
-        name: "{{ Auth::User()->name }}",
-        email: "{{ Auth::User()->email }}",
-        contact: "{{ Auth::User()->mobile }}"
+   prefill: {
+	name: $('#name').val(),
+	email: $('#email').val(),
+	contact: $('#mobile_no').val()
+    },
+    notes: {
+       donor_name: $('#name').val(),
+	donor_email: $('#email').val(),
+	donor_mobile: $('#mobile_no').val(),
+	transaction_date: new Date().toISOString()
     },
     "theme": { "color": "#ff7029" },
     handler: function (transaction) {
