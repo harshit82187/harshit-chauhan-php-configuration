@@ -67,95 +67,104 @@ var razorpay_logo = "{{ asset('front/images/Gaam_Raam_logo.png') }}";
 razorpay.js file code
 
 
-$(".number").on("input", function () {
-	this.value = this.value.replace(/[^0-9.]/g, ''); 
-	 if (this.value.length > 10) {
-	  this.value = this.value.slice(0, 10); 
-	}
-});
 
-$(".alphabet").on("input", function () {
-	this.value = this.value.replace(/[^a-zA-Z\s]/g, ''); 
-});
-
-
-$("#donate-online").submit(function(e) {
-    console.log("Form submission triggered");
-    e.preventDefault();
-    let isValid = true;
-    var amount = parseInt($('#amount').val(), 10) || 0;
-    if (amount < 100) {
-        iziToast.info({
-            title: 'Info',
-            message: 'Minimum payable amount is 100 rupees!',
-            position: 'topRight',
-            timeout: 3000,
-        });
-        isValid = false;
-    }
-    if (isValid) {
-        console.log("Amount is valid, proceeding with Razorpay");
-        razorpaySubmit(this);
+    $(".number").on("input", function () {
+        this.value = this.value.replace(/[^0-9.]/g, ''); 
+         if (this.value.length > 10) {
+          this.value = this.value.slice(0, 10); 
       }
-});
+    });
 
-var razorpayPaymentId = "";
-let totalAmount = 0; // Initialize amount
-function updateRazorpayOptions() {
-    totalAmount = parseInt($('#amount').val(), 10) || 0;
-    let totalAmountInPaise = totalAmount * 100;
-    console.log("Amount on Razorpay: " + totalAmountInPaise);
-    razorpay_options.amount = totalAmountInPaise.toString();
-}
+    $(".alphabet").on("input", function () {
+        this.value = this.value.replace(/[^a-zA-Z\s]/g, ''); 
+    });
 
-// Razorpay options
-var razorpay_options = {
-    key: RAZORPAY_KEY,
-    amount: totalAmount * 100,
-    name: "Gaam Raam",
-    description: "Member Donation",
-    image:razorpay_logo,
-    netbanking: true,
-    currency: "INR",
-   prefill: {
-	name: $('#name').val(),
-	email: $('#email').val(),
-	contact: $('#mobile_no').val()
-    },
-    notes: {
-       donor_name: $('#name').val(),
-	donor_email: $('#email').val(),
-	donor_mobile: $('#mobile_no').val(),
-	transaction_date: new Date().toISOString()
-    },
-    "theme": { "color": "#ff7029" },
-    handler: function (transaction) {
-        razorpayPaymentId = transaction.razorpay_payment_id;
-        console.log("Payment ID: " + razorpayPaymentId);
-        document.getElementById('razorpay_payment_id').value = razorpayPaymentId;
-        document.getElementById('donate-online').submit(); // Correct form ID
-    },
-    modal: {
-        ondismiss: function () {
-            location.reload();
+
+    $("#donate-online").submit(function(e) {
+        console.log("Form submission triggered");
+        e.preventDefault();
+        let isValid = true;
+      
+        var amount = parseInt($('#amount').val(), 10) || 0;
+        if (amount < 100) {
+            iziToast.info({
+                title: 'Info',
+                message: 'Minimum payable amount is 100 rupees!',
+                position: 'topRight',
+                timeout: 3000,
+            });
+            isValid = false;
         }
+        if (isValid) {
+            console.log("Amount is valid, proceeding with Razorpay");
+            razorpaySubmit(this);
+        }
+    });
+
+    var razorpayPaymentId = "";
+    let totalAmount = 0; // Initialize amount
+    function updateRazorpayOptions() {
+        totalAmount = parseInt($('#amount').val(), 10) || 0;
+        let totalAmountInPaise = totalAmount * 100;
+        
+        console.log("Amount on Razorpay: " + totalAmountInPaise);
+    
+        // Get dynamic input values
+        var donerName = $('#name').val();
+        var mobile_no = $('#mobile_no').val();
+        var email = $('#email').val();
+        console.log("Prefill Values - Name:", donerName, "Email:", email, "Mobile:", mobile_no);
+    
+        razorpay_options = {
+            key: RAZORPAY_KEY,
+            amount: totalAmountInPaise.toString(),
+            name: "Gaam Raam",
+            description: "Member Donation",
+            image: razorpay_logo,
+            netbanking: true,
+            currency: "INR",
+            prefill: {
+                name: $('#name').val(),
+                email: $('#email').val(),
+                contact: $('#mobile_no').val()
+            },
+            notes: {
+               donor_name: $('#name').val(),
+                donor_email: $('#email').val(),
+                donor_mobile: $('#mobile_no').val(),
+                transaction_date: new Date().toISOString()
+            },
+            theme: { color: "#ff7029" },
+            handler: function (transaction) {
+                razorpayPaymentId = transaction.razorpay_payment_id;
+                console.log("Payment ID: " + razorpayPaymentId);
+    
+                document.getElementById('razorpay_payment_id').value = razorpayPaymentId;
+                $("#donate-online").off('submit').submit(); // Allow form submission after payment
+            },
+            modal: {
+                ondismiss: function () {
+                    location.reload();
+                }
+            }
+        };
     }
-};
 
-// Open Razorpay Checkout
-var razorpay_instance;
-function razorpaySubmit(el) {
-    console.log("Opening Razorpay Checkout");
-    $('.pay-online').val('Please Wait...').prop('disabled', true);
-    updateRazorpayOptions(); 
+  
 
-    if (!razorpay_instance) {
-        console.log("Creating new Razorpay instance");
-        razorpay_instance = new Razorpay(razorpay_options);
+    // Open Razorpay Checkout
+    var razorpay_instance;
+    function razorpaySubmit(el) {
+        console.log("Opening Razorpay Checkout");
+        $('.pay-online').val('Please Wait...').prop('disabled', true);
+        updateRazorpayOptions(); 
+
+        if (!razorpay_instance) {
+            console.log("Creating new Razorpay instance");
+            razorpay_instance = new Razorpay(razorpay_options);
+        }
+        razorpay_instance.open(); 
     }
-    razorpay_instance.open(); 
-}
-
 
 
 Step :4 Database Schema
