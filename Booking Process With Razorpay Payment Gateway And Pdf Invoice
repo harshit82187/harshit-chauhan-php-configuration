@@ -16,284 +16,143 @@ Step :1  config/logging.php file
         ],
 
 
-Step :1 .env file
+Step :2 .env file
 
 RAZORPAY_KEY=rzp_test_J4ibid4vSMbAbB
 RAZORPAY_SECRET=10o619MmNZGFpP7Bsu9U1B2X
 
 
-Step :2 Blade File Code
+Step :3 Blade File Code
 
-<form id="passenger-form" action="{{ route('ferry.booking.store') }}" method="POST">
-							@csrf
-							<input type="hidden" name="ferry_table_id" value="{{ $ferry->id }}">
-							<input type="hidden" name="razorpay_payment_id" id="razorpay_payment_id">
-							<input type="hidden" name="transaction_via" value="razorpay">
-							<input type="hidden" name="amount" id="paid_amount">
-							<input type="hidden" name="adult" id="adult">
-							<input type="hidden" name="children" id="children">
-							<input type="hidden" name="class_type" id="class_type_">
-							<input type="hidden" name="booking_date" id="booking_date_">
-							<input type="hidden" name="merchant_order_id" value="<?= rand(11111, 99999) . time() ?>">
-	<button data-booking-id="{{ $ferry->id }}" type="submit" class="btn btn-primary w-100">Pay</button>
+<form id="donate-online" action="{{ route('donate-now-amount') }}" method="POST" >
+@csrf
+<input type="hidden" name="razorpay_payment_id" id="razorpay_payment_id">
+    <input type="hidden" name="transaction_via" value="razorpay">
+    <input type="hidden" name="merchant_order_id" value="<?= rand(11111, 99999) . time() ?>">
+    <div class="form-group">
+	<label for="name">Name</label><span class="text-danger" >*</span>
+	<input type="text" name="name" class="form-control alphabet" id="" required aria-describedby="">
+
+    </div>
+    <div class="form-group">
+	<label for="number">Phone</label><span class="text-danger" >*</span>
+	<input type="text" name="mobile_no" class="form-control number" required >
+    </div>
+    <div class="form-group">
+	<label for="number">Email</label><span class="text-danger" >*</span>
+	<input type="email" name="email" class="form-control" required>
+    </div>
+    <div class="form-group">
+	<label for="amount">Amount (Minimum payable amount is 100 rupees)</label><span class="text-danger" >*</span>
+	<input type="text" name="amount" class="form-control number" id="amount" required>
+    </div>
+    <button type="submit" class="btnn-donate">Donate Now</button>
 </form>
 
 
+
+
 @push('js')
-<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
 <script>
-	$(document).ready(function() {
-	       var today = new Date().toISOString().split('T')[0];  
-	       $('#booking_date_new').attr('min', today);  
-	           
-	  function updateSummary() {
-	    let passengerCount = $(".passenger-row").length;
-	    let childrenCount = 0;
-	    let adultCount = 0;
-	    let port_fee = 50;
-	    let package_value = $("input[name='Package']:checked").val();
-	    let totalAmount = 0;
-	       const bookingDate = $("#booking_date_new").val();
-	
-	
-	    $("input[name='age[]']").each(function() {
-	      let age = parseInt($(this).val());
-	      if (!isNaN(age)) {
-	        if (age <= 15) {
-	          childrenCount++;
-	        } else {
-	          adultCount++;
-	        }
-	      }
-	    });
-	    $("#passenger_count").text(passengerCount);
-	
-	
-	    let selectedClass = $("input[name='Package']:checked").closest(".content-two");
-	
-	    if (selectedClass.length > 0) {
-	      let adultPrice = parseFloat(selectedClass.find("h5:contains('Adult Seat')").text().match(/Rs\. (\d+)/)[1]) || 0;
-	      let childPrice = parseFloat(selectedClass.find("h5:contains('Children Seat')").text().match(/Rs\. (\d+)/)[1]) || 0;
-	
-	      totalAmount = (adultCount * adultPrice) + (childrenCount * childPrice) + (passengerCount * port_fee);
-	      $("#adult_count").text(adultCount + ' * ' + adultPrice + ' = ' + (adultCount * adultPrice));
-	      $("#children_count").text(childrenCount + ' * ' + childPrice + ' = ' + (childrenCount * childPrice));
-	      $('#total_amount').text((adultCount * adultPrice) + ' + ' + (childrenCount * childPrice) + ' + ' + (passengerCount * port_fee) + ' = ' + (totalAmount))
-	      $('#package_name').text(package_value);
-	      $('#paid_amount').val(totalAmount);
-	      $('#adult').val(adultCount);
-	      $('#children').val(childrenCount);
-	      $('#class_type_').val(package_value);
-	         $('#booking_date_').val(bookingDate);
-	
-	      console.log("Passenger Count: ", passengerCount);
-	      console.log("Adult Count: ", adultCount);
-	      console.log("Children Count: ", childrenCount);
-	      console.log("Selected Package: ", package_value);
-	      console.log("Adult Price: ", adultPrice);
-	      console.log("Child Price: ", childPrice);
-	      console.log("Total Amount: ", totalAmount);
-	         console.log("Book Date: ", bookingDate);
-	
-	    } else {
-	      $("#total_amount").text("Rs. 0");
-	    }
-	    return totalAmount;
-	  }
-	
-	  $('#add-passenger').on('click', function(e) {
-	    e.preventDefault();
-	    let newRow = $('.passenger-row:first').clone();
-	    newRow.find('input[type="text"], input[type="number"]').val('');
-	    newRow.find('input[type="radio"]').prop('checked', false);
-	    let currentIndex = $('.passenger-row').length;
-	    newRow.find('input[type="radio"]').each(function() {
-	      let nameAttr = $(this).attr('name').replace(/\[\d+\]/, `[${currentIndex}]`);
-	      $(this).attr('name', nameAttr);
-	    });
-	    newRow.find('.delete-row').show();
-	     newRow.find('.delete-row').removeClass('d-none');
-	
-	    $('.form').append(newRow);
-	    // $('.form').append('<hr>');
-	    updateSummary();
-	  });
-	
-	  $(document).on('click', '.delete-row', function() {
-	    $(this).closest('.passenger-row').remove();
-	    $(this).closest('hr').remove();
-	    updateSummary();
-	  });
-	
-	  $(document).on("input", "input[name='age[]']", function() {
-	    updateSummary();
-	  });
-	
-	  $(document).on("change", "input[name='Package']", function() {
-	    selectedPackage = $(this).val();
-	    console.log("Selected Package:", selectedPackage)
-	
-	    updateSummary();
-	  });
-	
-	
-	  var razorpayPaymentId = ""; 
-	  let totalAmount = updateSummary(); 
-	  console.log("Total Amount: ", totalAmount);
-	  var razorpay_options = {
-	    key: "{{env('RAZORPAY_KEY')}}", 
-	    amount: totalAmount * 100,
-	    name: "Goa Tour", 
-	    description: "Ferry Booking Service", 
-	    netbanking: true, 
-	    currency: "INR", 
-	    prefill: {
-	      name: "{{ Auth::User()->name }}", 
-	      email: "{{ Auth::User()->email }}", 
-	      contact: "{{ Auth::User()->mobile }}"
-	    },
-	    "theme": {
-	            "color": "#3399cc"
-	     },
-	    handler: function(transaction) {
-	      razorpayPaymentId = transaction.razorpay_payment_id; 
-	      console.log("Payment ID: " + razorpayPaymentId);
-	      document.getElementById('razorpay_payment_id').value = razorpayPaymentId;
-	      document.getElementById('passenger-form').submit(); 
-	    },
-	    modal: {
-	      ondismiss: function() {
-	        location.reload();
-	      }
-	    }
-	  };
-	
-	
-	
-	  function updateRazorpayOptions() {
-	    let totalAmount_ = updateSummary(); 
-	    let totalAmountInPaise = totalAmount_ * 100;
-	    console.log("Amount on Razorpay: " + totalAmountInPaise);
-	    razorpay_options.amount = totalAmountInPaise.toString(); 
-	  }
-	
-	  var razorpay_submit_btn, razorpay_instance;
-	
-	  function razorpaySubmit(el) {
-	    console.log("Function Called");
-	    $('.payAmountBtn').text('Please Wait...'); // Change button text
-	    $('.payAmountBtn').prop('disabled', true); // Disable the button
-	
-	    updateRazorpayOptions(); // Update Razorpay options dynamically before submitting
-	
-	    if (typeof Razorpay === 'undefined') {
-	      console.log("Razorpay is not loaded yet");
-	      setTimeout(() => razorpaySubmit(el), 200); // Retry until Razorpay is loaded
-	      if (!razorpay_submit_btn && el) {
-	        razorpay_submit_btn = el;
-	        el.disabled = true;
-	        el.value = 'Please wait...';
-	      }
-	    } else {
-	      if (!razorpay_instance) {
-	        console.log("Creating Razorpay instance");
-	        razorpay_instance = new Razorpay(razorpay_options); // Create new Razorpay instance
-	        if (razorpay_submit_btn) {
-	          console.log('Payment ID: ' + razorpayPaymentId);
-	          razorpay_submit_btn.disabled = false; // Enable button
-	          razorpay_submit_btn.value = "Pay Now"; // Reset button text
-	        }
-	      }
-	      console.log('Opening Razorpay checkout');
-	      razorpay_instance.open(); // Open the Razorpay checkout
-	    }
-	  }
-	
-	
-	  // Handle form submission
-	  $("#passenger-form").submit(function(e) {
-	    // alert(121);
-	    e.preventDefault();
-	    let isValid = true;
-	    const selectedPackage = $("input[name='Package']:checked").val();
-	    const bookingDate = $("#booking_date_new").val();
-	
-	
-	    $(".passenger-row").each(function() {
-	      const row = $(this);
-	
-	      // Get values from the current row
-	      const passengerName = row.find(".passenger-name").val();
-	      const passengerPhone = row.find(".passenger-phone").val();
-	      const passengerAge = row.find(".passenger-age").val();
-	      const passengerGender = row.find(".passenger-gender:checked").val();
-	
-	
-	      console.log("Passenger Name:", passengerName);
-	      console.log("Passenger Phone:", passengerPhone);
-	      console.log("Passenger Age:", passengerAge);
-	      console.log("Passenger Gender:", passengerGender);
-	      console.log("Selected Package:", selectedPackage);
-	
-	
-	
-	
-	      // Validate name
-	      if (!passengerName) {
-	        row.find(".passenger-name-error").text("Please enter passenger name.");
-	        isValid = false;
-	      } else {
-	        row.find(".passenger-name-error").text("");
-	      }
-	
-	      // Validate phone
-	      if (!passengerPhone || passengerPhone.trim() === "" || passengerPhone.length !== 10) {
-	        row.find(".passenger-phone-error").text("Please enter passenger mobile no.");
-	        isValid = false;
-	      } else {
-	        row.find(".passenger-phone-error").text("");
-	      }
-	
-	      // Validate age
-	      if (!passengerAge || passengerAge <= 0) {
-	        row.find(".passenger-age-error").text("Please enter passenger age.");
-	        isValid = false;
-	      } else {
-	        row.find(".passenger-age-error").text("");
-	      }
-	
-	      if (!passengerGender) {
-	        row.find(".passenger-gender-error").text("Please select a gender.");
-	        isValid = false;
-	      } else {
-	        row.find(".passenger-gender-error").text("");
-	      }
-	    });
-	
-	    if (!selectedPackage) {
-	      $("#package_error").text("Please select at least one package.");
-	      isValid = false;
-	    } else {
-	      $("#package_error").text(""); 
-	    }
-	
-	    
-	
-	    if (isValid === true) {
-	      razorpaySubmit(this);
-	    }
-	  });
-	
-	
-	});
+var RAZORPAY_KEY = "{{ env('RAZORPAY_KEY') }}";
+var razorpay_logo = "{{ asset('front/images/Gaam_Raam_logo.png') }}";
 </script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="{{ asset('front/js/razorpay.js') }}"></script>
 @endpush
 
 
 
+razorpay.js file code
 
 
-Step :3 Database Schema
+$(".number").on("input", function () {
+	this.value = this.value.replace(/[^0-9.]/g, ''); 
+	 if (this.value.length > 10) {
+	  this.value = this.value.slice(0, 10); 
+	}
+});
+
+$(".alphabet").on("input", function () {
+	this.value = this.value.replace(/[^a-zA-Z\s]/g, ''); 
+});
+
+
+$("#donate-online").submit(function(e) {
+    console.log("Form submission triggered");
+    e.preventDefault();
+    let isValid = true;
+    var amount = parseInt($('#amount').val(), 10) || 0;
+    if (amount < 100) {
+        iziToast.info({
+            title: 'Info',
+            message: 'Minimum payable amount is 100 rupees!',
+            position: 'topRight',
+            timeout: 3000,
+        });
+        isValid = false;
+    }
+    if (isValid) {
+        console.log("Amount is valid, proceeding with Razorpay");
+        razorpaySubmit(this);
+      }
+});
+
+var razorpayPaymentId = "";
+let totalAmount = 0; // Initialize amount
+function updateRazorpayOptions() {
+    totalAmount = parseInt($('#amount').val(), 10) || 0;
+    let totalAmountInPaise = totalAmount * 100;
+    console.log("Amount on Razorpay: " + totalAmountInPaise);
+    razorpay_options.amount = totalAmountInPaise.toString();
+}
+
+// Razorpay options
+var razorpay_options = {
+    key: RAZORPAY_KEY,
+    amount: totalAmount * 100,
+    name: "Gaam Raam",
+    description: "Member Donation",
+    image:razorpay_logo,
+    netbanking: true,
+    currency: "INR",
+    prefill: {
+        name: "{{ Auth::User()->name }}",
+        email: "{{ Auth::User()->email }}",
+        contact: "{{ Auth::User()->mobile }}"
+    },
+    "theme": { "color": "#ff7029" },
+    handler: function (transaction) {
+        razorpayPaymentId = transaction.razorpay_payment_id;
+        console.log("Payment ID: " + razorpayPaymentId);
+        document.getElementById('razorpay_payment_id').value = razorpayPaymentId;
+        document.getElementById('donate-online').submit(); // Correct form ID
+    },
+    modal: {
+        ondismiss: function () {
+            location.reload();
+        }
+    }
+};
+
+// Open Razorpay Checkout
+var razorpay_instance;
+function razorpaySubmit(el) {
+    console.log("Opening Razorpay Checkout");
+    $('.pay-online').val('Please Wait...').prop('disabled', true);
+    updateRazorpayOptions(); 
+
+    if (!razorpay_instance) {
+        console.log("Creating new Razorpay instance");
+        razorpay_instance = new Razorpay(razorpay_options);
+    }
+    razorpay_instance.open(); 
+}
+
+
+
+Step :4 Database Schema
 
 
 CREATE TABLE `payments` (
@@ -313,33 +172,11 @@ CREATE TABLE `payments` (
 
 
 
-CREATE TABLE `bookings` (
-  `id` int(11) NOT NULL,
-  `user_id` int(11) NOT NULL,
-  `booking_type` enum('1','2','3','') DEFAULT NULL COMMENT '1 => Ferry-Booking\r\n2 => Hotel-Booking\r\n3 => Tour-Package-Booking',
-  `relative_table_id` int(11) DEFAULT NULL,
-  `invoice` longtext DEFAULT NULL,
-  `r_payment_id` varchar(250) DEFAULT NULL,
-  `invoice_pdf` longtext DEFAULT NULL,
-  `qr_image` longtext DEFAULT NULL,
-  `adult` varchar(250) DEFAULT NULL,
-  `children` varchar(250) DEFAULT NULL,
-  `booking_date` varchar(250) DEFAULT NULL,
-  `amount` varchar(250) DEFAULT NULL,
-  `passenger_name` longtext DEFAULT NULL,
-  `phone` longtext DEFAULT NULL,
-  `age` longtext DEFAULT NULL,
-  `gender` longtext DEFAULT NULL,
-  `class_type` varchar(250) DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 
 
-
-step :4 app/Providers/AppServiceProvider.php file code
+step :5 app/Providers/AppServiceProvider.php file code
 
 use Illuminate\Support\Facades\View;
 
@@ -360,7 +197,7 @@ public function boot(): void
 
 
 
-Step :5 Pdf Invoice Code
+Step :6 Pdf Invoice Code
 
 <table width="100%" cellpadding="0" cellspacing="0" style="font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.6;">
 	<tr>
@@ -518,7 +355,7 @@ Step :5 Pdf Invoice Code
 
 
 
-Step :6 Web invoice code
+Step :7 Web invoice code
 
 @extends('layout.app')
 @section('content')
@@ -722,7 +559,7 @@ Step :6 Web invoice code
 
 
 
-Step :6 On Email Code
+Step :8 On Email Code
 
 <!DOCTYPE html>
 <html>
@@ -745,7 +582,7 @@ Step :6 On Email Code
 
 
 
-Step :7 Qr code file code
+Step :9 Qr code file code
 
 
 
@@ -789,7 +626,7 @@ Step :7 Qr code file code
 
 
 
-Step :8 Web File Code
+Step :10 Web File Code
 
 Route::controller(BookingController::class)->group(function () {
     Route::get('thank-you', 'thankYou')->name('thank.you');
@@ -803,22 +640,39 @@ Route::controller(BookingController::class)->group(function () {
 
 
 
-Step :9 Controller Side Code
+Step :11 Controller Side Code
+
+<?php
+
+namespace App\Http\Controllers\Front;
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
 
 use Auth;
-use Illuminate\Support\Facades\Log;
-use Carbon\Carbon;
+
+use App\Models\User;
+use App\Models\Payment;
+
+use App\Mail\SendDonationInvoiceMail;
+
+use Hash;
 use Str;
 use Mail;
-use Illuminate\Support\Facades\File;
-use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Support\Facades\View;
+use DB;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Validator;
 use Endroid\QrCode\QrCode;
 use Endroid\QrCode\Writer\PngWriter;
+use Illuminate\Support\Facades\File;
+use Barryvdh\DomPDF\Facade\Pdf;
 
+class DonateController extends Controller
+{
+   
 
-
- public function get_curl_handle_razorpay($razorpayPaymentId, $amount, $currencyCode)
+    public function get_curl_handle_razorpay($razorpayPaymentId, $amount, $currencyCode)
     {
         $url = 'https://api.razorpay.com/v1/payments/' . $razorpayPaymentId . '/capture';
         $key_id = env('RAZORPAY_KEY');
@@ -861,13 +715,10 @@ use Endroid\QrCode\Writer\PngWriter;
                 $user = Auth::User();
                 try {
                     $ch = $this->get_curl_handle_razorpay($razorpayPaymentId, $amount, $currencyCode);
-
                     $result = curl_exec($ch);
                     // dd($result);
                     $http_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
                     Log::channel('razorpay')->info('Razorpay cURL Result', ['result' => $result, 'http_status' => $http_status]);
-
                     if ($result === false) {
                         $success = false;
                         $error = 'Curl error: ' . curl_error($ch);
@@ -875,20 +726,26 @@ use Endroid\QrCode\Writer\PngWriter;
                     } else {
                         $response_array = json_decode($result, true);
                         Log::channel('razorpay')->info('Razorpay Response', $response_array);
-
                         if ($http_status === 200 && isset($response_array['status'])) {
                             if ($response_array['status'] == 'captured') {
-                                $email = Auth::user()->email;
-                                $payment = Payment::create([
+                                DB::enableQueryLog();
+                                $payment = DB::table('payments')->insert([
+                                    'mode' => '1',
                                     'r_payment_id' => $response_array['id'],
                                     'merchant_order_id' => $merchant_order_id,
                                     'method' => $response_array['method'],
                                     'currency' => $response_array['currency'],
-                                    'user_email' => $email ?? '',
                                     'amount' => $response_array['amount'] / 100,
                                     'json_response' => $result,
-                                ]);
+                                    'created_at' => now(),
+                                    'updated_at' => now(),
 
+                                ]);
+                                // Log::channel('razorpay')->info(DB::getQueryLog());
+                                if (!$payment) {
+                                    Log::channel('razorpay')->error('Payment creation failed in database', ['response' => $response_array]);
+                                    throw new Exception('Payment not saved in database');
+                                }
                                 Log::channel('razorpay')->info('Payment successfully captured', ['status' => $response_array['status']]);
                                 return 'captured';
                             } else {
@@ -906,7 +763,6 @@ use Endroid\QrCode\Writer\PngWriter;
                             Log::channel('razorpay')->error('Razorpay API error', ['error' => $error]);
                         }
                     }
-
                     curl_close($ch);
                 } catch (Exception $e) {
                     $success = false;
@@ -921,183 +777,120 @@ use Endroid\QrCode\Writer\PngWriter;
             $error = 'An error occurred: ' . $e->getMessage();
             Log::channel('razorpay')->error('Error processing payment: ' . $error);
         }
-
         if ($error) {
             Log::channel('razorpay')->error('Final error during payment: ' . $error);
             return 'An error occurred. Contact site administrator, please!';
         }
-
         return $success;
     }
 
-   public function hotelBookingThankYou(Request $request){
+
+    public function donateNowAmount(Request $request){
         // dd($request->all());
-        $today = Carbon::now()->format('d-M-Y');
-        $type = $request->get('type');
-        $requestType = 'web';
-        $user = User::find($request->get('user'));  
-        if(Auth::User()->id != $request->get('user')){
-            abort(403);
-        }   
-
-       if($type == 1){
-            $booking = Booking::find($request->get('booking'));             
-            $hotel = Hotel::find($request->get('hotel'));
-            $hotelBookingDetail = HotelBookingDetail::find($request->get('hotelBookingDetail'));
-   
-            $data = $request->get('data');
-            $role = $request->get('role');
-            return view('email.web.hotel-booking-invoice', compact('booking','user','hotelBookingDetail','hotel','data','role','today'));
-        }
-        
-    }
-
-   public function hotelBookingStore(Request $request){
-            // dd($request->all());
-          DB::beginTransaction();
+        DB::beginTransaction();
         try{
-            
             $request->validate([
-                'hotel_table_id' => 'required|numeric',
                 'razorpay_payment_id' => 'required|string',
                 'transaction_via' => 'required|string',
                 'amount' => 'required|numeric',
-                'admin_commision' => 'required|numeric',
-                'gst' => 'required|numeric',
-                'name' => 'required',
-                'email' => 'required',
                 'merchant_order_id' => 'required|string',
-                'mobile_no' => 'required',
-                'address' => 'required',
-                'check_in' => 'required|date',
-                'check_out' => 'required|date',
             ]);
 
-            if (Auth::check()) {
-                $paymentData = [
-                    'razorpay_payment_id' => $request->razorpay_payment_id,
-                    'merchant_order_id' => $request->merchant_order_id,
-                    'amount' => $request->amount,
-                ];
-                $payment = $this->proceedPayment($paymentData);
-                
-                if ($payment === 'captured') {
-                    $hotel = Hotel::find($request->hotel_table_id);
-                    if (!$hotel) {
-                        return back()->with('error', 'Hotel details not found!');
-                    }
-                    $user = Auth::user();
-                    $invoiceNumber = now()->format('Ym') . rand(100000, 999999);
-                    // Create booking
-                    $booking = Booking::create([
-                        'user_id' => $user->id,
-                        'booking_type' => '2',
-                        'relative_table_id' => $request->hotel_table_id,
-                        'invoice' => $invoiceNumber,
-                        'r_payment_id' => $request->razorpay_payment_id,
+            $paymentData = [
+                'razorpay_payment_id' => $request->razorpay_payment_id,
+                'merchant_order_id' => $request->merchant_order_id,
+                'amount' => $request->amount,
+            ];
+            $payment = $this->proceedPayment($paymentData);
+            if ($payment === 'captured') {
+                $member = Auth::user();
+                $r_payment_id = $request->razorpay_payment_id;                
+                $payment_table = Payment::where('r_payment_id',$r_payment_id)->first();
+                if(!$payment_table){
+                    Log::channel('razorpay')->error("Payment record not found for r_payment_id: " . $r_payment_id);
+                    return back()->with('error','Record Not Found!');
+                }
+                $invoiceNumber = now()->format('Ym') . rand(100000, 999999);
+                // Generate invoice and save PDF
+                $year = now()->year;
+                $month = now()->format('M');
+                $today = Carbon::now()->format('d-M-Y');
+                $fileName = "invoice_{$invoiceNumber}.pdf";
+                $directoryPath = public_path("app/website-member-donation/{$year}/{$month}");
+                $adminEmail = "atul@pearlorganisation.com";
 
-                        'adult' => $request->adult,
-                        'children' => $request->children,
-                        'booking_date' => $request->booking_date,
-                        'amount' => $request->amount,
-                        'passenger_name' => json_encode($request->passenger_name),
-                        'phone' => json_encode($request->phone),
-                        'age' => json_encode($request->age),
-                        'gender' => json_encode($request->gender),
-                        'class_type' => $request->class_type,
-                    ]);
-
-                    $hotelBookingDetail = HotelBookingDetail::create([
-                        'booking_table_id' => $booking->id,
-                        'name' => $request->name,
-                        'email' => $request->email,
-                        'mobile_no' => $request->mobile_no,
-                        'address' => $request->address,
-                        'amount' => $request->amount,
-                        'admin_commision' => $request->admin_commision,
-                        'gst' => $request->gst,
-                        'check_in' => $request->check_in,
-                        'check_out' => $request->check_out,
-                    ]);
-
-                    // Generate invoice and save PDF
-                    $year = now()->year;
-                    $month = now()->format('M');
-                    $today = Carbon::now()->format('d-M-Y');
-                    $fileName = "invoice_{$invoiceNumber}.pdf";
-                    $directoryPath = public_path("hotel-booking/{$year}/{$month}");
-                    $adminEmail = View::shared('adminEmail');
-
-                    if (!File::exists($directoryPath)) {
-                        File::makeDirectory($directoryPath, 0777, true);
-                    }
-
-
-                        // Generate the QR code with the route
-                        $qrCode = new QrCode(route('hotel.booking.invoice', ['invoiceNumber' => $invoiceNumber]));
-                        $writer = new PngWriter();
-                        $qrCodeContent = $writer->write($qrCode)->getString();
-
-                        // Save QR code to the local path
-                        $qrCodeDirectory = public_path("qr-codes/{$year}/{$month}");
-                        if (!File::exists($qrCodeDirectory)) {
-                            File::makeDirectory($qrCodeDirectory, 0777, true);
-                        }
-
-                        // Define the file path for the QR code
-                        $qrCodeFilePath = "{$qrCodeDirectory}/{$invoiceNumber}-qr.jpg"; 
-                        file_put_contents($qrCodeFilePath, $qrCodeContent);
-
-                        $booking->update([
-                            'qr_image' => "qr-codes/{$year}/{$month}/{$invoiceNumber}-qr.jpg",
-                        ]);
-
-                    // Generate the PDF
-                        $filePath = "{$directoryPath}/{$fileName}";
-                        $pdf = Pdf::loadView('pdf.hotel-booking-invoice', compact('hotel', 'user', 'request', 'booking','hotelBookingDetail', 'adminEmail', 'today', 'qrCodeFilePath'));
-                        $pdf->save($filePath);
-
-                            // Update booking with generated PDF file path
-                            $booking->update([
-                                'invoice_pdf' => "hotel-booking/{$year}/{$month}/{$fileName}",
-                            ]);
-
-                    // Send emails
-
-                    $this->sendEmail($user->email, $user, $hotel, $booking, $hotelBookingDetail, 'user');
-                    $this->sendEmail($adminEmail, $user, $hotel, $booking, $hotelBookingDetail, 'admin');
-                    DB::commit();
-                    return redirect()->route('hotel.booking.thank.you', [
-                        'string' => Str::random(500),
-                        'hotel' => $hotel,
-                        'user' => $user,
-                        'booking' => $booking,
-                        'hotelBookingDetail' => $hotelBookingDetail,
-                        'type' => 1,
-                    ])->with('success', 'Payment successful and booking completed');
+                if (!File::exists($directoryPath)) {
+                    File::makeDirectory($directoryPath, 0777, true);
                 }
 
-                return back()->with('error', 'Payment failed!');
+                // Generate the QR code with the route
+                $qrCode = new QrCode(route('member-invoice', ['invoiceNumber' => $invoiceNumber]));
+                $writer = new PngWriter();
+                $qrCodeContent = $writer->write($qrCode)->getString();
+
+                // Save QR code to the local path
+                $qrCodeDirectory = public_path("app/website-member-donation/qr-codes/{$year}/{$month}");
+                if (!File::exists($qrCodeDirectory)) {
+                    File::makeDirectory($qrCodeDirectory, 0777, true);
+                }
+
+                // Define the file path for the QR code
+                $qrCodeFilePath = "{$qrCodeDirectory}/{$invoiceNumber}-qr.jpg"; 
+                file_put_contents($qrCodeFilePath, $qrCodeContent);
+
+                $payment_table->update([
+                    'qr_image' => "app/website-member-donation/qr-codes/{$year}/{$month}/{$invoiceNumber}-qr.jpg",
+                    'invoice_no' => $invoiceNumber,
+                    'user_name' => $request->name,
+                    'user_email' => $request->email,
+                    'user_mobile' => $request->mobile_no,
+                ]);
+
+                 // Generate the PDF
+                 $count = 1;
+                 $filePath = "{$directoryPath}/{$fileName}";
+                 $pdf = Pdf::loadView('pdf.member.donation-invoice', compact('payment_table','adminEmail', 'today', 'qrCodeFilePath','count'));
+                 $pdf->save($filePath);
+
+                // Update booking with generated PDF file path
+                $payment_table->update([
+                    'donation_pdf' => "app/website-member-donation/{$year}/{$month}/{$fileName}",
+                ]);
+                    
+                // Send emails
+                $this->sendEmail($member->email, $r_payment_id,'member');
+                $this->sendEmail($adminEmail, $r_payment_id,'admin');
+                DB::commit();
+                return back()->with('success', 'Donation Payment Successfully Complete!');
             }
+
 
         }catch (\Exception $e){
             DB::rollBack();
             return back()->with('error', 'Warning : ' .$e->getMessage());
         }
-
     }
 
- private function sendEmail($email, $user, $hotel, $booking, $hotelBookingDetail, $role)
+    private function sendEmail($email, $r_payment_id, $role)
     {
         try{
-            $subject = 'Hotel Booking Invoice';
-            $isAdmin = ($role === 'admin');
 
-            Mail::send('email.email-booking', compact('user', 'hotel', 'booking', 'hotelBookingDetail', 'role', 'isAdmin'), function ($message) use ($email, $subject, $booking) {
-                $message->to($email);
-                $message->subject($subject);
-                $message->attach(public_path($booking->invoice_pdf));
-            });
+            $payment_table = Payment::where('r_payment_id',$r_payment_id)->first();
+            $invoice_no = $payment_table->invoice_no;
+            $subject = 'Gaam Raam Trust Donation Invoice #'.$invoice_no.' | '.\Carbon\Carbon::today()->format('d-M-Y').' | '.\Carbon\Carbon::now()->format('h:i A');
+            $isAdmin = ($role === 'admin');
+            if (!$payment_table) {
+                Log::channel('razorpay')->error('Payment record not found for R-Payment ID: ' . $r_payment_id);
+                return;
+            }
+            $count = 1;
+            $pdfPath = public_path($payment_table->donation_pdf); 
+            Log::channel('razorpay')->info('Invoice PDF Path: ' . $pdfPath);
+            Mail::to($email)->queue(
+                (new SendDonationInvoiceMail($payment_table,$isAdmin,$subject,$count))
+                    ->attach($pdfPath)
+            );     
+            Log::channel('razorpay')->info('Email Sent With PDF To ' . $email);
 
         }catch (\Exception $mailException) {
             Log::channel('razorpay')->error('Failed to send email to ' . $email . '. Error: ' . $mailException->getMessage());
@@ -1105,19 +898,64 @@ use Endroid\QrCode\Writer\PngWriter;
         
     }
 
-    public function showInvoice($invoiceNumber)
+    
+
+    public function qrInvoice($invoiceNumber)
     {
-        $booking = Booking::where('invoice', $invoiceNumber)->first();
-        if (!$booking) {
+        dd($invoiceNumber);
+        $payment_table = Payment::where('invoice_no',$invoiceNumber)->first();
+        if (!$payment_table) {
             return abort(404, 'Invoice not found');
         }
-        $totalAmount = $booking->amount;
-        $decodedNames = json_decode($booking->passenger_name, true);
-        $decodedphone = json_decode($booking->phone, true);
-        $decodedage = json_decode($booking->age, true);
-        $decodedgender = json_decode($booking->gender, true);
-        return view('web-pages.invoice.detail', compact('booking', 'totalAmount','decodedNames','decodedphone','decodedage','decodedgender'));
+        return view('member.auth.payment.qr-invoice-detail', compact('payment_table'));
     }
+   
+
+}
+
+
+
+Step :12 App\Mail\SendDonationInvoiceMail  Side Code
+
+<?php
+
+namespace App\Mail;
+
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Mail\Mailable;
+use Illuminate\Queue\SerializesModels;
+
+class SendDonationInvoiceMail extends Mailable implements ShouldQueue
+{
+    use Queueable, SerializesModels;
+
+    public $payment_table;
+    public $isAdmin;
+    public $subjectLine;
+    public $count;
+    
+    public function __construct($payment_table, $isAdmin, $subjectLine, $count)
+    {
+        $this->payment_table = $payment_table;
+        $this->isAdmin = $isAdmin;
+        $this->subjectLine = $subjectLine;
+        $this->count = $count;
+    }
+
+    public function build()
+    {
+        return $this->subject($this->subjectLine) 
+                    ->view('mail-template.member.donation-invoice')
+                    ->with([
+                            'payment_table' => $this->payment_table,
+                            'isAdmin' => $this->isAdmin,  
+                            'count'   => $this->count,
+                  ]);
+    }
+}
+
+
 
 1. Implement admin commission and gst amount functionality.
 2. When the user clicks the "Pay" button, Razorpay payment gateway modal should open. The payment amount should be dynamically fetched and accurately displayed in the Razorpay modal. Ensure that the gateway supports secure and seamless transactions.
