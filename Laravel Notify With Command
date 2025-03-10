@@ -1,0 +1,27 @@
+*************************************************************************** Laravel Notify With Command *************************************************************************************
+
+Step :1 composer require mckenziearts/laravel-notify
+        composer show mckenziearts/laravel-notify
+        php artisan vendor:publish --provider="Mckenziearts\Notify\LaravelNotifyServiceProvider"
+
+
+
+Step :2 app/Http/Kernel.php
+
+protected $middlewareAliases = [
+    'notify' => \Mckenziearts\Notify\Middleware\Notify::class,
+];
+
+
+Step :3 app.blade.php
+
+@notifyCss
+@notifyJs
+<x-notify::notify />
+
+Step :4 In Controller Side Code 
+
+notify()->success('Success message', 'Title');
+notify()->info('Info message', 'Title');
+notify()->warning('Warning message', 'Title');
+notify()->error('Error message', 'Title');
