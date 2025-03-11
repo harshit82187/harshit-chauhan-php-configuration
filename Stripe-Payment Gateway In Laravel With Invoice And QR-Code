@@ -347,20 +347,107 @@ Step :5 Email Side Code
 
 <!DOCTYPE html>
 <html>
-<head>
-    <title>Booking Invoice</title>
-</head>
-<body>
-    @if($isAdmin)
-        <p>Hello, Admin</p>
-        <p>One booking has been received.</p>
-        <p>Please find the invoice attached below.</p>
-    @else
-        <p>Hello, {{ $user->name ?? 'Customer' }}</p>
-        <p>Your booking is confirmed.</p>
-        <p>Please find your invoice attached below.</p>
-    @endif
-</body>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Property Booking Invoice</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQjW1CwCf0vMLX5pD9eGeU2Ud1Lnt2R9u5kIepUCB4WdPmUbTbyP6YI75" crossorigin="anonymous">
+		<style>
+			/* General styling for email */
+			body {
+			font-family: Arial, sans-serif;
+			background-color: #f4f4f4;
+			margin: 0;
+			padding: 0;
+			}
+			.email-container {
+			max-width: 600px;
+			margin: 20px auto;
+			background-color: #ffffff;
+			padding: 20px;
+			border: 1px solid #dddddd;
+			border-radius: 5px;
+			}
+			.email-header {
+			text-align: center;
+			background-color: #E0E0E0;
+			color: #ffffff;
+			padding: 10px 0;
+			border-radius: 5px 5px 0 0;
+			}
+			.email-header h2 {
+			margin: 0;
+			font-size: 24px;
+			}
+			.email-body {
+			padding: 20px;
+			}
+			.email-body p {
+			font-size: 16px;
+			line-height: 1.6;
+			}
+			.email-footer {
+			text-align: center;
+			margin-top: 20px;
+			font-size: 14px;
+			color: #888888;
+			}
+			/* Styling for tables */
+			table {
+			width: 100%;
+			border-collapse: collapse;
+			margin-bottom: 20px;
+			}
+			th,
+			td {
+			border: 1px solid #dddddd;
+			text-align: left;
+			padding: 8px;
+			}
+			th {
+			background-color: #E0E0E0;
+			color: white;
+			}
+			.logo-title{
+				color: #273271;
+  				font-weight: 800;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="email-container" style="font-family: Arial, sans-serif; background: #F4F4F4; padding: 20px; border-radius: 10px;">
+			<!-- Email Header -->
+			<div class="email-header" style="text-align: center;padding: 20px;background: linear-gradient(135deg, #1A1F50 30%, #000000 100%);border-radius: 10px 10px 0 0;box-shadow: inset 0px 0px 10px rgba(0, 0, 0, 0.5);color: white;margin-bottom: 20px;">
+				<h1 class="logo-title" style="margin: 0; font-size: 28px; font-weight: 800;">MAKH STAY</h1>
+				<h2 style="margin: 5px 0 0; font-size: 20px; color:#FFD700;">Property Booking Invoice</h2>
+			</div>		
+			<!-- Email Body -->
+			<div class="email-body" style="padding: 20px; background: #FFFFFF; border-radius: 10px; box-shadow: 0px 4px 6px rgba(0,0,0,0.1);">
+				@if($isAdmin)
+					<p style="color: #333; font-size: 16px;">Hello, Admin</p>
+					<p style="color: #555; font-size: 14px;">One booking has been received.</p>
+					<p style="color: #555; font-size: 14px;">Please find the invoice attached below.</p>
+				@else
+					<p style="color: #333; font-size: 16px;">Hello, {{ $user->name ?? 'Customer' }}</p>
+					<p style="color: #555; font-size: 14px;">Your booking is confirmed.</p>
+					<p style="color: #555; font-size: 14px;">Please find your invoice attached below.</p>
+				@endif
+			</div>
+		
+			<!-- Email Footer -->
+			<div class="email-footer" style="text-align: center;padding: 15px;background: linear-gradient(135deg, #1A1F50 30%, #000000 100%);border-radius: 0 0 10px 10px;box-shadow: inset 0px 0px 10px rgba(0, 0, 0, 0.5);color: #E0E0E0;margin-top: 20px;font-size: 12px;">
+				<p style="margin: 0;">{{ date('Y') }} © All Rights Reserved  
+					<i class="fa fa-heart heart text-danger"></i> By  
+					<a href="{{ url('/') }}" target="_blank" style="color:#FFD700 !important; text-decoration: none;">Makh Stay</a>  
+					And Powered By  
+					<a href="{{ url('https://www.pearlorganisation.com/') }}" target="_blank" style="color:#FFD700 !important; text-decoration: none;">Pearl Organisation</a>
+				</p>
+			</div>
+		</div>
+		
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-VoPF5bLNmH3EaA8yexOaMIXV5GQpLw5jEEJqDlu0UDFIPhHIyggD5fXcjEjWKKej" crossorigin="anonymous"></script>
+
+	</body>
 </html>
 
 
@@ -385,18 +472,20 @@ class BookingInvoiceMail extends Mailable
     public $payment;
     public $role;
     public $isAdmin;
+    public $subjectLine;
 
-    public function __construct(User $user, Payment $payment, $role)
+    public function __construct(User $user, Payment $payment, $role, $subjectLine)
     {
         $this->user = $user;
         $this->payment = $payment;
         $this->role = $role;
         $this->isAdmin = ($role === 'admin');
+        $this->subjectLine = $subjectLine;
     }
 
     public function build()
     {
-        return $this->subject('Property Booking Invoice')
+        return $this->subject($this->subjectLine)
                     ->view('email-template.stripe.invoice')
                     ->attach(public_path($this->payment->invoice_pdf));
     }
@@ -543,6 +632,8 @@ class StripeController extends Controller
         $payment->check_out = $request->check_out;
         $payment->guests = $request->guests;
         $payment->children = $request->children;
+	$payment->created_at = now();
+        $payment->updated_at = now();
         $payment->save();        
         return $payment;
     }
@@ -586,10 +677,13 @@ class StripeController extends Controller
         Log::channel('stripe')->info('Invoice PDF saved to ' . $filePath);
     }
     
-    private function sendEmail($email, $user, $payment, $role)
+     private function sendEmail($email, $user, $payment, $role)
     {
         try {
-            Mail::to($email)->queue(new BookingInvoiceMail($user, $payment, $role));
+            $invoice = $payment->invoice;
+            Log::channel('stripe')->info('Invoice No ' . $invoice);
+            $subject = 'Property Booking Invoice #'.$invoice.' | '.\Carbon\Carbon::today()->format('d-M-Y').' | '.\Carbon\Carbon::now()->format('h:i A');
+            Mail::to($email)->queue(new BookingInvoiceMail($user, $payment, $role, $subject));
             Log::channel('stripe')->info('Email sent to ' . $email);
         } catch (\Exception $mailException) {
             Log::channel('stripe')->error('Failed to send email to ' . $email . '. Error: ' . $mailException->getMessage());
