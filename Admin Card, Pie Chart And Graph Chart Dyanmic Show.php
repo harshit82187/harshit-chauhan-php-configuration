@@ -4692,3 +4692,21 @@ public function dataFilter(Request $req) {
         ]
     ]);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+1.Implement dynamic card functionality to display the counts of users, owners, confirmed bookings, canceled bookings, properties, and amenities.
+2. Ensure that when the admin clicks on any of these cards, they are redirected to their respective URLs.
+3. Implement a report table where the admin can filter data based on the following time periods: Today, Yesterday, Last 7 Days, Last 30 Days, This Month, Last Month, and Custom Date Range.
+4.  Implement a pie chart to display the statistics for users onboarded, owners onboarded, and confirmed bookings for the current year.
+5. Similarly, implement a line chart to visualize the trends of users, owners, and confirmed bookings for the current month.
