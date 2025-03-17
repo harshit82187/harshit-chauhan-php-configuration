@@ -1,0 +1,108 @@
+*************************************************** Email Validation With API ****************************************************************************
+
+Step : 1 route file code
+
+use App\Http\Controllers\EmailValidationController;
+Route::post('/validate-email', [EmailValidationController::class, 'validateEmail'])->name('validate.email');
+
+Step : 2 EmailValidationController.php Side Code
+
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+
+class EmailValidationController extends Controller
+{
+    public function validateEmail(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        $apiKey = '1f7ec72872a4ec4a465d7b27b2de6f50368bbcde42070e633cdd9438794bbd5c';
+        $response = Http::asForm()->post('https://verify.maileroo.net/check', [
+            'api_key' => $apiKey,
+            'email_address' => $request->email,
+        ]);
+
+        $data = $response->json();
+
+        // Check if the API request was successful
+        if ($data['success'] && isset($data['data'])) {
+            $emailData = $data['data'];
+
+            if ($emailData['format_valid'] && $emailData['mx_found'] && !$emailData['disposable']) {
+                return response()->json([
+                    'status' => 'success',
+                    'message' => '✅ Email is valid and can receive messages.',
+                ]);
+            } else {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => '❌ Email is invalid or cannot receive messages. Please enter another email.',
+                ]);
+            }
+        } else {
+            return response()->json([
+                'status' => 'error',
+                'message' => '⚠️ Unable to validate email. Please try again later.',
+            ]);
+        }
+    }
+}
+
+
+
+Step : 3 email-validation.blade.php file code
+
+@extends('layouts.app')
+
+@section('content')
+<div class="container">
+    <h2>Email Validation Form</h2>
+    <form id="emailValidationForm">
+        @csrf
+        <div class="mb-3">
+            <label for="email" class="form-label">Enter Email:</label>
+            <input type="email" class="form-control" id="email" name="email" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Check Email</button>
+    </form>
+    
+    <div id="emailResponse" class="mt-3"></div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+$(document).ready(function () {
+    $('#emailValidationForm').on('submit', function (e) {
+        e.preventDefault();
+        
+        let formData = $(this).serialize();
+        
+        $.ajax({
+            type: 'POST',
+            url: "{{ route('validate.email') }}",
+            data: formData,
+            dataType: 'json',
+            success: function (response) {
+                let responseDiv = $('#emailResponse');
+                responseDiv.html(response.message);
+
+                if (response.status === 'success') {
+                    responseDiv.css('color', 'green');
+                } else {
+                    responseDiv.css('color', 'red');
+                }
+            },
+            error: function () {
+                $('#emailResponse').html('⚠️ Something went wrong. Please try again.').css('color', 'red');
+            }
+        });
+    });
+});
+</script>
+@endsection
