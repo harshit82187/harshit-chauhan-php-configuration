@@ -79,7 +79,8 @@
 						title: 'Error',
 						message: 'Error updating status!',
 						position: 'topRight',
-						timeout: 3000
+						timeout: 3000,
+ 						backgroundColor: '#F0D5B6'
 					});
 				}
 			});
