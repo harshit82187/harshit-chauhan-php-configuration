@@ -104,16 +104,20 @@ MAIL_FROM_ADDRESS=contact@collegeforum.in
 MAIL_FROM_NAME="${APP_NAME}"
 
 Route::get('/test-raw-mail', function () {
-    $toEmail = 'recipient-email@example.com';
+    $toEmail = 'harshitk@pearlorganisation.com';
     $subject = 'Test Email';
     $body = 'This is a test email sent using raw content to check if email functionality is working.';
-
-    Mail::raw($body, function ($message) use ($toEmail, $subject) {
-        $message->to($toEmail)
-                ->subject($subject);
-    });
-
-    return 'Raw test email sent successfully!';
+    try {
+        Mail::raw($body, function ($message) use ($toEmail, $subject) {
+            $message->to($toEmail)
+                    ->subject($subject);
+        });
+        Log::channel('email')->info('Test email sent successfully.', ['to' => $toEmail, 'subject' => $subject]);
+        return response()->json(['message' => 'Raw test email sent successfully!'], 200);
+    } catch (\Exception $e) {
+        Log::channel('email')->error('Failed to send test email.', ['error' => $e->getMessage(), 'to' => $toEmail]);
+        return response()->json(['message' => 'Failed to send email.', 'error' => $e->getMessage()], 500);
+    }
 });
 
 
