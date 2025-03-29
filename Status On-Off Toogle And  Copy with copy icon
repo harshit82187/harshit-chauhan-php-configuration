@@ -75,13 +75,21 @@
 					});
 				},
 				error: function(xhr, status, error) {
-					iziToast.error({
+					  iziToast.error({
 						title: 'Error',
 						message: 'Error updating status!',
 						position: 'topRight',
-						timeout: 3000,
- 						backgroundColor: '#F0D5B6'
-					});
+						timeout: 4000,
+						backgroundColor: '#F0D5B6',
+						titleColor: '#000', 
+						messageColor: '#000', 
+						titleSize: '16px',
+						messageSize: '16px',
+						titleLineHeight: '20px',
+						messageLineHeight: '16px',
+						titleFontWeight: '700', 
+						messageFontWeight: '700'
+					    });
 				}
 			});
 		});
