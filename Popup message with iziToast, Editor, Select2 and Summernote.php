@@ -338,22 +338,57 @@ Route::get('/migrate', function(){
 
 
 
+////////////////////////////////////// editor in laravel //////////////////////////////////////////////////////////////////
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jodit@3.24.3/build/jodit.min.css">
+
+<textarea class="form-control editor" name="preparation_plans" rows="5" placeholder="Enter Details" required>{{ $course->preparation_plans }}</textarea>
+<script src="https://cdn.jsdelivr.net/npm/jodit@3.24.3/build/jodit.min.js"></script>
+
+<script>
+    $(document).ready(function() {
+        $('.editor').each(function() {
+            new Jodit(this, {
+                height: 300, // Adjust the editor height
+                toolbarSticky: false, // Toolbar will not stick on scroll
+                defaultMode: "1", // Start in WYSIWYG mode
+                uploader: {
+                    insertImageAsBase64URI: true // Allows direct image uploads
+                }
+            });
+        });
+    });
+</script>
+
+
 ///////////////////////////////////////  select2 In Laravel ////////////////////////////////////////////////////////////////
 
-<link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
+.select2-container--default .select2-selection--single {
+    height: 38px !important;
+    line-height: 38px !important; 
+    padding: 5px 10px;
+}
 
-<select id="single" class="js-states form-control form-select js-example-basic-single form-select">
-    <option selected disabled value="">Selcet Bank</option>
-        @foreach ($allBanks as $bank)
-        <option value="{{$bank->id}}">{{$bank->name}}</option>
-        @endforeach
+.select2-container--default .select2-selection--multiple {
+    min-height: 38px !important; 
+    line-height: 28px !important; 
+    padding: 5px 10px;
+}
+<select class="form-control select2" name="member_id">
+	<option value="all" selected>All Members</option>
+	@foreach($members as $member)
+	    <option value="{{ $member->id }}">{{ $member->name }}</option>
+	@endforeach
 </select>
 
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
 <script>
-    $("#single").select2({
-        placeholder: "Select Bank",
-        allowClear: true
+    $(document).ready(function() {
+        $('.select2').select2({
+            allowClear: true,
+            width:'300px'
+        });
     });
 </script>
