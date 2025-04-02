@@ -24,42 +24,80 @@ RAZORPAY_SECRET=10o619MmNZGFpP7Bsu9U1B2X
 
 Step :3 Blade File Code
 
-<form id="donate-online" action="{{ route('donate-now-amount') }}" method="POST" >
-@csrf
-<input type="hidden" name="razorpay_payment_id" id="razorpay_payment_id">
-    <input type="hidden" name="transaction_via" value="razorpay">
-    <input type="hidden" name="merchant_order_id" value="<?= rand(11111, 99999) . time() ?>">
-    <div class="form-group">
-	<label for="name">Name</label><span class="text-danger" >*</span>
-	<input type="text" name="name" class="form-control alphabet" id="" required aria-describedby="">
+<style>
+    .loader-overlay {
+        position: fixed;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        flex-direction: column;
+        color: white;
+    }
+    .loader {
+        border: 6px solid #f3f3f3;
+        border-top: 6px solid #012549;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+    }
+    .processing{
+        font-size: 18px;
+        line-height: 26px;
+        color: black;
+        font-weight: 900;
+        font-family: 'Lora', serif;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
 
-    </div>
-    <div class="form-group">
-	<label for="number">Phone</label><span class="text-danger" >*</span>
-	<input type="text" name="mobile_no" class="form-control number" required >
-    </div>
-    <div class="form-group">
-	<label for="number">Email</label><span class="text-danger" >*</span>
-	<input type="email" name="email" class="form-control" required>
-    </div>
-    <div class="form-group">
-	<label for="amount">Amount (Minimum payable amount is 100 rupees)</label><span class="text-danger" >*</span>
-	<input type="text" name="amount" class="form-control number" id="amount" required>
-    </div>
-    <button type="submit" class="btnn-donate">Donate Now</button>
-</form>
+<div id="paymentLoader" class="loader-overlay d-none"  >
+    <div class="loader"></div>
+    <p class="processing" >Processing Payment, Please Wait...</p>
+</div>
+
+<div class="luxury-button">
+    <form id="pay_now" method="POST" action="{{ route('proccedd-to-pay') }}">
+        @csrf
+        <input type="hidden" name="razorpay_payment_id" id="razorpay_payment_id">
+        <input type="hidden" name="transaction_via" value="razorpay">
+        <input type="hidden" name="merchant_order_id" value="<?= rand(11111, 99999) . time() ?>">
+        <input type="hidden" name="amount" id="amount">
+        <input type="hidden" name="check_in" value="{{ $data['check_in'] }}">
+        <input type="hidden" name="check_out" value="{{ $data['check_out'] }}">
+        <input type="hidden" name="guest" value="{{ $data['guest'] }}">
+        <input type="hidden" name="property_id" value="{{ $property->id }}">
+        <input type="submit" class="w-100 text-center pay" id="pay-online" value="Confirm & Pay">
+        <input type="hidden" name="coupon_code" id="coupon_code">
+        <input type="hidden" name="discount_amount" id="discount_amount">
+        <input type="hidden" name="gst_amount" id="gst_amount">
+        <input type="hidden" name="base_amount" id="base_amount">
+    </form>
+</div>
 
 
-
-
+@endsection
 @push('js')
-
 <script>
-var RAZORPAY_KEY = "{{ env('RAZORPAY_KEY') }}";
-var razorpay_logo = "{{ asset('front/images/Gaam_Raam_logo.png') }}";
+    var check_in = @json($data['check_in']);
+    var check_out = @json($data['check_out']);
+    var price = @json($property->price);
+    var razorpay_logo = "{{ asset('front/images/logo1.png') }}";
+    var RAZORPAY_KEY = "{{ env('RAZORPAY_KEY') }}";
+    var applyCoupon = "{{ route('apply-coupon') }}";
 </script>
-<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script src="{{ asset('front/js/razorpay.js') }}"></script>
+<script src="{{ asset('front/js/property.js') }}"></script>
+
 @endpush
 
 
@@ -68,95 +106,105 @@ razorpay.js file code
 
 
 
-    $(".number").on("input", function () {
-        this.value = this.value.replace(/[^0-9.]/g, ''); 
-         if (this.value.length > 10) {
-          this.value = this.value.slice(0, 10); 
-      }
-    });
+$(document).ready(function(){
+    if (typeof check_in === 'undefined' || typeof check_out === 'undefined' || typeof price === 'undefined') {
+        console.error("Error: Required variables are undefined.");
+        return;
+    }
+    var propertyPrice = parseFloat(price);
+    var checkInDate = new Date(check_in);
+    var checkOutDate = new Date(check_out);
+    var gst = 0;
 
-    $(".alphabet").on("input", function () {
-        this.value = this.value.replace(/[^a-zA-Z\s]/g, ''); 
-    });
+    if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
+        console.error("Error: Invalid date format");
+        return;
+    }
 
+    var timeDiff = checkOutDate - checkInDate;
+    var days = Math.ceil(timeDiff / (1000 * 60 * 60 * 24)); 
 
-    $("#donate-online").submit(function(e) {
-        console.log("Form submission triggered");
+    if (days <= 0) {
+        days = 1;
+    }
+
+    var baseRate = propertyPrice * days;
+    if(baseRate <= 7500){
+        gst = 12;
+    }else{
+        gst = 18;
+    }
+    var totalTax = (baseRate * gst) / 100;  
+    var totalAmount = baseRate + totalTax; 
+    console.log("Base Rate:", baseRate);
+    console.log("Total Tax", totalTax);
+    console.log("Total Amount:", totalAmount);
+    console.log("Price per night:", propertyPrice);
+    console.log("Days stayed:", days);
+    console.log("Gst Charges:", gst);
+
+    $("#total_amount").html("₹ " + totalAmount.toFixed(2));
+    $("#base_rate").html("₹ " + baseRate.toFixed(2));
+    $('#day-spend').html(days);
+    $('#amount').val(totalAmount);
+    $('#total-tax').html("₹ " + totalTax.toFixed(2));
+    $('#gst_value').html(gst + "%");
+
+    $("#pay_now").submit(function(e){
         e.preventDefault();
-        let isValid = true;
-      
-        var amount = parseInt($('#amount').val(), 10) || 0;
-        if (amount < 100) {
-            iziToast.info({
-                title: 'Info',
-                message: 'Minimum payable amount is 100 rupees!',
-                position: 'topRight',
-                timeout: 3000,
-            });
-            isValid = false;
-        }
-        if (isValid) {
-            console.log("Amount is valid, proceeding with Razorpay");
-            razorpaySubmit(this);
-        }
+        console.log("Amount is valid, proceeding with Razorpay");
+        razorpaySubmit();
     });
 
     var razorpayPaymentId = "";
-    let totalAmount = 0; // Initialize amount
-    function updateRazorpayOptions() {
-        totalAmount = parseInt($('#amount').val(), 10) || 0;
-        let totalAmountInPaise = totalAmount * 100;
-        
-        console.log("Amount on Razorpay: " + totalAmountInPaise);
+    let RtotalAmount = 0; // Initialize amount
+    function updateRazorpayOptions(newAmount = null) {
+        let RtotalAmount = newAmount ? newAmount : parseFloat($("#amount").val());
+        let totalAmountInPaise = RtotalAmount * 100;
     
-        // Get dynamic input values
-        var donerName = $('#name').val();
-        var mobile_no = $('#mobile_no').val();
-        var email = $('#email').val();
-        console.log("Prefill Values - Name:", donerName, "Email:", email, "Mobile:", mobile_no);
-    
-        razorpay_options = {
-            key: RAZORPAY_KEY,
-            amount: totalAmountInPaise.toString(),
-            name: "Gaam Raam",
-            description: "Member Donation",
-            image: razorpay_logo,
-            netbanking: true,
-            currency: "INR",
-            prefill: {
-                name: $('#name').val(),
-                email: $('#email').val(),
-                contact: $('#mobile_no').val()
-            },
-            notes: {
-               donor_name: $('#name').val(),
-                donor_email: $('#email').val(),
-                donor_mobile: $('#mobile_no').val(),
-                transaction_date: new Date().toISOString()
-            },
-            theme: { color: "#ff7029" },
-            handler: function (transaction) {
-                razorpayPaymentId = transaction.razorpay_payment_id;
-                console.log("Payment ID: " + razorpayPaymentId);
-    
-                document.getElementById('razorpay_payment_id').value = razorpayPaymentId;
-                $("#donate-online").off('submit').submit(); // Allow form submission after payment
-            },
-            modal: {
-                ondismiss: function () {
-                    location.reload();
-                }
-            }
-        };
+        console.log("Updated Amount on Razorpay: " + totalAmountInPaise);
+        razorpay_options.amount = totalAmountInPaise.toString();
     }
 
-  
+    // Razorpay options
+    var razorpay_options = {
+        key: RAZORPAY_KEY,
+        amount: RtotalAmount * 100,
+        name: "Tensor",
+        description: "Property Booking",
+        image:razorpay_logo,
+        netbanking: true,
+        currency: "INR",
+        prefill: {
+            name: "{{ Auth::User()->name }}",
+            email: "{{ Auth::User()->email }}",
+            contact: "{{ Auth::User()->mobile }}"
+        },
+        "theme": { "color": "#012549" },
+        handler: function (transaction) {
+            razorpayPaymentId = transaction.razorpay_payment_id;
+            console.log("Payment ID: " + razorpayPaymentId);
+            document.getElementById('razorpay_payment_id').value = razorpayPaymentId;
+            $('#gst_amount').val(totalTax); 
+            console.log("Base Rate before setting:", baseRate);
+            $('#base_amount').val(baseRate);
+            console.log("Base Amount field value:", $('#base_amount').val());            
+            document.getElementById('pay_now').submit();
+
+        },
+        modal: {
+            ondismiss: function () {
+                location.reload();
+            }
+        }
+    };
 
     // Open Razorpay Checkout
     var razorpay_instance;
     function razorpaySubmit(el) {
         console.log("Opening Razorpay Checkout");
-        $('.pay-online').val('Please Wait...').prop('disabled', true);
+        $('#pay-online').val('Please Wait...').prop('disabled', true).css('cursor', 'no-drop');
+        $('#paymentLoader').removeClass('d-none');
         updateRazorpayOptions(); 
 
         if (!razorpay_instance) {
@@ -167,18 +215,33 @@ razorpay.js file code
     }
 
 
+    
+});
+
 Step :4 Database Schema
 
 
 CREATE TABLE `payments` (
   `id` bigint(20) NOT NULL,
+  `invoice_no` varchar(250) DEFAULT NULL,
+  `qr_image` longtext DEFAULT NULL,
+  `invoice_pdf` longtext DEFAULT NULL,
+  `mode` enum('1','2','3','') DEFAULT NULL COMMENT '1 => Online',
   `r_payment_id` varchar(250) DEFAULT NULL,
   `merchant_order_id` varchar(250) DEFAULT NULL,
   `method` varchar(250) DEFAULT NULL,
   `currency` varchar(250) DEFAULT NULL,
+  `user_id` bigint(20) DEFAULT NULL,
   `user_email` varchar(250) DEFAULT NULL,
+  `check_in` date DEFAULT NULL,
+  `check_out` date DEFAULT NULL,
+  `guest` varchar(250) DEFAULT NULL,
+  `base_amount` bigint(20) DEFAULT NULL,
   `amount` varchar(250) DEFAULT NULL,
+  `gst_amount` bigint(20) DEFAULT NULL,
   `json_response` longtext DEFAULT NULL,
+  `discount_amount` varchar(250) DEFAULT NULL,
+  `coupon_code` varchar(250) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -219,14 +282,14 @@ Step :6 Pdf Invoice Code
 		<td align="center" style="padding: 20px; background-color: #f4f4f4;">
 			<table width="100%" cellpadding="0" cellspacing="0" style="background: #ffffff; border: 1px solid #ddd; border-radius: 8px;">
 				<tr>
-					<td style="padding: 5px 20px; text-align: center; border-bottom: 1px solid #ddd; background-color: #d93025;">
-						@php
-						$logoPath = public_path('front/img/logo/chockwisehotel_logo.png');
-						$logoData = base64_encode(file_get_contents($logoPath));
-						$logoSrc = 'data:image/png;base64,' . $logoData;
-						@endphp
-						<img src="{{$logoSrc}}" height="80px" width="300px" alt="logo">
-						<h2 style="margin: 0; font-size: 20px; color: #fff;">Invoice for Hotel Booking</h2>
+					<td style="padding: 5px 20px; text-align: center; border-bottom: 1px solid #ddd; background-color: #012549;">
+                        @php
+                        $logoPath = public_path('front/images/logo1.png');
+                        $logoData = base64_encode(file_get_contents($logoPath));
+                        $logoSrc = 'data:image/png;base64,' . $logoData;
+                        @endphp
+                        <img src="{{$logoSrc}}" height="80px" width="300px" alt="logo">
+						<h2 style="margin: 0; font-size: 20px; color: #fff;">Property Booking Invoice</h2>
 					</td>
 				</tr>
 				<tr>
@@ -238,7 +301,7 @@ Step :6 Pdf Invoice Code
 										<table width="100%">
 											<tr>
 												<td style="padding: 5px; font-weight: bold; white-space: nowrap;">Invoice ID:</td>
-												<td style="padding: 5px; color: #555;">{{ $booking['invoice'] ?? '---' }}</td>
+												<td style="padding: 5px; color: #555;">{{ $payment_table['invoice_no'] ?? '---' }}</td>
 											</tr>
 											<tr>
 												<td style="padding: 5px; font-weight: bold; white-space: nowrap;">Booking Date:</td>
@@ -246,23 +309,23 @@ Step :6 Pdf Invoice Code
 											</tr>
 											<tr>
 												<td style="padding: 5px; font-weight: bold; white-space: nowrap;">Check-In Date:</td>
-												<td style="padding: 5px; color: #555;">{{ \Carbon\Carbon::parse($booking['check_in'])->format('d-M-Y') ?? '---' }}</td>
+												<td style="padding: 5px; color: #555;">{{ \Carbon\Carbon::parse($payment_table->check_in)->format('d-M-Y') }}</td>
 											</tr>
 											<tr>
 												<td style="padding: 5px; font-weight: bold; white-space: nowrap;">Check-Out Date:</td>
-												<td style="padding: 5px; color: #555;">{{ \Carbon\Carbon::parse($booking['check_out'])->format('d-M-Y') ?? '---' }}</td>
+												<td style="padding: 5px; color: #555;">{{ \Carbon\Carbon::parse($payment_table->check_out)->format('d-M-Y') }}</td>
 											</tr>
 										</table>
 									</td>
 									<td style="width: 50%; vertical-align: top; text-align: right;">
-										@if($booking['qr_image'])
-										@php
-										$imagePath = public_path($booking['qr_image']);
-										$imageData = base64_encode(file_get_contents($imagePath));
-										$src = 'data:image/png;base64,' . $imageData;
-										@endphp
-										<img src="{{ $src }}" alt="QR Code" style="max-width: 100px; max-height: 100px;">
-										@endif
+										@if($payment_table['qr_image'])
+                                        @php
+                                        $imagePath = public_path($payment_table['qr_image']);
+                                        $imageData = base64_encode(file_get_contents($imagePath));
+                                        $src = 'data:image/png;base64,' . $imageData;
+                                        @endphp
+                                        <img src="{{ $src }}" alt="QR Code" style="max-width: 100px; max-height: 100px;">
+                                        @endif
 									</td>
 								</tr>
 							</tbody>
@@ -276,36 +339,36 @@ Step :6 Pdf Invoice Code
 						<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 10px 0;">
 							<tr>
 								<td style="padding: 8px; border: 1px solid #ddd;">Name</td>
-								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $booking['name'] ?? 'N/A' }}</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $user['name'] ?? 'N/A' }}</td>
 							</tr>
-							<tr>
+							<tr  style=" background-color: #f8f8f8;">
 								<td style="padding: 8px; border: 1px solid #ddd;">Contact</td>
-								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">+91 {{ $booking['mobile_no'] ?? '' }}</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">+91 {{ $user['mobile'] ?? '' }}</td>
 							</tr>
 							<tr>
 								<td style="padding: 8px; border: 1px solid #ddd;">Email</td>
 								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">
-									<a href="mailto:{{ $booking['email'] ?? '' }}" style="color: #007bff; text-decoration: none;">{{ $booking['email'] ?? '' }}</a>
+									<a href="mailto:{{ $user['email'] ?? '' }}" style="color: #007bff; text-decoration: none;">{{ $user['email'] ?? '' }}</a>
 								</td>
 							</tr>
-							<tr>
+							<tr  style=" background-color: #f8f8f8;">
 								<td style="padding: 8px; border: 1px solid #ddd;">Address</td>
-								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $booking['address'] ?? 'N/A' }}</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $user['address'] ?? 'N/A' }}</td>
 							</tr>
 						</table>
 					</td>
 				</tr>
-				<!-- Hotel Details Section -->
+				<!-- Property Details Section -->
 				<tr>
 					<td style="padding: 20px;">
-						<p style="margin: 0; font-weight: bold;">Hotel Details</p>
+						<p style="margin: 0; font-weight: bold;">Property Details</p>
 						<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 10px 0;">
 							<tr>
-								<td style="padding: 8px; border: 1px solid #ddd;">Hotel Name</td>
-								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $property['title'] ?? 'N/A' }}</td>
+								<td style="padding: 8px; border: 1px solid #ddd;">Property Name</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $property['name'] ?? 'N/A' }}</td>
 							</tr>
-							<tr>
-								<td style="padding: 8px; border: 1px solid #ddd;">Hotel Address</td>
+							<tr  style=" background-color: #f8f8f8;">
+								<td style="padding: 8px; border: 1px solid #ddd;">Property Address</td>
 								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $property['address'] ?? '' }}</td>
 							</tr>
 						
@@ -317,31 +380,32 @@ Step :6 Pdf Invoice Code
 					<td style="padding: 20px;">
 						<p style="margin: 0; font-weight: bold;">Payment Details</p>
 						<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 10px 0;">
-							<tr>
-								<td style="padding: 8px; border: 1px solid #ddd;">Check In Date </td>
-								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ \Carbon\Carbon::parse($booking['check_in'])->format('d-M-Y') ?? '---' }}</td>
+							<tr >
+								<td style="padding: 8px; border: 1px solid #ddd;">Transaction Id </td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $payment_table->r_payment_id }}</td>
 							</tr>
-							<tr>
-								<td style="padding: 8px; border: 1px solid #ddd;">Check Out Date </td>
-								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ \Carbon\Carbon::parse($booking['check_out'])->format('d-M-Y') ?? '---' }}</td>
+							<tr style="background-color: #f8f8f8;">
+								<td style="padding: 8px; border: 1px solid #ddd;">Base Amount </td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">₹ {{ number_format($payment_table->base_amount, 2) }}</td>
 							</tr>
-							<tr>
-								<td style="padding: 8px; border: 1px solid #ddd;">Payment Method</td>
-								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">
-									{{ $booking['payment_method'] == '1' ? 'Online' : 'Pay On Property' }}
-								</td>
+							<tr >
+								<td style="padding: 8px; border: 1px solid #ddd;">Gst Amount</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">₹ {{ number_format($payment_table->gst_amount, 2) }}</td>
 							</tr>
-							<tr>
-								<td style="padding: 8px; border: 1px solid #ddd;">Service Charge Amount</td>
-								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $booking['admin_commision'] ?? '' }}</td>
+							@if($payment_table->discount_amount != null && $payment_table->coupon_code != null)
+							<tr >
+								<td style="padding: 8px; border: 1px solid #ddd;">Discount Amount</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">₹ {{ number_format($payment_table->discount_amount, 2) }}</td>
 							</tr>
-							<tr style="font-weight: bold; background-color: #f8f8f8;">
-								<td style="padding: 8px; border: 1px solid #ddd;">GST Amount</td>
-								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $booking['gst'] ?? '' }}</td>
+							<tr style="background-color: #f8f8f8;">
+								<td style="padding: 8px; border: 1px solid #ddd;">Coupon Code</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $payment_table->coupon_code }}</td>
 							</tr>
-							<tr style="font-weight: bold; background-color: #f8f8f8;">
-								<td style="padding: 8px; border: 1px solid #ddd;">Total Amount</td>
-								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ number_format($booking['amount'] ?? 0, 2) }}</td>
+							@endif					
+						
+							<tr style="background-color: #f8f8f8;">
+								<td style="padding: 8px; border: 1px solid #ddd;">Total Paid Amount</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">₹ {{ number_format($payment_table->amount, 2) ?? '' }}</td>
 							</tr>
 						</table>
 					</td>
@@ -357,7 +421,7 @@ Step :6 Pdf Invoice Code
 				</tr>
 				<tr>
 					<td style="padding: 10px; text-align: center; background-color: #f4f4f4; border-top: 1px solid #ddd;">
-						<p style="font-size: 12px; color: #888;">© 2025 All rights reserved.</p>
+						<p style="font-size: 12px; color: #888;">{{ date('Y') }} © All Rights Reserved <i class="fa fa-heart heart text-danger"></i> By <a href="{{ url('/') }}" target="_blank" style="color:#012549 !important;" >Tensor</a> And Powered By <a href="{{ url('https://www.pearlorganisation.com/') }}" target="_blank" style="color:#012549 !important;">Pearl Organisation</a></p>
 					</td>
 				</tr>
 			</table>
@@ -366,247 +430,79 @@ Step :6 Pdf Invoice Code
 </table>
 
 
+Step :7 Thank-You File Code
 
-
-
-
-Step :7 Web invoice code
-
-@extends('layout.app')
+@extends('front.layout.app')
 @section('content')
-<style>
-    @media print {
-        body * {
-            visibility: hidden;
-        }
-        #tableArea, #tableArea * {
-            visibility: visible;
-        }
-        #tableArea {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-        }
-    }
-</style>
 <br><br>
-<table id="tableArea" width="100%" cellpadding="0" cellspacing="0" style="font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.6;">
-    <tr>
-        <td align="center" style="padding: 20px; background-color: #f4f4f4;">
-            <table width="900" cellpadding="0" cellspacing="0" style="background: #ffffff; border: 1px solid #ddd; border-radius: 8px;">
+<div class="container mt-5">
+    <div class="card p-4 shadow">
+        <h2 class="text-center mb-4">Thank You for Your Booking!</h2>
+        
+        <table class="table table-bordered table-striped">
+            <thead>
+            <tbody>
                 <tr>
-                    <td style="padding: 20px; text-align: center; border-bottom: 1px solid #ddd;background-color: #1e4d91;">
-                        <img src="{{ asset('assets/img/common/dashboard-user.png') }}" height="80px" width="270px" alt="logo">
-                        <h2 style="margin: 0; font-size: 20px; color: #fff;">Invoice for Hotel Booking</h2>
-                    </td>
+                    <th>Invoice No</th>
+                    <td>{{ $payment_table->invoice_no ?? '' }}</td>
                 </tr>
                 <tr>
-                    <td style="padding: 20px;">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <div class="detail_item" style=" display: flex;gap: 20px;margin-bottom: 5px;">
-                                    <p style=" width: 46%;margin: 0;font-weight: bold;white-space: nowrap;">Invoice ID:</p>
-                                    <span style="color: #555;margin-left:16%;">{{ $booking['invoice'] ?? '---' }}</span>
-                                </div>
-                                <div class="detail_item" style=" display: flex;gap: 20px;margin-bottom: 5px;">
-                                    <p style=" width: 46%;margin: 0;font-weight: bold;white-space: nowrap;">Booking Date:</p>
-                                    <span style="color: #555;margin-left:10%;">{{ $today ?? '---' }}</span>
-                                </div>
-                                <div class="detail_item" style=" display: flex;gap: 20px;margin-bottom: 5px;">
-                                    <p style=" width: 46%;margin: 0;font-weight: bold;white-space: nowrap;">Check In Date:</p>
-                                    <span style="color: #555;margin-left:10%;">{{ \Carbon\Carbon::parse($hotelBookingDetail['check_in'])->format('d-M-Y') ?? '---' }}</span>
-                                </div>
-                                <div class="detail_item" style=" display: flex;gap: 20px;margin-bottom: 5px;">
-                                    <p style=" width: 46%;margin: 0;font-weight: bold;white-space: nowrap;">Check Out Date:</p>
-                                    <span style="color: #555;margin-left:10%;">{{ \Carbon\Carbon::parse($hotelBookingDetail['check_out'])->format('d-M-Y') ?? '---' }}</span>
-                                </div>
-                            </div>
-                            <div>
-                                @if($booking['qr_image'])
-                                @php
-                                $imagePath = public_path($booking['qr_image']);
-                                $imageData = base64_encode(file_get_contents($imagePath));
-                                $src = 'data:image/png;base64,' . $imageData;
-                                @endphp
-                                <img src="{{ $src }}" alt="QR Code w dwdf" style="width: 100px;">
-                                @endif
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-
-
-                <tr>
-                    <td style="padding: 20px;">
-                        <p style="margin: 0; font-weight: bold;">User Details</p>
-                        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 10px 0;">
-
-                            <tr>
-                                <td style="padding: 8px; border: 1px solid #ddd;">Name </td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $hotelBookingDetail['name'] ?? 'N/A' }}</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px; border: 1px solid #ddd;">Contact </td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">+91 {{ $hotelBookingDetail['mobile_no'] ?? '' }}</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px; border: 1px solid #ddd;">Email </td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;"><a href="{{  $hotelBookingDetail['email'] ?? '' }}" style="color: #007bff; text-decoration: none;">{{ $hotelBookingDetail['email'] ?? '' }}</a></td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px; border: 1px solid #ddd;">Address </td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $hotelBookingDetail['address'] ?? 'N/A' }}</td>
-                            </tr>
-
-
-                        </table>
-                    </td>
-                </tr>
-
-                <tr>
-                    <td style="padding: 20px;">
-                        <p style="margin: 0; font-weight: bold;">Hotel Details</p>
-                        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 10px 0;">
-
-                            <tr>
-                                <td style="padding: 8px; border: 1px solid #ddd;">Hotel Name </td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $hotel['name'] ?? '' }}</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px; border: 1px solid #ddd;">Hotel Address </td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{!! $hotel['address']  !!}</td>
-                            </tr>
-
-                        </table>
-                    </td>
-                </tr>
-
-
-                <tr>
-                    <td style="padding: 20px;">
-                        <p style="margin: 0; font-weight: bold;">Payment Details</p>
-                        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 10px 0;">
-
-                            <tr>
-                                <td style="padding: 8px; border: 1px solid #ddd;">Check In Date </td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ \Carbon\Carbon::parse($hotelBookingDetail['check_in'])->format('d-M-Y') ?? '---' }}</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px; border: 1px solid #ddd;">Check Out Date </td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ \Carbon\Carbon::parse($hotelBookingDetail['check_out'])->format('d-M-Y') ?? '---' }}</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px; border: 1px solid #ddd;">Payment Method </td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">
-                                   Online
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px; border: 1px solid #ddd;">Service Charge Amount</td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;"> {{ $hotelBookingDetail['admin_commision'] ?? ''  }}</td>
-                            </tr>
-
-                            <tr style="font-weight: bold; background-color: #f8f8f8;">
-                                <td style="padding: 8px; border: 1px solid #ddd;">Gst Amount</td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $hotelBookingDetail['gst'] ?? '' }}</td>
-                            </tr>
-
-                            <tr style="font-weight: bold; background-color: #f8f8f8;">
-                                <td style="padding: 8px; border: 1px solid #ddd;">Total Amount</td>
-                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ ($hotelBookingDetail['amount'] ?? '0') }}
-                                </td>
-                            </tr>
-
-                        </table>
-                    </td>
+                    <th>Check-In Date</th>
+                    <td>{{ \Carbon\Carbon::parse($payment_table->check_in)->format('d-M-Y') ?? '' }}</td>
                 </tr>
                 <tr>
-                    <td style="padding: 20px; border-top: 1px solid #ddd;">
-                        <p style="margin: 0;">Thank you for booking with us. Please keep this invoice for your records.</p>
-                        <p style="margin: 10px 0;">For any queries, contact our support team at:
-                            <a href="mailto:{{$adminEmail ?? '' }}" style="color: #007bff; text-decoration: none;">{{ $adminEmail ?? '' }}</a>
-                        </p>
-                    </td>
+                    <th>Check-Out Date</th>
+                    <td>{{  \Carbon\Carbon::parse($payment_table->check_out)->format('d-M-Y')  ?? '' }}</td>
                 </tr>
                 <tr>
-                    <td style="padding: 10px; text-align: center; background-color: #f8f8f8; font-size: 12px; color: #666;">
-                        <p style="margin: 0;">&copy; Copyright Hotel City {{ date('Y') }} All rights reserved</p>
-
-                    </td>
+                    <th>Transaction ID</th>
+                    <td>{{ $payment_table->r_payment_id  ?? ''}}</td>
                 </tr>
                 <tr>
-                    <td>
-                        <button id="printButton" style="display:flex;padding: 10px; background-color: #007bff; color: white; border: none; cursor: pointer;margin:20px auto;border-radius:5px;">
-                            Print Invoice
-                        </button>
-                    </td>
+                    <th>Base Amount</th>
+                    <td>₹ {{ number_format($payment_table->base_amount, 2) }}</td>
                 </tr>
-
-            </table>
-        </td>
-    </tr>
-</table>
-
+                <tr>
+                    <th>GST Amount</th>
+                    <td>₹ {{ number_format($payment_table->gst_amount, 2) }}</td>
+                </tr>
+                    @if(!empty($payment_table->discount_amount) && !empty($payment_table->coupon_code != null))
+                    <tr>
+                        <th>Discount Amount</th>
+                        <td>₹ {{ number_format($payment_table->discount_amount, 2) }}</td>
+                    </tr>
+                    <tr>
+                        <th>Coupon Code</th>
+                        <td>{{ $payment_table->coupon_code }}</td>
+                    </tr>
+                    @endif   
+                    <tr>               
+                        <th>Total Paid Amount</th>
+                        <td><strong>₹ {{ number_format($payment_table->amount, 2) }}</strong></td> 
+                    </tr>
+                </tr>
+               
+            </tbody>
+        </table>
+        
+        <div class="text-center mt-4">
+            <a href="{{ route('index') }}" class="btn btn-primary no-hover">Go to Home Page</a>
+            <a href="{{ asset($payment_table->invoice_pdf) }}" target="_blank" class="btn btn-success">Download Invoice</a>
+        </div>
+    </div>
+</div>
+<br><br>
 @endsection
 
-@push('js')
-<script>
-    document.getElementById('printButton').addEventListener('click', function() {
-        window.print();
-    });
-</script>
 
-<script>
-    $(document).ready(function () {
-        history.pushState(null, null, location.href);
-        $(window).on('popstate', function () {
-            history.pushState(null, null, location.href);
-        });
-        setTimeout(function () {
-            history.back();
-        }, 100);
-    });
-</script>
-
-@endpush
-
-
-
-
-Step :8 On Email Code
-
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Booking Invoice</title>
-</head>
-<body>
-    @if($isAdmin)
-        <p>Hello, Admin</p>
-        <p>One booking has been received.</p>
-        <p>Please find the invoice attached below.</p>
-    @else
-        <p>Hello, {{ $user->name ?? 'Customer' }}</p>
-        <p>Your booking is confirmed.</p>
-        <p>Please find your invoice attached below.</p>
-    @endif
-</body>
-</html>
-
-
-
-
-Step :9 Qr code file code
-
-
+Step :8 QR-Scan File Code
 
 <!DOCTYPE html>
 <html lang="en">
 	<head>
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title>Gaam Raam Trust Donation Receipt Details</title>
+		<title>Tensor Receipt Details</title>
 		<style>
 			table {
 			width: 100%;
@@ -667,20 +563,24 @@ Step :9 Qr code file code
 	<body class="invoice-mobile">
 		<section class="invoive-mobile">
 			<div class="container">
-				<h1>Gaam Raam Trust Donation Receipt Details</h1>
+				<h1>Tensor Invoice Details</h1>
 				<div class="main-img">
-					<img src="{{ asset('front/images/Gaam_Raam_logo.png') }}" height="auto" width="250px"  alt="logo" >
+					<img src="{{ asset('front/images/logo1.png') }}" height="auto" width="180px"  alt="{{ asset('front/images/logo1.png') }}" >
 				</div>
 				<div class="card">
 					<div class="card-body">
 						<table>
 							<tr>
 								<th><strong>Invoice No:</strong></th>
-								<td>{{ $payment_table->invoice_no ?? '' }}</td>
+								<td>{{ $payment_table->invoice_no ?? 'N/A' }}</td>
 							</tr>
 							<tr>
-								<th><strong>Donate Amount:</strong></th>
-								<td>{{ number_format($payment_table->amount, 2) }}</td>
+								<th><strong>Check-In Date:</strong></th>
+								<td>{{ $payment_table->check_in ?? 'N/A' }}</td>
+							</tr>
+                            <tr>
+								<th><strong>Check-Out Date:</strong></th>
+								<td>{{ $payment_table->check_out ?? 'N/A' }}</td>
 							</tr>
 						</table>
 					</div>
@@ -689,39 +589,190 @@ Step :9 Qr code file code
 					<div class="card-body">
 						<table>
 							<tr>
-								<th>Name</th>
-								<td> {{ $payment_table->user_name ?? 'N/A' }}</td>
+								<th>Transaction Id </th>
+								<td> {{ $payment_table->r_payment_id ?? 'N/A' }}</td>
 							</tr>
+                            <tr>
+								<th>Base Amount</th>
+								<td>₹  {{ number_format($payment_table->base_amount, 2) ?? 'N/A'}}</td>
+							</tr>
+                            <tr>
+								<th>Gst Amount</th>
+								<td>₹  {{ number_format($payment_table->gst_amount, 2) ?? 'N/A'}}</td>
+							</tr>
+                            @if($payment_table->discount_amount != null && $payment_table->coupon_code != null)
+                            <tr>
+								<th>Discount Amount </th>
+								<td>₹  {{ number_format($payment_table->discount_amount, 2) ?? 'N/A' }}</td>
+							</tr>
+                            <tr>
+								<th>Coupon Code </th>
+								<td> {{ $payment_table->coupon_code ?? 'N/A' }}</td>
+							</tr>
+                            @endif
+							
 							<tr>
-								<th>Mobile No</th>
-								<td> {{ $payment_table->user_mobile ?? 'N/A'}}</td>
+								<th>Total Paid Amount</th>
+								<td>₹  {{  number_format($payment_table->amount, 2) ?? 'N/A' }}</td>
 							</tr>
-							<tr>
-								<th>Mobile No</th>
-								<td> {{  $payment_table->user_email ?? 'N/A' }}</td>
-							</tr>
-							<tr>
-								<th>Razorpay Id</th>
-								<td> {{  $payment_table->r_payment_id ?? 'N/A' }}</td>
-							</tr>
+							
 						</table>
 					</div>
 				</div>
 			</div>
+            
 		</section>
+	</body>
+</html>
+
+
+Step :9 On Email Template File Code
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Fee Details</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQjW1CwCf0vMLX5pD9eGeU2Ud1Lnt2R9u5kIepUCB4WdPmUbTbyP6YI75" crossorigin="anonymous">
+		<style>
+			/* General styling for email */
+			body {
+			font-family: Arial, sans-serif;
+			background-color: #f4f4f4;
+			margin: 0;
+			padding: 0;
+			}
+			.email-container {
+			max-width: 600px;
+			margin: 20px auto;
+			background-color: #ffffff;
+			padding: 20px;
+			border: 1px solid #dddddd;
+			border-radius: 5px;
+			}
+			.email-header {
+			text-align: center;
+			background-color: #012549;
+			color: #ffffff;
+			padding: 10px 0;
+			border-radius: 5px 5px 0 0;
+			}
+			.email-header h2 {
+			margin: 0;
+			font-size: 24px;
+			}
+			.email-body {
+			padding: 20px;
+			}
+			.email-body p {
+			font-size: 16px;
+			line-height: 1.6;
+			}
+			.email-footer {
+			text-align: center;
+			margin-top: 20px;
+			font-size: 14px;
+			color: #888888;
+			}
+			/* Styling for tables */
+			table {
+			width: 100%;
+			border-collapse: collapse;
+			margin-bottom: 20px;
+			}
+			th,
+			td {
+			border: 1px solid #dddddd;
+			text-align: left;
+			padding: 8px;
+			}
+			th {
+			background-color: #012549;
+			color: white;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="email-container">
+            <div class="email-header" style="margin-bottom: 20px;">
+                <img src="{{ asset('front/images/logo1.png') }}" alt="Company Logo" style="max-width: 150px;">
+                <h2>Property Booking Invoice</h2>
+            </div>
+			<div class="email-body">
+				@if($isAdmin)
+				<p>Hello <strong>Admin</strong>,</p>
+                <p>A new property booking has been made. Please find the booking details attached below.</p>
+				@else 				
+                <p>Hello <strong>{{ $payment_table->user->name ?? 'Valued Guest' }}</strong>,</p>
+                <p>Thank you for booking with <strong>Tensor</strong>. We appreciate your trust in us.</p>
+                <p>Your invoice for the booking is attached below.</p>
+                <p>If you have any questions, feel free to contact our support team.</p>
+                <p>We look forward to welcoming you!</p>
+				@endif
+			</div>
+			<div class="email-footer">
+				<p>{{ date('Y') }} © All Rights Reserved <i class="fa fa-heart heart text-danger"></i> By <a href="{{ url('/') }}" target="_blank" style="color:#012549 !important;" >Tensor</a> And Powered By <a href="{{ url('https://www.pearlorganisation.com/') }}" target="_blank" style="color:#012549 !important;">Pearl Organisation</a></p>
+			</div>
+		</div>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-VoPF5bLNmH3EaA8yexOaMIXV5GQpLw5jEEJqDlu0UDFIPhHIyggD5fXcjEjWKKej" crossorigin="anonymous"></script>
+
 	</body>
 </html>
 
 
 
 
-Step :10 Web File Code
+Step :10 SendUserInvoiceMail file code
 
-Route::controller(BookingController::class)->group(function () {
-    Route::get('thank-you', 'thankYou')->name('thank.you');
-    Route::post('ferry-booking-store','ferryBookingStore')->name('ferry.booking.store');
-    Route::get('invoice/{invoiceNumber}','showInvoice')->name('invoice.show');
+<?php
 
+namespace App\Mail;
+
+use Illuminate\Mail\Mailable;
+use Illuminate\Queue\SerializesModels;
+
+class SendUserInvoiceMail extends Mailable
+{
+    use SerializesModels;
+
+    public $payment_table;
+    public $isAdmin;
+    public $subjectLine; // New property for the subject
+
+    public function __construct($payment_table, $isAdmin, $subjectLine)
+    {
+        $this->payment_table = $payment_table;
+        $this->isAdmin = $isAdmin;
+        $this->subjectLine = $subjectLine; // Assign dynamic subject
+    }
+
+    public function build()
+    {
+        return $this->subject($this->subjectLine) // Use dynamic subject
+                    ->view('mail-template.user.property-invoice')
+                    ->with([
+                        'payment_table' => $this->payment_table,
+                        'isAdmin' => $this->isAdmin,  
+                    ]);
+    }
+}
+
+
+
+
+
+
+Step :11 Web File Code
+
+Route::controller(PropertyController::class)->group(function () {
+    Route::get('property-detail/{slug}', 'propertyDetail')->name('property-detail');
+    Route::get('proccedd-to-checkout', 'proceddToCheckout')->name('proccedd-to-checkout')->middleware('auth');
+    Route::post('proccedd-to-pay', 'proceddToPay')->name('proccedd-to-pay')->middleware('auth');
+    Route::get('qr-invoice/{invoiceNumber}', 'qrInvoice')->name('qr-invoice');
+    Route::get('thank-you/{token}/{invoiceNumber}', 'thankYou')->name('thank-you');
+    Route::post('apply-coupon','applyCoupon')->name('apply-coupon');
+    Route::post('reviews','reviews')->name('reviews')->middleware('auth');
 
 });
 
@@ -729,7 +780,7 @@ Route::controller(BookingController::class)->group(function () {
 
 
 
-Step :11 Controller Side Code
+Step :12 Controller Side Code
 
 <?php
 
@@ -739,27 +790,86 @@ use Illuminate\Http\Request;
 
 use Auth;
 
-use App\Models\User;
+use App\Models\Coupon;
 use App\Models\Payment;
+use App\Models\Property;
+use App\Models\Review;
 
-use App\Mail\SendDonationInvoiceMail;
 
-use Hash;
-use Str;
-use Mail;
 use DB;
+use Mail;
+use Hash;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Facades\Validator;
+use Str;
+use App\Mail\SendUserInvoiceMail;
+
 use Endroid\QrCode\QrCode;
 use Endroid\QrCode\Writer\PngWriter;
 use Illuminate\Support\Facades\File;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
-class DonateController extends Controller
+class PropertyController extends Controller
 {
-   
+
+    public function propertyDetail($slug){
+        // dd($slug);
+        $property = Property::where('slug', $slug)->first();
+        if(!$property){
+            return back()->with('error','Property Not Found!');
+        }
+        $images = json_decode($property->images);
+        $decodedAmentitiesIds = json_decode($property->amenities, true);
+        $propertyReviews = Review::where('property_id',$property->id)->get();
+        $priceRange = $property->price * 0.10;
+        $otherPropertys = Property::where('id', '!=', $property->id)
+                            ->where('status', '1')
+                            ->where(function ($query) use ($property, $decodedAmentitiesIds,$priceRange) {
+                                $query->where('state', $property->state)
+                                    ->where('city', $property->city);                        
+                                if (!empty($decodedAmentitiesIds)) {
+                                    $query->orWhere(function ($subQuery) use ($decodedAmentitiesIds) {
+                                        foreach ($decodedAmentitiesIds as $amenity) {
+                                            $subQuery->orWhereJsonContains('amenities', $amenity);
+                                        }
+                                    });
+                                }                        
+                                $query->orWhereRaw("ABS(price - ?) <= ?", [$property->price, $priceRange]);
+                            })
+                            ->orderByRaw("ABS(price - {$property->price})") 
+                            ->limit(5)
+                            ->get();
+                         
+            if ($otherPropertys->isEmpty()) {
+                $otherPropertys = Property::where('id', '!=', $property->id)
+                    ->where('status', '1')
+                    ->limit(5)
+                    ->get();
+            }
+        $decodedAmentitiesIds = json_decode($property->amenities, true);
+        // dd($images,$otherPropertys);
+        return view('front.property.property-detail', compact('property', 'images','otherPropertys','decodedAmentitiesIds','propertyReviews'));
+    }
+
+    public function proceddToCheckout(Request $req){
+        // dd($req->all());
+        $property = Property::find($req->property_id);
+        if(!$property){
+            return back()->with('error','Property Not Found!');
+        }
+        $data = [
+            'check_in' => $req->check_in,
+            'check_out' => $req->check_out,
+            'guest' => $req->guest,
+            'property_id' => $req->property_id,
+        ]; 
+        $images = json_decode($property->images);
+        $decodedAmentities = json_decode($property->amenities);
+        return view('front.property.summary_old', compact('property','images','data','decodedAmentities'));
+
+    }
+
 
     public function get_curl_handle_razorpay($razorpayPaymentId, $amount, $currencyCode)
     {
@@ -818,17 +928,18 @@ class DonateController extends Controller
                         if ($http_status === 200 && isset($response_array['status'])) {
                             if ($response_array['status'] == 'captured') {
                                 DB::enableQueryLog();
+                                $email = Auth::user()->email;
+                                $user_id = Auth::user()->id;
                                 $payment = DB::table('payments')->insert([
                                     'mode' => '1',
                                     'r_payment_id' => $response_array['id'],
                                     'merchant_order_id' => $merchant_order_id,
                                     'method' => $response_array['method'],
                                     'currency' => $response_array['currency'],
+                                    'user_id'   => $user_id,
+                                    'user_email' => $email ?? '',
                                     'amount' => $response_array['amount'] / 100,
                                     'json_response' => $result,
-                                    'created_at' => now(),
-                                    'updated_at' => now(),
-
                                 ]);
                                 // Log::channel('razorpay')->info(DB::getQueryLog());
                                 if (!$payment) {
@@ -873,9 +984,9 @@ class DonateController extends Controller
         return $success;
     }
 
-
-    public function donateNowAmount(Request $request){
+    public function proceddToPay(Request $request){
         // dd($request->all());
+        Log::channel('razorpay')->info("Payment process started", ['request' => $request->all()]);
         DB::beginTransaction();
         try{
             $request->validate([
@@ -884,165 +995,208 @@ class DonateController extends Controller
                 'amount' => 'required|numeric',
                 'merchant_order_id' => 'required|string',
             ]);
-
+            Log::channel('razorpay')->info("Request validated successfully.");
             $paymentData = [
                 'razorpay_payment_id' => $request->razorpay_payment_id,
                 'merchant_order_id' => $request->merchant_order_id,
                 'amount' => $request->amount,
             ];
+            Log::channel('razorpay')->info("Processing payment", $paymentData);
             $payment = $this->proceedPayment($paymentData);
             if ($payment === 'captured') {
-                $member = Auth::user();
+                Log::channel('razorpay')->info("Payment successfully captured", ['payment_id' => $request->razorpay_payment_id]);
+                $user = Auth::user();
+                $property = Property::find($request->property_id);
                 $r_payment_id = $request->razorpay_payment_id;                
                 $payment_table = Payment::where('r_payment_id',$r_payment_id)->first();
                 if(!$payment_table){
                     Log::channel('razorpay')->error("Payment record not found for r_payment_id: " . $r_payment_id);
                     return back()->with('error','Record Not Found!');
-                }
+                }                
                 $invoiceNumber = now()->format('Ym') . rand(100000, 999999);
-                // Generate invoice and save PDF
-                $year = now()->year;
-                $month = now()->format('M');
-                $today = Carbon::now()->format('d-M-Y');
-                $fileName = "invoice_{$invoiceNumber}.pdf";
-                $directoryPath = public_path("app/website-member-donation/{$year}/{$month}");
-                $adminEmail = "atul@pearlorganisation.com";
-
-                if (!File::exists($directoryPath)) {
-                    File::makeDirectory($directoryPath, 0777, true);
-                }
-
-                // Generate the QR code with the route
-                $qrCode = new QrCode(route('member-invoice', ['invoiceNumber' => $invoiceNumber]));
-                $writer = new PngWriter();
-                $qrCodeContent = $writer->write($qrCode)->getString();
-
-                // Save QR code to the local path
-                $qrCodeDirectory = public_path("app/website-member-donation/qr-codes/{$year}/{$month}");
-                if (!File::exists($qrCodeDirectory)) {
-                    File::makeDirectory($qrCodeDirectory, 0777, true);
-                }
-
-                // Define the file path for the QR code
-                $qrCodeFilePath = "{$qrCodeDirectory}/{$invoiceNumber}-qr.jpg"; 
-                file_put_contents($qrCodeFilePath, $qrCodeContent);
-
+                Log::channel('razorpay')->info("Generating invoice", ['invoice_number' => $invoiceNumber]);
+                $qrCodeFilePath = $this->generateQRCode($invoiceNumber);
                 $payment_table->update([
-                    'qr_image' => "app/website-member-donation/qr-codes/{$year}/{$month}/{$invoiceNumber}-qr.jpg",
+                    'qr_image' => $qrCodeFilePath,
                     'invoice_no' => $invoiceNumber,
-                    'user_name' => $request->name,
-                    'user_email' => $request->email,
-                    'user_mobile' => $request->mobile_no,
+                    'check_in' => $request->check_in,
+                    'check_out' => $request->check_out,
+                    'guest' => $request->guest,
+                    'coupon_code' => $request->coupon_code,
+                    'discount_amount' => $request->discount_amount,
+                    'gst_amount' => $request->gst_amount,
+                    'base_amount' => $request->base_amount,
                 ]);
 
-                 // Generate the PDF
-                 $count = 1;
-                 $filePath = "{$directoryPath}/{$fileName}";
-                 $pdf = Pdf::loadView('pdf.member.donation-invoice', compact('payment_table','adminEmail', 'today', 'qrCodeFilePath','count'));
-                 $pdf->save($filePath);
-
-                // Update booking with generated PDF file path
+                $invoicePdfPath = $this->generateInvoicePdf($invoiceNumber, $payment_table, $user, $property, $qrCodeFilePath);
                 $payment_table->update([
-                    'donation_pdf' => "app/website-member-donation/{$year}/{$month}/{$fileName}",
+                    'invoice_pdf' => $invoicePdfPath,
                 ]);
                     
                 // Send emails
-                $this->sendEmail($member->email, $r_payment_id,'member');
-                $this->sendEmail($adminEmail, $r_payment_id,'admin');
+                $adminEmail = "atul@pearlorganisation.com";
+                $token = Str::upper(Str::random(100));
+                $this->sendEmail($user->email, $r_payment_id, 'user');
+                $this->sendEmail($adminEmail, $r_payment_id, 'admin');
                 DB::commit();
-                return back()->with('success', 'Donation Payment Successfully Complete!');
+                Log::channel('razorpay')->info("Transaction committed successfully.");
+                return redirect(route('thank-you',['token' => $token, 'invoiceNumber' => $invoiceNumber]))->with('success', 'Booking Successfully Complete!');
             }
 
 
         }catch (\Exception $e){
             DB::rollBack();
+            Log::channel('razorpay')->error("Transaction failed", ['error' => $e->getMessage()]);
             return back()->with('error', 'Warning : ' .$e->getMessage());
         }
     }
 
+    private function generateQRCode($invoiceNumber)
+    {
+        $year = now()->year;
+        $month = now()->format('M');
+        $qrCodeDirectory = public_path("app/property-invoice/qr-codes/{$year}/{$month}");
+        Log::channel('razorpay')->info("Generating QR code for invoice", ['invoiceNumber' => $invoiceNumber]);
+        if (!File::exists($qrCodeDirectory)) {
+            File::makeDirectory($qrCodeDirectory, 0777, true);
+        }
+        try {
+            $qrCode = new QrCode(route('qr-invoice', ['invoiceNumber' => $invoiceNumber]));
+            $writer = new PngWriter();
+            $qrCodeContent = $writer->write($qrCode)->getString();
+            $qrCodeFilePath = "{$qrCodeDirectory}/{$invoiceNumber}-qr.jpg";
+            file_put_contents($qrCodeFilePath, $qrCodeContent);
+            Log::channel('razorpay')->info("QR code generated successfully", ['file_path' => $qrCodeFilePath]);
+            return "app/property-invoice/qr-codes/{$year}/{$month}/{$invoiceNumber}-qr.jpg";
+        } catch (\Exception $e) {
+            Log::channel('razorpay')->error("QR code generation failed", ['error' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    private function generateInvoicePdf($invoiceNumber, $payment_table, $user, $property, $qrCodeFilePath)
+    {
+        $year = now()->year;
+        $month = now()->format('M');
+        $today = Carbon::now()->format('d-M-Y');
+        $fileName = "invoice_{$invoiceNumber}.pdf";
+        $directoryPath = public_path("app/property-invoice/{$year}/{$month}");
+        $adminEmail = "atul@pearlorganisation.com";
+        Log::channel('razorpay')->info("Generating invoice PDF", ['invoiceNumber' => $invoiceNumber]);
+        if (!File::exists($directoryPath)) {
+            File::makeDirectory($directoryPath, 0777, true);
+        }
+        try {
+            $filePath = "{$directoryPath}/{$fileName}";
+            $pdf = Pdf::loadView('pdf.user.invoice', compact('payment_table', 'adminEmail', 'today', 'user', 'property', 'qrCodeFilePath'));
+            $pdf->save($filePath);
+            Log::channel('razorpay')->info("Invoice PDF generated successfully", ['file_path' => $filePath]);
+            return "app/property-invoice/{$year}/{$month}/{$fileName}";
+        } catch (\Exception $e) {
+            Log::channel('razorpay')->error("Invoice PDF generation failed", ['error' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+
+
     private function sendEmail($email, $r_payment_id, $role)
     {
         try{
-
+            $user = Auth::user();
             $payment_table = Payment::where('r_payment_id',$r_payment_id)->first();
-            $invoice_no = $payment_table->invoice_no;
-            $subject = 'Gaam Raam Trust Donation Invoice #'.$invoice_no.' | '.\Carbon\Carbon::today()->format('d-M-Y').' | '.\Carbon\Carbon::now()->format('h:i A');
             $isAdmin = ($role === 'admin');
+            $invoice_no = $payment_table->invoice_no;
+            $subject = 'Property Booking Invoice #'.$invoice_no.' | '.\Carbon\Carbon::today()->format('d-M-Y').' | '.\Carbon\Carbon::now()->format('h:i A');
             if (!$payment_table) {
                 Log::channel('razorpay')->error('Payment record not found for R-Payment ID: ' . $r_payment_id);
                 return;
             }
-            $count = 1;
-            $pdfPath = public_path($payment_table->donation_pdf); 
+            $pdfPath = public_path($payment_table->invoice_pdf); 
             Log::channel('razorpay')->info('Invoice PDF Path: ' . $pdfPath);
-            Mail::to($email)->queue(
-                (new SendDonationInvoiceMail($payment_table,$isAdmin,$subject,$count))
+            Mail::to($email)->send(
+                (new SendUserInvoiceMail($payment_table,$isAdmin,$subject))
                     ->attach($pdfPath)
             );     
             Log::channel('razorpay')->info('Email Sent With PDF To ' . $email);
 
         }catch (\Exception $mailException) {
             Log::channel('razorpay')->error('Failed to send email to ' . $email . '. Error: ' . $mailException->getMessage());
-        }
-        
+        }        
     }
 
     
-
     public function qrInvoice($invoiceNumber)
     {
-        dd($invoiceNumber);
+        // dd($invoiceNumber);
         $payment_table = Payment::where('invoice_no',$invoiceNumber)->first();
         if (!$payment_table) {
             return abort(404, 'Invoice not found');
         }
-        return view('member.auth.payment.qr-invoice-detail', compact('payment_table'));
+        return view('front.property.qr-invoice-detail', compact('payment_table'));
     }
+
+    public function thankYou($token, $invoiceNumber){
+        // dd($token,$invoiceNumber);
+        $payment_table = Payment::where('invoice_no',$invoiceNumber)->first();
+        if (!$payment_table) {
+            return abort(404, 'Invoice not found');
+        }
+        return view('front.property.thank-you', compact('payment_table'));
+    }
+
+    public function applyCoupon(Request $req){
+
+        if (!$req->has('code')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Coupon code is required!',
+            ]);
+        }
+       
+        $coupon = Coupon::where('code', $req->code)
+        ->where('status', 1)
+        ->whereDate('start_date', '<=', now()->toDateString())
+        ->whereDate('expire_date', '>=', now()->toDateString())
+        ->first();
+
+        if (!$coupon) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid Coupon!',
+            ]);
+        }
+        return response()->json([
+            'success' => true,
+            'message' => 'Coupon Applied Successfully!',
+            'discount' => $coupon->discount,
+            'min_purchase' => $coupon->min_purchase,
+            'code' => $coupon->code  
+        ]);
+    }
+
+    public function reviews(Request $req){
+        // dd($req->all());
+        $req->validate([
+            'review' => 'string|required',
+        ]);
+        $user = Auth::User();
+        $review = new Review();
+        $review->user_id = $user->id;
+        $review->property_id = $req->property_id;
+        $review->review = $req->review;
+        $review->status = 1;
+        $review->save();
+        return back()->with('success','Review Update Successfully!');
+    }
+
    
 
+
+
+
 }
 
-
-
-Step :12 App\Mail\SendDonationInvoiceMail  Side Code
-
-<?php
-
-namespace App\Mail;
-
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Mail\Mailable;
-use Illuminate\Queue\SerializesModels;
-
-class SendDonationInvoiceMail extends Mailable implements ShouldQueue
-{
-    use Queueable, SerializesModels;
-
-    public $payment_table;
-    public $isAdmin;
-    public $subjectLine;
-    public $count;
-    
-    public function __construct($payment_table, $isAdmin, $subjectLine, $count)
-    {
-        $this->payment_table = $payment_table;
-        $this->isAdmin = $isAdmin;
-        $this->subjectLine = $subjectLine;
-        $this->count = $count;
-    }
-
-    public function build()
-    {
-        return $this->subject($this->subjectLine) 
-                    ->view('mail-template.member.donation-invoice')
-                    ->with([
-                            'payment_table' => $this->payment_table,
-                            'isAdmin' => $this->isAdmin,  
-                            'count'   => $this->count,
-                  ]);
-    }
-}
 
 
 
