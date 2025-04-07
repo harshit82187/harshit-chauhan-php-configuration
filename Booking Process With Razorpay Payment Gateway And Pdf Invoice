@@ -6,7 +6,7 @@ Nessacary Package :
 
 composer require barryvdh/laravel-dompdf
 composer require endroid/qr-code
-
+composer require razorpay/razorpay
 
 Step :1  config/logging.php file
 	'razorpay' => [
