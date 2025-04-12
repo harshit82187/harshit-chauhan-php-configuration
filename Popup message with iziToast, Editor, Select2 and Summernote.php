@@ -175,6 +175,21 @@ catch (ValidationException $e) {
 @endif
 
 
+************************************************************** Another Method With Command ***********************************************************************************
+composer require brian2694/laravel-toastr
+
+php artisan vendor:publish --provider="Brian2694\Toastr\ToastrServiceProvider"
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+{!! Toastr::message() !!}
+
+
+use Brian2694\Toastr\Facades\Toastr;
+
+Toastr::success('Theater Booked Successfully!', 'Success');
+Toastr::error('Cancellation Request Already Raised.', 'error');
 
 
 
@@ -188,8 +203,7 @@ catch (ValidationException $e) {
 
 
 
-
-*********************************************** Sweet Alert With Delete Button *********************************************************
+************************************************************* Sweet Alert With Delete Button *********************************************************************************
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@10">
 
