@@ -56,40 +56,44 @@
 	$(document).ready(function() {
 		$('.status-toggle').change(function() {
 			var status = $(this).prop('checked') == true ? 1 : 0;
-			var ferry_id = $(this).data('id');
-
+			var review_id = 100;
+	
 			$.ajax({
-				url: '{{ url('admin/ferry-update-status') }}',
+				url: '{{ route('admin.customer-review-change') }}',
 				type: 'POST',
 				data: {
 					'_token': $('meta[name="csrf-token"]').attr('content'),
-					'ferry_id': ferry_id,
+					'review_id': review_id,
 					'status': status
 				},
 				success: function(response) {
 					iziToast.info({
 						title: 'Info',
-						message: 'ferry status updated successfully!',
+						message: response.message,
 						position: 'topRight',
 						timeout: 3000,
 					});
 				},
-				error: function(xhr, status, error) {
-					  iziToast.error({
-						title: 'Error',
-						message: 'Error updating status!',
-						position: 'topRight',
+				error: function (xhr) {
+					let errorMessage = 'Something went wrong. Please try again.';
+					if (xhr.responseJSON && xhr.responseJSON.message) {
+						errorMessage = xhr.responseJSON.message;
+					}
+					iziToast.error({
+						title: 'Error :',
+						message: errorMessage,
+                        position: 'topRight',
 						timeout: 4000,
 						backgroundColor: '#F0D5B6',
 						titleColor: '#000', 
 						messageColor: '#000', 
-						titleSize: '16px',
-						messageSize: '16px',
-						titleLineHeight: '20px',
+						titleSize: '17px',
+						messageSize: '15px',
+						titleLineHeight: '15px',
 						messageLineHeight: '16px',
 						titleFontWeight: '700', 
 						messageFontWeight: '700'
-					    });
+					});
 				}
 			});
 		});
@@ -103,24 +107,34 @@ Route::post('admin/blogs/update-status', [BlogController::class, 'updateStatus']
 ******************************************* Controller Side Code  ********************************************************
 
 
-   public function updateStatus(Request $request)
+  public function customerReviewChange(Request $request)
     {
-        // dd($request->all());
         $request->validate([
-            'blog_id' => 'required|numeric',  
+            'review_id' => 'required|numeric',  
             'status' => 'required|boolean',  
-        ]);
-      
-
-        $blog = Blog::findOrFail($request->blog_id);
-
-        $blog->status = $request->status;
-        $blog->save();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Blog status updated successfully',
-        ]);
+        ]);    
+    
+        try {
+            $review = Review::findOrFail($request->review_id);
+            $review->status = $request->status;
+    
+            if ($review->save()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Review status updated successfully',
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to update review status.',
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
 
