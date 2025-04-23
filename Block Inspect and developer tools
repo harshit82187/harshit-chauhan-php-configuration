@@ -1,0 +1,39 @@
+// Disable F12 key and prevent Developer Tools
+document.addEventListener('keydown', function (event) {
+  if (event.key === 'F12' || event.code === 'F12') {
+      event.preventDefault();
+      return false;
+  }
+    if (event.ctrlKey && event.shiftKey && (event.key === 'I' || event.key === 'J' || event.key === 'j' || event.key === 'i')) {
+      event.preventDefault();
+      return false;
+  }
+  if (event.ctrlKey && event.key === 'u' || event.ctrlKey && event.key === 'U') {
+      event.preventDefault();
+      return false;
+  }
+});
+
+document.addEventListener('contextmenu', function (event) {
+  event.preventDefault();
+});
+
+
+let devtoolsOpen = false;
+const threshold = 160;
+function isMobile() {
+  return /Mobi|Android/i.test(window.navigator.userAgent);
+}
+
+setInterval(() => {
+  if (isMobile()) return;
+  const widthThreshold = window.outerWidth - window.innerWidth > threshold;
+  const heightThreshold = window.outerHeight - window.innerHeight > threshold;
+  if (widthThreshold || heightThreshold) {
+      devtoolsOpen = true;
+      // alert("Developer Tools are open!");
+      window.location.href = "about:blank";
+  } else {
+      devtoolsOpen = false;
+  }
+}, 500);
