@@ -1,0 +1,31 @@
+********************************************************************** reCaptcha Functionality In The Laravel ********************************************************************************
+
+Register His Domain On goggle reCaptcha :- https://www.google.com/recaptcha/admin/create
+And Get Keys.
+
+<form id="sumit-contact-form" class="contact" action="{{route('sumit-contact-form')}}" method="post" enctype="multipart/form-data">
+  <div class="g-recaptcha" data-sitekey="6LcdiiIrAAAAAM95DdpLGBA57sVf2XZ-B1Ot4_Kw"></div>
+    <span id="captchaError" class="text-danger" style="font-size: 16px;"></span>
+    <button type="submit">Submit</submit>
+</form>
+
+
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+
+use Illuminate\Support\Facades\Http;
+public function submitContactForm(Request $request){    
+        // dd($request->all()); 
+        $secretKey = "6LcdiiIrAAAAAPt3btL1JKybe8cNEuDtExyobWPG"; 
+        $response = Http::asForm()->post('https://www.google.com/recaptcha/api/siteverify', [
+            'secret' => $secretKey,
+            'response' => $request->input('g-recaptcha-response'),
+            'remoteip' => $request->ip(),
+        ]);
+
+        $responseData = $response->json();
+
+        if (!$responseData['success']) {
+            session()->flash('error', 'reCAPTCHA verification failed. Please try again.');
+            return back()->withErrors(['captcha' => 'reCAPTCHA verification failed. Please try again.']);
+        }
+}
