@@ -1,0 +1,132 @@
+*************************************************************** Mail Queue Function In Laravel ***************************************************************************************
+
+
+Step :1 Conreoller side code
+
+use Carbon\Carbon;
+use Mail;
+use Illuminate\Support\Facades\Log;
+use App\Mail\Customer\BookingCancelledNotification;
+
+ public function cancelBooking($id)
+    $customerSubject = "📩 Booking Cancelled Notification  | #$booking->invoice_no | 🗓️ " . \Carbon\Carbon::today()->format('d-M-Y') . " | 🕒 " . \Carbon\Carbon::now()->format('h:i A');
+        $adminSubject = "🔔 Booking Cancelled Notification Received (Admin) 🛎️ | #$booking->invoice_no |🗓️ " . \Carbon\Carbon::today()->format('d-M-Y') . " | 🕒 " . \Carbon\Carbon::now()->format('h:i A');
+        $email = $booking->user->email;
+        $adminEmail = BussinessSetting::where('type','email')->value('value');
+        try {
+            Mail::to($email)->queue(new BookingCancelledNotification($booking, $customerSubject, false));  
+            Mail::to($adminEmail)->queue(new BookingCancelledNotification($booking, $adminSubject, true));    
+            Log::channel('email')->info('Booking Cancelled Email sent successfully to ' . $email . ' and Admin: ' . $adminEmail);
+        } catch (\Exception $mailException) {
+            Log::channel('email')->error('Failed to send email to ' . $email . '. Error: ' . $mailException->getMessage());
+        }
+}
+
+
+
+
+
+
+
+
+
+
+Step : 2 BookingCancelledNotification file code
+
+<?php 
+
+namespace App\Mail\Customer;
+
+use App\Models\Property;
+use Illuminate\Bus\Queueable;
+use Illuminate\Mail\Mailable;
+use Illuminate\Queue\SerializesModels;
+
+class BookingCancelledNotification  extends Mailable
+{
+    use Queueable, SerializesModels;
+
+    public $booking;
+    public $subjectLine; 
+    public $isAdmin; 
+    
+    public function __construct($booking, $subjectLine, $isAdmin = false)
+    {
+        $this->booking = $booking;
+        $this->subjectLine = $subjectLine;
+        $this->isAdmin = $isAdmin;
+
+    }
+
+    public function build()
+    {
+        return $this->subject($this->subjectLine)
+                    ->view('mail-template.user.booking-cancelled-notification')
+                    ->with([
+                        'booking' => $this->booking,
+                        'isAdmin' => $this->isAdmin
+                    ]);
+    }
+}
+
+
+
+Step : 3 booking-cancelled-notification blade file code
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Cancelled Notification</title>
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0;">
+    <div style="max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border: 1px solid #dddddd; border-radius: 5px;">
+        
+        <div style="text-align: center; background-color: #1a1a1a; color: #ffffff; padding: 10px 0; border-radius: 5px 5px 0 0; margin-bottom: 20px;">
+            <img src="{{ asset('front/images/tensor-logo.png') }}" alt="Company Logo" style="max-width: 150px;">
+            <h2 style="margin: 0; font-size: 24px;">Booking Cancelled Notification</h2>
+        </div>
+
+        <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333; padding: 20px;">
+            @if ($isAdmin)
+                <p>Hello Admin,</p>
+                <p>A booking has been cancelled by a user. Below are the details:</p>
+
+                <ul style="padding-left: 20px;">
+                    <li><strong>Invoice No:</strong> {{ $booking->invoice_no }}</li>
+                    <li><strong>User Name:</strong> {{ $booking->user->name ?? 'N/A' }}</li>
+                    <li><strong>User Email:</strong> {{ $booking->user->email ?? 'N/A' }}</li>
+                    <li><strong>Property:</strong> {{ $booking->property->name ?? 'N/A' }}</li>
+                    <li><strong>Check-in Date:</strong> {{ \Carbon\Carbon::parse($booking->check_in)->format('d-M-Y') }}</li>
+                    <li><strong>Check-out Date:</strong> {{ \Carbon\Carbon::parse($booking->check_out)->format('d-M-Y') }}</li>
+                    <li><strong>Refund Percentage:</strong> {{ $booking->refund_percentage }}%</li>
+                </ul>
+                <p>Thank you!</p>
+
+            @else
+                <p>Hello <strong>{{ $booking->user->name ?? 'Guest' }}</strong>,</p>
+
+                <p>We inform you that your booking has been successfully cancelled. Here are your booking details:</p>
+
+                <ul style="padding-left: 20px;">
+                    <li><strong>Invoice No:</strong> {{ $booking->invoice_no }}</li>
+                    <li><strong>Property:</strong> {{ $booking->property->name ?? 'N/A' }}</li>
+                    <li><strong>Check-in Date:</strong> {{ \Carbon\Carbon::parse($booking->check_in)->format('d-M-Y') }}</li>
+                    <li><strong>Check-out Date:</strong> {{ \Carbon\Carbon::parse($booking->check_out)->format('d-M-Y') }}</li>
+                    <li><strong>Refund Applicable:</strong> {{ $booking->refund_percentage }}%</li>
+                </ul>
+                <p>If you have any questions, feel free to contact our support team.</p>
+                <p>Thank you for choosing us!</p>
+            @endif
+        </div>
+
+        <div style="text-align: center; margin-top: 20px; font-size: 14px; color: #888888;">
+            <p>{{ date('Y') }} © All Rights Reserved <i class="fa fa-heart heart text-danger"></i> 
+            By <a href="{{ url('/') }}" target="_blank" style="color:#F28C28; text-decoration: none;">Tensor</a> 
+            And Powered By <a href="https://www.pearlorganisation.com/" target="_blank" style="color:#F28C28; text-decoration: none;">Pearl Organisation</a></p>
+        </div>
+
+    </div>
+</body>
+</html>
