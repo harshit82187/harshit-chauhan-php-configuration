@@ -169,3 +169,174 @@ class LeadExport implements FromCollection, WithHeadings
         ];
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//////////////////////////////////////////////////////////////// Second Method Export Excel /////////////////////////////////////////////////////////////////////////////////////
+
+
+Step :1 Blade File Code
+
+<div class="d-block d-sm-flex gap-2 align-items-center justify-content-between">
+  <form action="{{ url()->current() }}" method="get" class="d-block d-sm-flex gap-2">
+    <input type="text" class="form-control filter-name" value="{{ request()->query('name', '') }}" name="name" placeholder="Search Employee Name">
+    <select name="admin_role_id"  class="form-control filter-select">
+                <option value="null" selected>All Role</option>
+                @isset($roles)
+                    @foreach($roles as $role)
+                        <option	value="{{ $role->id }}" >{{ $role->name ?? 'N/A' }}</option>
+                    @endforeach
+                @endisset
+            </select>
+            <button class="btn btn-primary mt-2 mt-sm-0">Search</button>
+    <button type="submit" name="export" value="1" class="btn btn-dark text-nowrap mt-2 mt-sm-0">Export Excel</button>
+    <button type="button" class="btn btn-info mt-2 mt-sm-0 " onclick="window.location.href='{{ route(Route::currentRouteName()) }}';">Reset</button>
+  </form>
+</div>
+
+
+
+Step : 2 Controller Side Code
+
+use App\Exports\Admin\EmployeeExport;
+use Maatwebsite\Excel\Facades\Excel;
+
+
+
+  public function employeeView(Request $req){
+    // dd($req->all());
+    $query = Admin::query();
+    if($req->has('name') && $req->name != null){
+        $query->where('name','like','%' .$req->name . '%');
+    }
+    if ($req->has('admin_role_id') && $req->admin_role_id !== 'null' && $req->admin_role_id !== null) {
+        $query->where('admin_role_id',$req->admin_role_id);
+    }
+    if ($req->has('export')) {
+        return Excel::download(new EmployeeExport($query->get()), 'employee_list.xlsx');
+    }
+    $employees = $query->where('id', '!=', 1)->orderBy('id','desc')->paginate(10);
+    $roles = AdminRole::where('id', '!=', 1)->orderBy('id','desc')->get();
+    // dd($roles);
+    return view('admin.employee.add',compact('employees','roles'));
+}
+
+
+
+Step : 3 EmployeeExport File Code
+
+<?php
+
+namespace App\Exports\Admin;
+
+use Illuminate\Support\Collection;
+use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithStyles;
+use Maatwebsite\Excel\Concerns\WithColumnWidths;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Color;
+
+class EmployeeExport implements FromCollection, WithHeadings, WithStyles, WithColumnWidths
+{
+    protected $data;
+
+    public function __construct(Collection $data)
+    {
+        $this->data = $data->values();
+    }
+
+    public function collection()
+    {
+        return $this->data->where('id', '!=', 1)->values()->map(function ($item, $index) {
+            $roleName = optional($item->role)->name ?? 'N/A';
+            $accessModules = collect(json_decode(optional($item->role)->module ?? '[]'))
+                        ->map(function ($mod) {
+                            return ucwords(str_replace('_', ' ', $mod));
+                        })
+                        ->implode(', ');
+
+            return [
+                $index + 1, 
+                $item->name ?? 'N/A',
+                $item->mobile_no ?? 'N/A',
+                $item->email ?? 'N/A',
+                $roleName,
+                $accessModules ?: 'N/A',
+                optional($item->created_at)->format('d-m-Y') ?? 'N/A',
+                $item->status == 1 ? 'Active' : 'In-Active',
+            ];
+        });
+    }
+
+    public function headings(): array
+    {
+        return [
+            'SL',
+            'Employee Name',
+            'Mobile No',
+            'Email',
+            'Role',
+            'Access',
+            'Date Of joining',
+            'Status'
+
+        ];
+    }
+
+    public function styles(Worksheet $sheet)
+    {
+        $sheet->getStyle('A1:H1')->applyFromArray([
+            'font' => [
+                'bold' => true,
+                'color' => ['rgb' => 'FFFFFF'], 
+            ],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '2a2f5b'], 
+            ],
+        ]);
+    }
+
+    public function columnWidths(): array
+    {
+        return [
+            'A' => 8,
+            'B' => 30,
+            'C' => 20,
+            'D' => 30,
+            'E' => 25,
+            'F' => 90,
+            'G' => 11,
+            'H' => 11,
+        ];
+    }
+}
+
+
+
+
+
+
+
