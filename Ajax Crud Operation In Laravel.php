@@ -193,6 +193,10 @@ public function register(Request $req){
 
 
         if($request->profile_photo != null){
+            ************************** if you want to unlink previous photo *********************
+            if ($admin->profile_photo && File::exists(public_path($admin->profile_photo))) {
+                File::delete(public_path($admin->profile_photo));
+            }
             $file = $request->profile_photo;
             $filename = time(). '.' . $file->getClientOriginalExtension();
             $year = now()->year;
@@ -223,6 +227,9 @@ public function register(Request $req){
                 }
                 $hotel->images = json_encode($images);
             }
+
+
+           
 
        
 
