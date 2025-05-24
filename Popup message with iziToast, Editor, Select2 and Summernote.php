@@ -8,8 +8,8 @@
 @if (Session::has('success') || Session::has('error') || $errors->any())
 <script>
     @if (Session::has('success'))
-        var messageType = 'success';
-        var messageColor = 'green';
+        var messageType = 'info';
+        var messageColor = 'blue';
         var message = "{{ Session::get('success') }}";
     @elseif (Session::has('error'))
         var messageType = 'warning';
