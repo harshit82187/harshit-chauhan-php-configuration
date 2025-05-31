@@ -1274,6 +1274,21 @@ Step : 7 Add this if condition in the admin sidebar to authenticate admin module
 
 
 
+Step : 8 In Controoler Side Code
+
+
+public function __construct()
+    {
+        $this->middleware(function ($request, $next) {
+            $admin = Admin::find(session('admin_id'));
+            $permissions = session('role_permissions', []);
+            if (!in_array('support_ticket', $permissions)) {
+                abort(403, 'You are not an authorized member.');
+            }
+            return $next($request);
+        });
+    }
+
 
 
 
