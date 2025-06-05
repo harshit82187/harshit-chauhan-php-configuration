@@ -1,0 +1,216 @@
+********************************************************************************* Api Creation In The Laravel ******************************************************************************
+
+
+Step :1 api.php file code 
+
+
+Route::post('user/register', [AuthController::class, 'register']);
+Route::post('user/login', [AuthController::class, 'login']);
+
+Route::prefix('user')->middleware('auth:api')->group(function () {
+    Route::get('profile', [AuthController::class, 'profile']);
+});
+
+
+Step :2 app/Exceptions/Handler.php file code 
+
+use Illuminate\Auth\AuthenticationException;
+
+  protected function unauthenticated($request, AuthenticationException $exception)
+    {
+        // Force JSON response for any token-based auth guard
+        if ($request->expectsJson() || $request->is('api/*') || $request->bearerToken()) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+
+    }
+
+
+Step :3 config/auth.php file code 
+
+
+    'guards' => [
+        'web' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
+
+        'api' => [
+            'driver' => 'token',
+            'provider' => 'users',
+            'hash' => false,
+        ],
+    ],
+
+
+Step :4 app/Http/Middleware/Authenticate.php
+
+protected function redirectTo(Request $request): ?string
+    {
+        if ($request->expectsJson() || $request->is('api/*') || $request->bearerToken()) {
+            return null;
+        }
+        return '/login'; 
+    }
+
+
+
+Step :5 Controller Side Code 
+
+<?php 
+
+namespace App\Http\Controllers\API\User;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\Models\User;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
+
+
+class AuthController extends Controller
+{
+    // User Registration
+    public function register(Request $request)
+    {
+        // dd($request->all());
+        $rules = [
+            'name' => 'required|string|max:250',
+            'mobile_no' => 'required|digits:10|unique:users,mobile_no',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:8',
+            'address' => 'required|string',
+        ];
+        $validator = Validator::make($request->all(), $rules);
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user = User::create([
+            'name'     => $request->name,
+            'email'    => $request->email,
+            'mobile_no'    => $request->mobile_no,
+            'address'    => $request->address,
+            'password' => Hash::make($request->password),
+            'status' => 1,
+            'email_verified_at' => now(),
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'User registered successfully',
+            'user' => $user,
+        ],200);
+    }
+
+    // User Login
+    public function login(Request $request)
+    {
+        $request->validate([
+            'email'    => 'required|email',
+            'password' => 'required',
+        ]);
+        $user = User::where('email', $request->email)->first();
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return response()->json(['status' => false, 'message' => 'Invalid credentials'], 401);
+        }
+        $user->api_token  = Str::random(60);
+        $user->save();
+        return response()->json([
+            'status' => true,
+            'message' => 'Login successful',
+            'token' => $user->api_token,
+            'user' => $user,
+        ]);
+    }
+
+    public function profile(Request $request)
+    {
+        // dd($request->all());
+        $token =  $request->bearerToken();
+        $user = User::where('api_token', $token)->first();
+        if (!$user) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Unauthorized or invalid token'
+            ], 401);
+        }
+        return response()->json([
+            'status' => true,
+            'message' => 'User profile fetched successfully',
+            'user' => $user
+        ]);
+    }
+
+
+    // User Logout 
+    public function logout(Request $request)
+    {
+        $token = $request->bearerToken();
+        if (!$token) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Token not provided'
+            ], 401);
+        }
+
+        $user = User::where('api_token', $token)->first();
+
+        if (!$user) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Invalid token'
+            ], 401);
+        }
+
+        // Invalidate token (logout)
+        $user->api_token = null;
+        $user->save();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Logout successful'
+        ]);
+    }
+
+}
+
+
+
+
+Step 7 Postman 
+
+Url 1 : https://test.pearl-developer.com/econ-market/api/user/register
+Choose Body And Then raw
+{
+  "name": "Ajay Singh Test",
+  "email": "ajay@gmail.com",
+  "mobile_no": "8410147857",
+  "password": "password",
+  "address": "Haridwar"
+}
+
+
+Url 2 : https://test.pearl-developer.com/econ-market/api/user/login
+Choose Body And Then raw
+{
+  "email": "ajay@gmail.com",
+  "password": "password"
+}
+
+Url 3 : https://test.pearl-developer.com/econ-market/api/user/profile
+Choose Header and set key and value 
+Authorization             Bearer <your-token-which-you-get-login-time>
+
+
+Url 4 : https://test.pearl-developer.com/econ-market/api/user/logout
+Choose Header and set key and value 
+Authorization             Bearer <your-token-which-you-get-login-time>
