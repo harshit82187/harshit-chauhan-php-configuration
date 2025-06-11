@@ -1,7 +1,7 @@
 *************************************************************** Mail Queue Function In Laravel ***************************************************************************************
 
 
-Step :1 Conreoller side code
+Step :1 Controller side code
 
 use Carbon\Carbon;
 use Mail;
