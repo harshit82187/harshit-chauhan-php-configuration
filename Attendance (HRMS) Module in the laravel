@@ -1,0 +1,22 @@
+*************************************************************** Attendance(HRMS) Module in the laravel      ******************************************************************
+
+
+Step : 1 Create Controller And Model 
+
+HRMSController
+
+Attendance Model :- 
+Field          Type
+id              bigint(20)
+user_id         bigint(20)
+date           
+in_time
+out_time
+created_at
+updated_at
+
+
+Leave
+LeaveType
+Holiday
+
