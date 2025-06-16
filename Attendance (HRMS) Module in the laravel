@@ -1,22 +1,969 @@
 *************************************************************** Attendance(HRMS) Module in the laravel      ******************************************************************
 
 
-Step : 1 Create Controller And Model 
+Step : 1 Create Controller And Tables 
 
 HRMSController
 
-Attendance Model :- 
-Field          Type
-id              bigint(20)
-user_id         bigint(20)
-date           
-in_time
-out_time
-created_at
-updated_at
+CREATE TABLE `attendances` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) DEFAULT NULL,
+  `date` date DEFAULT NULL,
+  `in_time` time DEFAULT NULL,
+  `out_time` time DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
-Leave
-LeaveType
-Holiday
+CREATE TABLE `leaves` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` int(10) UNSIGNED DEFAULT NULL,
+  `action_taken_user` int(11) DEFAULT NULL,
+  `leave_type_id` int(10) UNSIGNED NOT NULL,
+  `month` varchar(200) DEFAULT NULL,
+  `leave_date` date NOT NULL,
+  `reason` text NOT NULL,
+  `status` enum('Approved','Pending','Rejected') NOT NULL DEFAULT 'Pending',
+  `remark` text DEFAULT NULL,
+  `remark_added_at` datetime DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT  CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
+
+
+CREATE TABLE `leave_types` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` varchar(191) NOT NULL,
+  `color` varchar(191) NOT NULL,
+  `no_of_leaves` tinyint(1) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT  CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
+
+
+
+CREATE TABLE `holidays` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `month` varchar(250) DEFAULT NULL,
+  `year` varchar(250) DEFAULT NULL,
+  `date` date DEFAULT NULL,
+  `occasion` varchar(250) DEFAULT NULL,
+  `day` varchar(250) DEFAULT NULL,
+  `user_id` bigint(20) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT  CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+
+Step : 2 web file code 
+
+Route::controller(HrmsController::class)->group(function () {
+    Route::get('calendar/events', 'getEvents')->name('calendar.events');
+    Route::get('leaves/listing', 'leavesListing')->name('leaves.listing');
+    Route::get('holidays', 'holidays')->name('holidays');
+    Route::post('holiday-store', 'holidayStore')->name('holiday-store');
+    Route::get('leaves/apply/notification', 'leavesApplyNotification')->name('leaves.apply.notification');
+});
+Route::resource('hrms', HRMSController::class);
+
+
+Step :3 Sidebar Module 
+
+HRMS
+  -> Attendance Management
+  -> Manage Leaves
+  -> Holiday Calender 
+
+Step : 4 Controller Side Code 
+
+<?php
+namespace App\Http\Controllers;
+use Illuminate\Http\Request;
+
+
+use App\Models\Attendance;
+use App\Models\BussinessSetting;
+use App\Models\Leave;
+use App\Models\LeaveType;
+use App\Models\User;
+use App\Models\Holiday;
+
+use Mail;
+use Log;
+use Carbon\Carbon;
+use Str;
+use App\Mail\Leave\LeaveNotification;
+use App\Mail\Leave\LeaveUpdateStatusNotification;
+use Illuminate\Support\Facades\Validator;
+
+
+class HRMSController extends Controller
+{
+
+    public function index(Request $req)
+    {
+        $user = auth()->user();
+        $leaveTypes = LeaveType::all();
+        $attendances = Attendance::where('user_id', $user->id)->get()->keyBy('date'); 
+        $leaves = Leave::with('leaveType')->where('user_id', $user->id)->get();      
+
+        return view('admin.hrms.index', compact('attendances', 'leaveTypes', 'user'));
+    }   
+
+    public function store(Request $request){
+        // dd($request->all());   
+        $rules = [
+            'user_id' => 'required|numeric',
+            'name' => 'required|string',
+            'leave_date' => 'required|date_format:d-m-Y',
+            'leave_type_id' => 'required|numeric',
+            'reason' => 'required|string',
+        ];
+        $validator = Validator::make($request->all(), $rules);
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+        $formattedDate = Carbon::createFromFormat('d-m-Y', $request->leave_date)->format('Y-m-d');
+        $leave = Leave::create([
+            'user_id'     => $request->user_id,
+            'leave_type_id'    => $request->leave_type_id,
+            'month'    => now()->format('M'),
+            'leave_date'    => $formattedDate,
+            'reason'    => $request->reason,
+            'status' => 'Pending',
+        ]);    
+        $leave->load('leaveType');    
+        $websiteName = BussinessSetting::where('type','name')->value('value');
+        $adminEmail = BussinessSetting::where('type','email')->value('value');
+        $email = $leave->user->email;
+        $admin = User::where('user_type','admin')->first();
+        $subject = "📝 Leave Request Notification - $request->name, {$leave->leaveType->name} for $formattedDate | $websiteName";
+         try {
+            Mail::to($email)->cc($adminEmail)->queue(new LeaveNotification($subject,$leave,$admin));  
+            Log::channel('email')->info('Leave Notification Email sent successfully to ' . $email . ' and Admin: ' . $adminEmail);
+        } catch (\Exception $mailException) {
+            Log::channel('email')->error('Leave Notification Email Failed to send to ' . $email . ' and Admin: ' . $adminEmail. '. Error: ' . $mailException->getMessage());
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Leave applied successfully!',
+            'leave' => [
+                'id' => $leave->id,
+                'leave_date' => $leave->leave_date,
+                'leaveType' => [
+                    'name' => $leave->leaveType->name ?? '',
+                ],
+            ],
+        ],200);
+      
+    }
+
+     public function update(Request $request,$id){
+        // dd($request->all(),$id);   
+        $rules = [
+            'user_id' => 'required|numeric|',
+            'name' => 'required|string',
+            'leave_date' => 'required|date',
+            'leave_type_id' => 'required|numeric',
+            'reason' => 'required|string',
+            'remark' => 'required|string',
+            'status' => 'required|string',
+        ];
+        $validator = Validator::make($request->all(), $rules);
+        $user = auth()->user();
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+        $leave = Leave::findOrFail($id);
+        $leave->update([
+            'action_taken_user' => $user->id,
+            'remark' => $request->remark,
+            'status' =>  $request->status,
+            'remark_added_at' => now(),
+        ]);
+        $websiteName = BussinessSetting::where('type','name')->value('value');
+        $adminEmail = BussinessSetting::where('type','email')->value('value');
+        $email = $leave->user->email;
+        $admin = User::where('user_type','admin')->first();        
+        if ($request->status === 'Approved') {
+            $subject = "✔️ Leave Request Approved  - $request->name, {$leave->leaveType->name} for $request->leave_date | $websiteName";
+            try {
+                Mail::to($email)->cc($adminEmail)->queue(new LeaveUpdateStatusNotification($subject,$leave,$admin));  
+                Log::channel('email')->info('Leave Approved Notification Email sent successfully to ' . $email . ' and Admin: ' . $adminEmail);
+            } catch (\Exception $mailException) {
+                Log::channel('email')->error('Leave Approved Notification Email Failed to send to ' . $email . ' and Admin: ' . $adminEmail. '. Error: ' . $mailException->getMessage());
+            }
+            flash(translate('Leave approved successfully!'))->success();
+            return redirect('admin/leaves/listing');
+        } elseif ($request->status === 'Rejected') {
+             $subject = "❌ Leave Request Reject  - $request->name, {$leave->leaveType->name} for $request->leave_date | $websiteName";
+            try {
+                Mail::to($email)->cc($adminEmail)->queue(new LeaveUpdateStatusNotification($subject,$leave,$admin));  
+                Log::channel('email')->info('Leave Reject Notification Email sent successfully to ' . $email . ' and Admin: ' . $adminEmail);
+            } catch (\Exception $mailException) {
+                Log::channel('email')->error('Leave Reject Notification Email Failed to send to ' . $email . ' and Admin: ' . $adminEmail. '. Error: ' . $mailException->getMessage());
+            }
+            flash(translate('Leave rejected successfully!'))->error();
+            return redirect('admin/leaves/listing');
+        }
+        flash(translate('Leave updated successfully!'))->success();
+        return redirect('admin/leaves/listing');
+    }
+
+    public function getEvents(Request $request){
+        $user = auth()->user();
+        $leaveTypes = LeaveType::all();
+        $attendances = Attendance::where('user_id', $user->id)
+            ->whereBetween('date', [$request->start, $request->end])
+            ->get()
+            ->keyBy('date');
+
+        $leaves = Leave::with('leaveType')->where('user_id', $user->id)
+            ->whereBetween('leave_date', [$request->start, $request->end])
+            ->get();
+        $joinDate = Carbon::parse($user->created_at)->startOfDay();
+        $events = [];
+        $startDate = Carbon::parse($request->start);
+        $endDate = Carbon::parse($request->end);
+
+        for ($date = $startDate->copy(); $date <= $endDate; $date->addDay()) {
+            $dateStr = $date->format('Y-m-d');
+            if ($date->lt($joinDate)) {
+                continue;
+            }
+            $dayOfWeek = $date->dayOfWeek;
+
+            // Sundays
+            if ($dayOfWeek === 0) {
+                $events[] = [
+                    'id' => 'weekoff-' . $dateStr,
+                    'title' => 'Week Off',
+                    'start' => $dateStr,
+                    'allDay' => true,
+                    'color' => '#ffc107',
+                    'classNames' => ['fc-disabled']
+                ];
+                continue;
+            }
+
+            if (isset($attendances[$dateStr])) {
+                $a = $attendances[$dateStr];
+                $events[] = [
+                    'id' => 'attendance-' . $a->id,
+                   'title' => 'In: ' . $a->in_time . ' |<br>Out: ' . $a->out_time,
+                    'start' => $dateStr,
+                    'allDay' => true,
+                    'color' => '#007bff',
+                ];
+            } elseif ($date->lt(now())) {
+                $events[] = [
+                    'id' => 'absent-' . $dateStr,
+                    'title' => 'In: N/A | Out: N/A',
+                    'start' => $dateStr,
+                    'allDay' => true,
+                    'color' => '#6c757d',
+                ];
+            }
+        }
+
+        foreach ($leaves as $leave) {
+            $events[] = [
+                'id' => 'leave-' . $leave->id,
+                'title' => 'Leavesss: ' . ($leave->leaveType->name ?? 'N/A'),
+                'start' => $leave->leave_date,
+                'allDay' => true,
+                'color' => '#dc3545',
+            ];
+        }
+
+        return response()->json(['events' => $events]);
+    }
+
+
+    public function leavesListing(){
+        $user = auth()->user();
+        if ($user->user_type === 'admin') {
+            $leaves = Leave::with('user')->paginate(10);
+        } else {
+            $leaves = Leave::where('user_id', $user->id)->paginate(10);
+        }
+        $leaveTypes = LeaveType::all();
+        return view('admin.hrms.view', compact('leaves','user','leaveTypes'));
+
+    }
+
+    public function holidays(){
+        $holidays = Holiday::whereYear('date', 2025)->get()->groupBy(function($item) {
+            return strtolower(date('M', strtotime($item->date))); // jan, feb, ...
+        });
+        // dd($holidays);
+        return view('admin.hrms.holiday', compact('holidays'));
+    }
+
+    public function holidayStore(Request $req){
+        // dd($req->all());
+        $req->validate([
+            'date' => 'required|date',
+            'occasion' => 'required|string',
+        ]);
+        $holidayDate = Carbon::parse($req->date);
+        $holiday = new Holiday(); 
+        $holiday->month =$holidayDate->format('M');;
+        $holiday->year = $holidayDate->format('Y');;
+        $holiday->date = $req->date;
+        $holiday->occasion = $req->occasion;
+        $holiday->day = $holidayDate->format('l'); ;
+        $holiday->user_id = auth()->user()->id;
+        $holiday->save();
+        flash(translate('Holiday Added Successfully'))->success();
+        return redirect()->to(url('admin/holidays'));
+    }
+
+    public function leavesApplyNotification(){
+        return view('emails.attendance.leave-apply-notification');
+    }
+
+   
+    
+
+   
+   
+}
+
+
+
+Step : 5 index.blade.php file code 
+
+@extends('admin.layouts.app')
+@section('content')
+@push('css')
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.css' rel='stylesheet' />
+@endpush
+{{--
+<div class="aiz-titlebar text-left mt-2 mb-3">
+	<div class="row align-items-center">
+		<div class="col-md-6">
+			<h1 class="h3">{{translate('HRMS | Attendance & Leave Management')}}</h1>
+		</div>
+	</div>
+</div>
+--}}
+<div class="card">
+	<div class="card-header" style="display: flex;justify-content: space-between;align-items: center;">
+		<h5 class="mb-0 h6">{{translate('HRMS | Attendance & Leave Management')}}</h5>
+	</div>
+	<div class="card-body">
+		<div id='calendar'></div>
+	</div>
+</div>
+<div class="modal fade" id="eventModal" tabindex="-1" role="dialog" aria-labelledby="basicModalLabel" aria-hidden="true">
+	<div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 600px">
+		<div class="modal-content create_edit_modal_content">
+			<div class="modal-header bg-dark text-white">
+				<h5 class="modal-title" id="basicModalLabel">Apply Leave</h5>
+				<button type="button" class="close text-white" data-bs-dismiss="modal" aria-label="Close">
+				<span aria-hidden="true">&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<div class="_ad_leave d-none">
+					<p><strong>Leave Balance</strong></p>
+					<p><strong>Casual Leave (CL):</strong> 2 left</p>
+				</div>
+				<form  method="post">
+					@csrf
+					<div class="row">
+						<div class="col-6 mb-3">
+							<label>Employee Code<span class="text-danger ml-1">*</span></label>
+							<input type="text" class="form-control" name="user_id" id="user_id" value="{{ $user->id }}" readonly required>
+						</div>
+						<div class="col-6 mb-3">
+							<label>Employee Name<span class="text-danger ml-1">*</span></label>
+							<input type="text" class="form-control" name="name" id="name" value="{{ $user->first_name }} {{ $user->last_name }}" readonly required>
+						</div>
+						<div class="col-6 mb-3">
+							<label>Leave Date<span class="text-danger ml-1">*</span></label>
+							<input type="text" class="form-control" name="leave_date" id="leave_date" value="{{ now()->format('d-m-Y') }}" readonly required>
+						</div>
+						<div class="col-6 mb-3">
+							<label>Apply Leave<span class="text-danger ml-1">*</span></label>
+							<select class="form-control" name="leave_type_id" id="leave_type_id" required>
+								@isset($leaveTypes)
+								@foreach($leaveTypes as $leaveType)
+								<option value="{{ $leaveType->id }}">{{ $leaveType->name }}</option>
+								@endforeach
+								@endisset
+							</select>
+						</div>
+						<div class="col-12">
+							<label>Leave Reason<span class="text-danger ml-1">*</span></label>
+							<textarea class="form-control" name="reason" id="reason" required></textarea>
+							<p class="_ad_mini">Minimum 20 characters, maximum 100 characters.</p>
+						</div>
+					</div>
+					<div class="modal-footer border-0 mt-3 p-0">
+						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+						<button type="submit" id="submit-button" class="btn btn-primary">Raise Request</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+</div>
+@endsection
+@section('modal')
+@endsection
+@section('script')
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/@fullcalendar/interaction@5.10.1/main.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@5.10.1/main.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/@fullcalendar/timegrid@5.10.1/main.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/@fullcalendar/list@5.10.1/main.min.js'></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+<script>
+	$(document).ready(function () {
+	    var csrfToken = $('meta[name="csrf-token"]').attr('content');
+	    var calendarEl = document.getElementById('calendar');
+	    var calendar = new FullCalendar.Calendar(calendarEl, {
+	        initialView: 'dayGridMonth',
+	        editable: false,
+	        selectable: true,
+	        timeZone: 'local',
+			events: function(fetchInfo, successCallback, failureCallback) {
+				$.ajax({
+					url: "{{ route('calendar.events') }}", // Add this route in web.php
+					type: 'GET',
+					data: {
+						start: fetchInfo.startStr,
+						end: fetchInfo.endStr
+					},
+					success: function(response) {
+						successCallback(response.events);
+					},
+					error: function() {
+						failureCallback();
+					}
+				});
+			},
+			selectAllow: function(selectionInfo) {
+				const day = new Date(selectionInfo.startStr).getDay(); // 0 = Sunday
+				return day !== 0;
+			},
+	        eventContent: function (arg) {
+	            return {
+	                html: `<div style="font-size: 15px;">${arg.event.title.replace('|', '')}</div>`
+	            };
+	        },
+	        select: function (selectionInfo) {
+	            let selectedDate = new Date(selectionInfo.startStr);
+	            let formattedDate = selectedDate.toLocaleDateString('en-GB').split('/').join('-'); // dd-mm-yyyy
+
+	            $('#leave_date').val(formattedDate);
+	            $('#eventModal').modal('show');
+	        }
+	    });
+
+	    calendar.render();
+
+	    // AJAX form submit
+	    $('#submit-button').on('click', function (e) {
+	        e.preventDefault();
+			let btn = $('button[type="submit"]');
+			btn.html('<span class="spinner-border spinner-border-sm"></span> Please Wait...').prop('disabled', true).css('cursor', 'no-drop');
+	        let formData = {
+	            _token: csrfToken,
+	            user_id: $('#user_id').val(),
+	            name: $('#name').val(),
+	            leave_date: $('#leave_date').val(),
+	            leave_type_id: $('#leave_type_id').val(),
+	            reason: $('#reason').val(),
+	        };
+
+	        $.ajax({
+	            url: "{{ url('admin/hrms') }}",
+	            type: 'POST',
+	            data: formData,
+	            success: function (response) {
+	                $('#eventModal').modal('hide');
+	                $('#reason').val(''); // Reset reason textarea
+	                // Add new leave event to calendar
+	                calendar.addEvent({
+	                    id: 'leave-' + response.leave.id,
+	                    title: 'Leave: ' + response.leave.leaveType.name,
+	                    start: response.leave.leave_date,
+	                    allDay: true,
+	                    color: '#dc3545'
+	                });
+					let Message = response.message;
+					AIZ.plugins.notify('success', Message);
+	            },
+	            error: function (xhr) {
+	                let errorMessage = 'Something went wrong. Please try again.';
+					if (xhr.responseJSON && xhr.responseJSON.message) {
+						errorMessage = xhr.responseJSON.message;
+					}
+					AIZ.plugins.notify('danger', errorMessage);
+					btn.html('Raise Request').prop('disabled', false).css('cursor', 'pointer');
+	            }
+	        });
+	    });
+	});
+</script>
+@endsection
+
+
+Step : 6 view.blade.php file code 
+
+@extends('admin.layouts.app')
+@section('content')
+<div class="aiz-titlebar text-left mt-2 mb-3">
+	<div class="row align-items-center">
+		<div class="col-md-6">
+			<h1 class="h3">{{translate('HRMS | Leaves Management')}}</h1>
+		</div>
+		
+	</div>
+</div>
+<div class="card">
+	<div class="card-header" style="display: flex;justify-content: space-between;align-items: center;">
+		<h5 class="mb-0 h6">{{translate('Listing Leave Applications')}}</h5>
+		<div style="display: flex; gap: 10px; align-items: center;justify-content: space-between;">
+			<form action="{{ url()->current() }}" method="get" style="display: flex;gap:15px;">
+				<input type="date" class="form-control" value="{{ request()->query('start_date', '') }}" name="start_date" required >
+				<input type="date" class="form-control" value="{{ request()->query('end_date', '') }}" name="end_date" required >
+                <button class="btn btn-primary">Search</button>
+				<button class="btn btn-info" onclick="window.location.href='{{ route(Route::currentRouteName()) }}';">Reset</button>
+			</form>
+		</div>
+	</div>
+	<div class="card-body">
+		<table class="table aiz-table mb-0 table-responsive footable footable-1 breakpoint-lg" style="text-wrap:nowrap;">
+			<thead>
+				<tr>
+					<th style="width: 30% !important;">SL</th>
+					<th width="100%">{{translate('Leave Applied By')}}</th>
+					<th width="100%">{{translate('Leave Date')}}</th>
+					<th width="100%">{{translate('Leave Type')}}</th>
+					<th width="100%">{{translate('Leave Reason')}}</th>
+					<th width="100%">{{translate('Leave Status')}}</th>
+					<th width="100%">{{translate('Action Taken By')}}</th>
+					<th width="100%" class="text-center">{{translate('Remark')}}</th>
+					@if($user->user_type === 'admin') 
+						<th width="100%" class="text-center">{{translate('Action')}}</th>
+					@endif
+				</tr>
+			</thead>
+			<tbody>
+				@foreach($leaves as $key => $leave)
+					@if($leave->user != null)
+						<tr>
+							<td>{{ ($key+1) + ($leaves->currentPage() - 1)*$leaves->perPage() }}</td>
+                            <td>{{ $leave->user->first_name . ' ' . ($leave->user->last_name ?? '') }}</td>
+                            <td>{{ \Carbon\Carbon::parse($leave->leave_date)->format('d-m-Y') }}</td>
+                            <td>{{ $leave->leaveType->name }}</td>	
+							<td>{{ $leave->reason }}</td>	
+                            <td>
+                                @if($leave->status == 'Pending')
+                                    <button class="btn btn-warning">⏳{{ $leave->status }}</button>
+                                    @elseif($leave->status == 'Approved')
+                                    <button class="btn btn-success">✔️{{ $leave->status }}</button>
+                                        @elseif($leave->status == 'Rejected')
+                                        <button class="btn btn-danger">❌{{ $leave->status }}</button>
+                                @endif
+                                
+                            </td>
+                            <td>
+								@if($leave->userInfo != null)
+								{{ $leave->userInfo->first_name . ' ' . ($leave->userInfo->last_name ?? '') ?? 'N/A' }}
+									@else 
+									{{ 'N/A' }}
+								@endif
+							</td>
+                            <td>{{ $leave->remark ?? 'N/A' }}</td>	
+							@if($user->user_type === 'admin') 
+								<td><a href="javascript:void(0)" class="btn btn-primary view-leave-modal" data-user_id="{{ $leave->user_id }}"
+								data-leave_type_id="{{ $leave->leave_type_id }}" data-leave_date="{{ $leave->leave_date }}"  data-id="{{ $leave->id }}"
+								data-name="{{ $leave->user->first_name . ' ' . $leave->user->last_name }}" data-reason="{{ $leave->reason }}"
+								data-status="{{ $leave->status }}" data-remark="{{ $leave->remark }}">View</a></td>
+							@endif
+						</tr>
+					@endif
+				@endforeach
+			</tbody>
+		</table>
+		<div class="aiz-pagination">
+			{{ $leaves->appends(request()->input())->links() }}
+		</div>
+	</div>
+</div>
+@endsection
+@section('modal')
+<div class="modal fade" id="view-leave" tabindex="-1" role="dialog" aria-labelledby="basicModalLabel" aria-hidden="true">
+	<div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 600px">
+		<div class="modal-content create_edit_modal_content">
+			<div class="modal-header bg-dark text-white">
+				<h5 class="modal-title" id="basicModalLabel">Leave Detail</h5>
+				<button type="button" class="close text-white" data-bs-dismiss="modal" aria-label="Close">
+				<span aria-hidden="true">&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<div class="_ad_leave d-none">
+					<p><strong>Leave Balance</strong></p>
+					<p><strong>Casual Leave (CL):</strong> 2 left</p>
+				</div>
+				<form id="leave-update" action="" method="post">
+					@csrf
+					@method('PUT')
+					
+					<div class="row">
+						<div class="col-6 mb-3">
+							<label>Employee Code<span class="text-danger ml-1">*</span></label>
+							<input type="text" class="form-control" name="user_id" id="user_id"  readonly required>
+						</div>
+						<div class="col-6 mb-3">
+							<label>Employee Name<span class="text-danger ml-1">*</span></label>
+							<input type="text" class="form-control" name="name" id="name" readonly required>
+						</div>
+						<div class="col-6 mb-3">
+							<label>Leave Date<span class="text-danger ml-1">*</span></label>
+							<input type="text" class="form-control" name="leave_date" id="leave_date" readonly required>
+						</div>
+						<div class="col-6 mb-3">
+							<label>Apply Leave<span class="text-danger ml-1">*</span></label>
+							<select class="form-control" name="leave_type_id" id="leave_type_id" required readonly>
+								@isset($leaveTypes)
+								@foreach($leaveTypes as $leaveType)
+								<option value="{{ $leaveType->id }}">{{ $leaveType->name }}</option>
+								@endforeach
+								@endisset
+							</select>
+						</div>
+						<div class="col-12">
+							<label>Leave Reason<span class="text-danger ml-1">*</span></label>
+							<textarea class="form-control" name="reason" id="reason" required readonly></textarea>
+							<p class="_ad_mini">Minimum 20 characters, maximum 100 characters.</p>
+						</div>
+						<div class="col-12">
+							<label>Status<span class="text-danger ml-1">*</span></label>
+							<select class="form-control" name="status" id="status" required required>
+								<option value="" disabled selected>Choose Option</option>
+								<option value="Approved">Approved</option>
+								<option value="Rejected">Rejected</option>
+							</select>
+						</div>
+						<div class="col-12">
+							<label>Remark<span class="text-danger ml-1">*</span></label>
+							<textarea class="form-control" name="remark" id="remark" required></textarea>
+							<p class="_ad_mini">Minimum 20 characters, maximum 100 characters.</p>
+						</div>
+					</div>
+					<div class="modal-footer border-0 mt-3 p-0">
+						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>						
+						<button type="submit" id="submit-button" id="" class="btn btn-primary">Update</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+</div>
+
+@endsection
+@section('script')
+<script>
+	let updateRoute = "{{ route('hrms.update', ':id') }}";
+	$(document).on('click', '.view-leave-modal', function () {
+		var id = $(this).data('id');
+		var user_id = $(this).data('user_id');
+		var leave_type_id = $(this).data('leave_type_id');
+		var leave_date = $(this).data('leave_date');
+		var reason = $(this).data('reason');
+		var name = $(this).data('name');
+		var status = $(this).data('status');
+		var remark = $(this).data('remark');
+		var route = updateRoute.replace(':id', id);
+		console.log({ user_id, leave_type_id, leave_date, reason });
+		$('#leave-update').find('input[id="user_id"]').val(user_id);
+		$('#leave-update').find('select[id="leave_type_id"]').val(leave_type_id);
+		$('#leave-update').find('input[id="leave_date"]').val(leave_date);
+		$('#leave-update').find('input[id="name"]').val(name);
+		$('#leave-update').find('textarea[id="reason"]').val(reason);
+		$('#leave-update').attr('action',route);
+		if(status === 'Approved' || status === 'Rejected'){
+			$('#leave-update').find('select[id="status"]').val(status).prop('disabled', true);
+       		$('#leave-update').find('textarea[id="remark"]').val(remark).prop('readonly', true);
+			$('#leave-update').find('button[type="submit"]').addClass('d-none');
+		}else{			
+			$('#leave-update').find('button[type="submit"]').removeClass('d-none');
+		}		
+		$('#view-leave').modal('show');
+	});
+	$(document).on('submit', '#leave-update', function() {
+		let btn = $('button[type="submit"]');
+		btn.html('<span class="spinner-border spinner-border-sm"></span> Please Wait...').prop('disabled', true).css('cursor', 'no-drop');
+	});
+</script>
+
+@endsection
+
+
+
+Step : 7 holiday.blade.php file code 
+
+@extends('admin.layouts.app')
+@section('content')
+
+<div class="aiz-titlebar text-left mt-2 mb-3">
+	<div class="row align-items-center">
+		<div class="col-md-6">
+			<h1 class="h3">Holiday List Of {{ now()->format('Y') }}</h1>
+		</div>
+		@if(auth()->user()->user_type == 'admin')
+		<div class="col-md-6 text-right">
+			<a href="javascript:void(0)" data-toggle="modal" data-target="#add-holiday" class="btn btn-primary">Add Holiday</a>
+		</div>
+		@endif
+	</div>
+</div>
+
+<section class="my-3">
+	<div class="row">
+		{{-- Left Sidebar with Month Tabs --}}
+		<div class="col-lg-2">
+			<div class="d-flex align-items-start _ad_holiday">
+				<div class="nav flex-column nav-pills w-100" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+					@php
+						$months = [
+							'jan' => 'January', 'feb' => 'February', 'mar' => 'March',
+							'apr' => 'April', 'may' => 'May', 'jun' => 'June',
+							'jul' => 'July', 'aug' => 'August', 'sep' => 'September',
+							'oct' => 'October', 'nov' => 'November', 'dec' => 'December'
+						];
+						$monthKeys = array_keys($months);
+					@endphp
+
+					@foreach($months as $key => $name)
+						<button class="nav-link @if($loop->first) active @endif" id="v-pills-{{ $key }}-tab"
+							data-bs-toggle="pill" data-bs-target="#v-pills-{{ $key }}"
+							type="button" role="tab" aria-controls="v-pills-{{ $key }}"
+							aria-selected="{{ $loop->first ? 'true' : 'false' }}">
+							<i class="far fa-calendar-alt mr-2"></i> {{ $name }}
+						</button>
+					@endforeach
+				</div>
+			</div>
+		</div>
+
+		{{-- Right Content Panel --}}
+		<div class="col-lg-10 mx-auto">
+			<div class="tab-content" id="v-pills-tabContent">
+				@foreach($months as $key => $name)
+					<div class="tab-pane fade @if($loop->first) show active @endif" id="v-pills-{{ $key }}" role="tabpanel" aria-labelledby="v-pills-{{ $key }}-tab">
+						<div class="card">
+							<div class="card-header">
+								<h5 class="mb-0 h6"><i class="far fa-calendar-alt mr-2"></i> {{ $name }} Holiday</h5>
+							</div>
+							<div class="card-body">
+								{{-- Dummy table for demonstration. You can fetch monthly records dynamically --}}
+								<table class="table aiz-table mb-0 table-responsive" style="text-wrap: nowrap;">
+									<thead>
+										<tr>
+											<th style="width: 30%">SL</th>
+											<th>Date</th>
+											<th>Occasion</th>
+											<th>Day</th>
+										</tr>
+									</thead>
+									<tbody>
+										@foreach($holidays[$key] ?? [] as $i => $holiday)
+											<tr>
+												<td>{{ $i + 1 }}</td>
+												<td>{{ \Carbon\Carbon::parse($holiday->date)->format('d-m-Y') }}</td>
+												<td>{{ $holiday->occasion }}</td>
+												<td>{{ \Carbon\Carbon::parse($holiday->date)->format('D') }}</td>
+											</tr>
+										@endforeach
+									</tbody>
+								</table>
+
+								
+							</div>
+						</div>
+					</div>
+				@endforeach
+			</div>
+		</div>
+	</div>
+</section>
+
+
+@endsection
+@section('modal')
+<div class="modal fade" id="add-holiday" tabindex="-1" role="dialog" aria-labelledby="basicModalLabel" aria-hidden="true">
+	<div class="modal-dialog modal-dialog-centered" role="document">
+		<div class="modal-content create_edit_modal_content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="basicModalLabel">Add Holiday Detail</h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+			</div>
+			<form id="holiday-store" action="{{ route('holiday-store') }}" method="POST"> 
+				@csrf
+				<div class="modal-body">
+					<div class="form-group">
+						<label for="date">Holiday Date</label>
+						<input type="date" name="date" id="holiday-date" class="form-control" >
+					</div>
+					<div class="form-group">
+						<label for="occasion">Occasion Name</label>
+						<input type="text" name="occasion" id="occasion" class="form-control" >
+					</div>						
+					
+					<div class="modal-footer">
+						<button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+						<button type="submit" class="btn btn-primary">Submit</button>
+					</div>
+				</div>
+			</form>
+			
+		</div>
+	</div>
+</div>
+
+@endsection
+@section('script')
+<script>
+	$(document).ready(function () {
+		let today = new Date().toISOString().split('T')[0];
+		$('#holiday-date').attr('min', today);
+	});
+	$(document).on('submit', '#holiday-store', function() {
+		let btn = $('button[type="submit"]');
+		btn.html('<span class="spinner-border spinner-border-sm"></span> Please Wait...').prop('disabled', true).css('cursor', 'no-drop');
+	});
+</script>
+
+@endsection
+
+
+Step : 8 logic of in_time and out_time attandance 
+
+-->     vendor>laravel>framework>src>Illuminate>Auth>Middleware>Authenticate.php
+
+use App\Models\Attendance;
+use Carbon\Carbon;
+
+   public function handle($request, Closure $next, ...$guards)
+    {
+        $this->authenticate($request, $guards);
+        if(\Auth::user()){
+            $user = \Auth::user();
+            $now = now()->format('Y-m-d');
+            $in_time = now()->format('H:i:s');
+            // dd($user,$now,$in_time);
+            $attendance_exist = Attendance::where('user_id', $user->id)->where('date', $now)->first();
+            if(!$attendance_exist){
+                Attendance::create([
+                    'user_id' => $user->id,
+                    'date' => $now,
+                    'in_time' => $in_time,
+                ]);
+            }
+        }
+        return $next($request);
+    }
+
+
+
+
+-->    app/Http/Controller/Auth/LoginController.php file code
+
+public function logout(Request $request)
+{
+    if (auth()->user() != null && (auth()->user()->user_type == 'admin' || auth()->user()->user_type == 'staff')) {
+        $redirect_route = 'admin';
+    } else {
+        $redirect_route = 'home';
+    }
+    $user = \Auth::user();
+    $now = now()->format('Y-m-d');
+    $out_time = now()->format('H:i:s');
+    // dd($user,$now,$out_time);
+    $attendance_exist = Attendance::where('user_id', $user->id)->where('date', $now)->first();
+    if($attendance_exist){
+        $attendance_exist->update([
+            'out_time' => $out_time,
+        ]);
+    }
+    $this->guard()->logout();
+    $request->session()->invalidate();
+    return $this->loggedOut($request) ?: redirect()->route($redirect_route);
+}
+
+
+
+
+Step : 9 if session logout (default time is 2 hour) then how to update out_time.
+
+-> app/Http/Middleware/CheckSessionExpired.php file code
+
+
+<?php 
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Support\Facades\Auth;
+use App\Models\Attendance;
+
+class CheckSessionExpired
+{
+    public function handle($request, Closure $next)
+    {
+        if (Auth::check()) {
+            // Save current session state
+            session(['last_active_user' => Auth::id()]);
+        } elseif (session()->has('last_active_user')) {
+            $user_id = session('last_active_user');
+            $now = now();
+            $today = $now->format('Y-m-d');
+            $out_time = $now->format('H:i:s');
+
+            // Attendance update
+            $attendance = Attendance::where('user_id', $user_id)->where('date', $today)->first();
+            if ($attendance && !$attendance->out_time) {
+                $attendance->update(['out_time' => $out_time]);
+            }
+
+            // Clean up
+            session()->forget('last_active_user');
+        }
+
+        return $next($request);
+    }
+}
+
+
+
+   -> Mention this in kernel.php file code 
+
+ protected $middlewareGroups = [
+     'web' => [ 
+         \App\Http\Middleware\CheckSessionExpired::class,
+        ],
+
 
