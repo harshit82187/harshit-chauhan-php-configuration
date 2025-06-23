@@ -155,6 +155,82 @@ class AuthController extends Controller
         ]);
     }
 
+ public function profileUpdate(Request $request)
+    {
+        $token =  $request->bearerToken();
+        $student = Student::where('api_token', $token)->first();
+        if (app()->environment('local')) {
+            \Log::info("Incoming token: " . $token);
+        }
+        if (!$student) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Unauthorized or invalid token'
+            ], 401);
+        }
+        $rules = [
+            'name' => 'required|string|max:250',
+            'mobile' => 'required|digits:10|unique:students,mobile,' .$student->id,
+            'email' => 'required|email|unique:students,email,' .$student->id,
+            'dob' => 'required|date',
+            'course' => 'required|in:UPSC,SSC',
+            'gender' => 'required|in:male,female',
+            'state' => 'required|numeric',
+            'city' => 'required|numeric',
+            'block' => 'required|numeric',
+            'address' => 'required|string|max:250',
+            'image'   => 'nullable|image|mimes:jpeg,jpg,png|max:2048',
+        ];
+        $validator = Validator::make($request->all(), $rules);
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $data = [
+            'name' => $request->name,
+            'mobile' => $request->mobile,
+            'email' => $request->email,
+            'dob' => $request->dob,
+            'course' => $request->course,
+            'gender' => $request->gender,
+            'state' => $request->state,
+            'city' => $request->city,
+            'block' => $request->block,
+            'address' => $request->address,
+        ];
+
+        if ($request->hasFile('image') && $request->file('image')->isValid()) {
+            if ($student->image && File::exists(public_path($student->image))) {
+                File::delete(public_path($student->image));
+            }
+            $file = $request->file('image');
+            $filename = time(). '.' . $file->getClientOriginalExtension();
+            $year = now()->year;
+            $month = now()->format('M');
+            $folderPath = public_path("app/student-profile/{$year}/{$month}");
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0777, true);  
+            }
+            $file->move($folderPath, $filename);
+            $data['image'] = "app/student-profile/{$year}/{$month}/" . $filename;
+        }
+        $student->update($data);
+        $assetUrl = env('ASSET_URL', '');
+        $student->image = $student->image 
+            ? ($assetUrl ? rtrim($assetUrl, '/') . '/' . ltrim($student->image, '/') : $student->image) 
+            : 'Image Not Available';
+        return response()->json([
+            'status' => true,
+            'message' => 'Student profile update successfully',
+            'email'   => $student->email,
+            'student' => $student
+        ]);
+    }
+
 
     // User Logout 
     public function logout(Request $request)
