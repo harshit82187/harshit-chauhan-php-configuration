@@ -125,7 +125,7 @@ Route::get('account-details-active/{id}', 'account_active')->name('account_activ
     function changeStatus(id) {
         Swal.fire({
             title: 'Are you sure?',
-            text: '',
+            text: 'This action cannot be undone!',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',
