@@ -282,7 +282,14 @@ Step :7 checkout blade file code
             },
             theme: {
                 color: "#528FF0"
-            }
+            },
+		method: {
+			netbanking: true,
+			card: true,
+			upi: true,
+			wallet: true
+		},
+		 remember_customer: false 
         };
         var rzp = new Razorpay(options);
         rzp.open();
