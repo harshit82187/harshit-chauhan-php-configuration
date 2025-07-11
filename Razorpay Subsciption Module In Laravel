@@ -73,13 +73,22 @@ class RazorpayController extends Controller
             return back()->with('error', 'Invalid plan selected.');
         }
 
-        // Create or find customer
-        $customers = $api->customer->all(['email' => $email]);
-        $customer = count($customers['items']) > 0 ? $customers['items'][0] : $api->customer->create([
-            'name' => 'Customer',
-            'email' => $email,
-            'contact' => $contact
-        ]);
+         // Create or find customer
+	    $user = User::where('email', $email)->first();
+	    if ($user && $user->razorpay_customer_id) {
+		$customer_id = $user->razorpay_customer_id;
+	    } else {
+		$customer = $api->customer->create([
+		    'name'    => $user->name ?? 'Customer',
+		    'email'   => $email,
+		    'contact' => $contact,
+		]);
+		if ($user) {
+		    $user->razorpay_customer_id = $customer->id;
+		    $user->save();
+		}
+		$customer_id = $customer->id;
+	    }
 
         // Create plan
         $plan = $api->plan->create([
