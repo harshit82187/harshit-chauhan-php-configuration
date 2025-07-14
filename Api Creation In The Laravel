@@ -181,27 +181,36 @@ class AuthController extends Controller
         ]);
     }
 
-    public function profile(Request $request)
+   public function profile(Request $request)
     {
         // dd($request->all());
-        $user = $request->get('auth_user');
-        $assetUrl = env('ASSET_URL', '');
-        $user->image = $student->image 
-            ? ($assetUrl ? rtrim($assetUrl, '/') . '/' . ltrim($user->image, '/') : $user->image) 
+        try{
+            $user = $request->get('auth_user');
+            $assetUrl = env('ASSET_URL', '');
+            $user->photo = $user->photo
+            ? ($assetUrl ? rtrim($assetUrl, '/') . '/' . ltrim($user->photo, '/') : $user->photo)
             : 'Image Not Available';
-        if (!$user) {
+            if (!$user) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Unauthorized or invalid token'
+                ], 401);
+            }
             return response()->json([
-                'status' => false,
-                'message' => 'Unauthorized or invalid token'
-            ], 401);
+                'status' => true,
+                'message' => 'User profile fetched successfully',
+                'email'   => $user->email,
+                'user' => $user
+            ]);
+        }catch (\Throwable  $e) {
+                return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 500);
         }
-        return response()->json([
-            'status' => true,
-            'message' => 'User profile fetched successfully',
-            'email'   => $user->email,
-            'user' => $user
-        ]);
+      
     }
+
 
  public function profileUpdate(Request $request)
     {
@@ -271,17 +280,25 @@ class AuthController extends Controller
 
 
     // User Logout 
-    public function logout(Request $request)
+  public function logout(Request $request)
     {
-      $user = $request->get('auth_user');
-        // Invalidate token (logout)
-        $user->api_token = null;
-        $user->save();
+       
+        try{
+            $user = $request->get('auth_user');
+            $user->api_token = null;
+            $user->save();
+            return response()->json([
+                'status' => true,
+                'message' => 'Logout successful'
+            ]);
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Logout successful'
-        ]);
+        }catch (\Throwable  $e) {
+                return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+     
     }
 
     // Send Otp Via Email 
