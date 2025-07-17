@@ -1,0 +1,866 @@
+*********************************************** Razorpay Payment Gateway (Pdf Invoice, QR Code, Mail Queue And Whatsapp API)**************************************************************
+
+
+Nessacary Package :
+
+composer require barryvdh/laravel-dompdf
+composer require endroid/qr-code
+composer require razorpay/razorpay
+
+Step :1  config/logging.php file
+	'razorpay' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/razorpay.log'), 
+            'level' => 'info', 
+    ],
+
+    'order' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/order.log'), 
+            'level' => 'info', 
+    ],
+
+Step :3 .env file and web file code 
+
+RAZORPAY_KEY=rzp_test_J4ibid4vSMbAbB
+RAZORPAY_SECRET=10o619MmNZGFpP7Bsu9U1B2X
+
+Route::controller(AuthRazorpayController::class)->group(function () {
+    Route::get('razorpay', 'razorpay')->name('razorpay');
+    Route::post('razorpay-intitial-payment', 'razorpayIntitialPayment')->name('razorpay-intitial-payment');
+    Route::post('donate-online', 'donateOnline')->name('donate-online');
+    Route::get('invoice-detail/{invoice_no}', 'invoiceDetail')->name('invoice-detail');
+    Route::get('razorpay-thank-you/{invoice_no}', 'thankYou')->name('razorpay-thank-you');
+});
+
+Step :4 blade file code with loader 
+
+<style>
+    .loader-overlay {
+        position: fixed;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        flex-direction: column;
+        color: white;
+    }
+    .loader {
+        border: 6px solid #f3f3f3;
+        border-top: 6px solid #012549;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+    }
+    .processing{
+        font-size: 18px;
+        line-height: 26px;
+        color: black;
+        font-weight: 900;
+        font-family: 'Lora', serif;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+
+<div id="paymentLoader" class="loader-overlay d-none"  >
+    <div class="loader"></div>
+    <p class="processing" >⏳ Processing Payment, Please Wait...</p>
+</div>
+
+<form action="{{ route('donate-online') }}" id="donate-online" method="POST">
+    @csrf
+    <input type="hidden" name="razorpay_payment_id" id="razorpay_payment_id">
+    <input type="hidden" name="razorpay_order_id" id="razorpay_order_id">
+    <input type="hidden" name="transaction_via" value="razorpay">
+    <input type="text" name="name" id="name" class="form-control mb-3" placeholder="Enter Your Name" required>
+    <input type="text" name="email" id="email" class="form-control mb-3" placeholder="Enter Your Email" required>
+    <input type="text" name="mobile_no" id="mobile_no" class="form-control mb-3" placeholder="Enter Your Mobile No" required>
+    <input type="text" name="amount" id="amount" class="form-control mb-3 number" placeholder="Enter  Amount" required>
+    <button id="pay-now" type="submit">💳 Pay Now</button>
+</form>
+
+
+@endsection
+@push('js')
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+	var razorpay_logo = "{{ asset('front/img/faviconn.ico') }}";
+	var RAZORPAY_KEY = "{{ config('services.razorpay.key') }}";
+	var proccedRoute = "{{ route('proccedd-to-pay') }}";
+    const razorpayInitiateUrl = "{{ route('razorpay-intitial-payment') }}";
+</script>
+<script src="{{ asset('front/js/razorpay.js') }}"></script>
+
+@endpush
+
+
+
+Step :5 javascript file code 
+
+$(document).ready(function () {
+    $("#mobile_no").on("input", function () {
+        this.value = this.value.replace(/[^0-9]/g, '');
+            if (this.value.length > 10) {
+            this.value = this.value.slice(0, 10);
+        }
+    });
+});
+$("#donate-online").submit(function(e) {
+    e.preventDefault();
+    const amountRaw = $('#amount').val();
+    const amount = parseInt(amountRaw, 10);
+    console.log("Raw amount:", amountRaw);
+    console.log("Parsed amount:", amount);
+
+    if (isNaN(amount) || amount <= 0) {
+        iziToast.info({
+            title: 'Info',
+            message: 'Amount must be greater than 0!',
+            position: 'topRight',
+            timeout: 3000,
+        });
+        return;
+    }
+
+    // ✅ Only runs if amount is valid
+    $('#paymentLoader').removeClass('d-none');
+    $('.pay-online').val('Please Wait...').prop('disabled', true);
+    $('#donate-now-submit').html('<span class="spinner-border spinner-border-sm"></span> Please Wait...')
+        .prop('disabled', true)
+        .css('cursor', 'no-drop');
+
+    updateRazorpayOptions();
+});
+
+
+
+    var razorpayPaymentId = "";
+    let totalAmount = 0; // Initialize amount
+    function updateRazorpayOptions() {
+        totalAmount = parseInt($('#amount').val(), 10) || 0;
+        let totalAmountInPaise = totalAmount * 100;
+        console.log("Amount on Razorpay: " + totalAmountInPaise);
+
+        // Get dynamic input values
+        var donerName = $('#name').val() || 'Unknown Donor';
+        var mobile_no = $('#mobile_no').val() || '0000000000';
+        var email = $('#email').val() || 'unknowndonoremail@gmail.com';
+        console.log("Prefill Values - Name:", donerName, "Email:", email, "Mobile:", mobile_no);
+
+        $.ajax({
+            url: razorpayInitiateUrl,
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            contentType: 'application/json',
+            data: JSON.stringify({
+                amount: totalAmount,
+                name: donerName,
+                number: mobile_no,
+                email: email
+            }),
+            success: function (data) {
+                if (!data.order_id || data.order_id === '') {
+                    alert("Order ID not received. Payment cannot proceed.");
+                    return;
+                }
+
+                let options = {
+                    key: data.razorpay_key,
+                    amount: totalAmountInPaise,
+                    name: "Harshit Laravel Project",
+                    description: "User Donation Via Local Payment Gateway",
+                    image: razorpay_logo,
+                    netbanking: true,
+                    currency: "INR",
+                    order_id: data.order_id, // ← VERY IMPORTANT to pass
+                    prefill: {
+                        name: donerName,
+                        email: email,
+                        contact: mobile_no
+                    },
+                    notes: {
+                        donor_name: donerName,
+                        donor_email: email,
+                        donor_mobile: mobile_no,
+                        transaction_date: new Date().toISOString()
+                    },
+                    theme: { "color": "#ff7029" },
+                    handler: function (transaction) {
+                        console.log("Payment ID: " + transaction.razorpay_payment_id);
+                        $('#razorpay_payment_id').val(transaction.razorpay_payment_id);
+                        $('#razorpay_order_id').val(transaction.razorpay_order_id);
+                        document.getElementById('donate-online').submit();
+                    },
+                    modal: {
+                        ondismiss: function () {
+                            location.reload();
+                        }
+                    }
+                };
+
+                let rzp = new Razorpay(options);
+                rzp.open();
+            },
+            error: function (xhr) {
+                console.error('AJAX Error:', xhr.responseText);
+                alert("Something went wrong. Please try again.");
+            }
+        });
+
+
+    }
+
+
+
+
+Step :6 Database schema file code 
+
+CREATE TABLE `payments` (
+  `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `invoice_no` VARCHAR(100),
+  `qr_image` VARCHAR(100),
+  `invoice_pdf` VARCHAR(100),
+  `r_payment_id` VARCHAR(100),
+  `r_order_id` VARCHAR(100),
+  `method` VARCHAR(100),
+  `currency` VARCHAR(100),
+  `user_email` VARCHAR(255),
+  `user_name` VARCHAR(255),
+  `user_mobile` VARCHAR(255),
+  `amount` VARCHAR(255),
+  `json_response` LONGTEXT,
+  `created_at` TIMESTAMP NULL DEFAULT NULL,
+  `updated_at` TIMESTAMP NULL DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+Step :7 App/AppServiceProvider.php file code 
+use Illuminate\Support\Facades\View;
+
+    public function boot(): void
+    {
+        require_once app_path('Helpers/CustomHelper.php');
+        $adminEmail = get_business_setting('email');
+        $siteName   = get_business_setting('name');
+        $mobile1    = get_business_setting('mobile_no1');
+        $mobile2    = get_business_setting('mobile_no2');
+        $websiteLogo = get_business_setting('logo');
+        $address    = get_business_setting('address');
+        $socialMediaConfig    = json_decode(get_business_setting('social_media'),true);
+        View::share([
+            'adminEmail' => $adminEmail,
+            'siteName'   => $siteName,
+            'mobile1'    => $mobile1,
+            'mobile2'    => $mobile2,
+            'websiteLogo'=> $websiteLogo,
+            'address'    => $address,
+            'socialMediaConfig'    => $socialMediaConfig,
+        ]);
+    }
+
+
+Step :8 Helper file (App/Helpers/CustomHelper.php)
+
+<?php
+
+use App\Models\LogDetails;
+use App\Models\BusinessSetting;
+
+use Illuminate\Support\Facades\Request;
+use Carbon\Carbon; 
+
+if (!function_exists('fetchIp')) {
+    function fetchIp($student) {
+        $data = [
+            'user_id' => $student->id,
+            'ip' => Request::ip(),
+            'time' => Carbon::now(),
+            'type' => 'student_registration',
+        ];
+        LogDetails::create($data);
+    }
+}
+
+if (!function_exists('get_business_setting')) {
+    function get_business_setting($type)
+    {
+        return BusinessSetting::where('type', $type)->value('value');
+    }
+}
+
+
+Step :9 Controller file code
+
+
+<?php
+
+namespace App\Http\Controllers\Auth;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+
+use DB;
+use Mail;
+use Hash;
+use Carbon\Carbon;
+use Str;
+use App\Mail\SendUserInvoice;
+
+
+use App\Models\BusinessSetting;
+use App\Models\Payment;
+
+use Razorpay\Api\Api;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
+use Endroid\QrCode\QrCode;
+use Endroid\QrCode\Writer\PngWriter;
+use Illuminate\Support\Facades\File;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Http;
+
+class RazorpayController extends Controller
+{
+    public function razorpay()
+    {
+        return view('auth.razorpay');
+    }
+
+    public function razorpayIntitialPayment(Request $request){
+        Log::channel('order')->info('Razorpay initiatePayment hit on donate now page.', [
+            'request_data' => $request->all(),
+            'user' => auth()->user()
+        ]);
+        try {
+            $api = new Api(env('RAZORPAY_KEY'), env('RAZORPAY_SECRET'));
+            $amount = intval($request->amount * 100);
+            $order = $api->order->create([
+                'amount' => $amount,
+                'currency' => 'INR',
+                'receipt' => Str::random(10)
+            ]);
+            Log::channel('order')->info('Razorpay order created successfully on donate now page.', [
+                'order_id' => $order['id'],
+                'amount' => $amount,
+                'request_amount' => $request->amount
+            ]);
+            return response()->json([
+                'order_id' => $order['id'],
+                'razorpay_key' => env('RAZORPAY_KEY'),
+                'amount' => $request->amount,
+                'currency' => 'INR',
+                'customer' => [
+                    'name' => $request->name,
+                    'number' => $request->number ?? null,
+                    'email' => $request->email
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::channel('order')->error('Razorpay order creation failed on donate now page.', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Unable to initiate Razorpay payment. Try again later.'
+            ], 500);
+        }
+    }
+
+    public function proceedPayment($request)
+    {
+        try {
+            Log::channel('order')->info('Razorpay Payment Success Request on donate now page', $request);
+            $razorpayPaymentId = $request['razorpay_payment_id'] ?? null;
+            $name = $request['name'] ?? 'Unknown Donor';
+            $email = $request['email'] ?? 'unknowndonoremail@gmail.com';
+            $mobile_no = $request['mobile_no'] ?? '0000000000';
+
+            if (!$razorpayPaymentId) {
+                Log::channel('order')->error('Missing payment ID or merchant order ID.', $request);
+                return false;
+            }
+
+            $api = new Api(env('RAZORPAY_KEY'), env('RAZORPAY_SECRET'));
+            $payment = $api->payment->fetch($razorpayPaymentId);
+
+            if (!$payment || !isset($payment['id'])) {
+                Log::channel('order')->error('Invalid Razorpay payment object.', ['response' => $payment]);
+                return false;
+            }
+
+            $createdPayment = Payment::create([
+                'mode' => '2',
+                'r_payment_id' => $payment['id'],
+                'r_order_id' => $payment['order_id'] ?? '',
+                'method' => $payment['method'] ?? 'unknown',
+                'currency' => $payment['currency'] ?? 'INR',
+                'user_email' => $email,
+                'user_name' => $name,
+                'user_mobile' => $mobile_no,
+                'amount' => $payment['amount'] / 100,
+                'json_response' => json_encode($payment->toArray()),
+            ]);
+            Log::channel('order')->info('✅ Payment record created successfully', [
+                'id' => $createdPayment->id,
+                'razorpay_id' => $createdPayment->r_payment_id,
+                'amount' => $createdPayment->amount,
+                'email' => $createdPayment->user_email,
+                'mobile' => $createdPayment->user_mobile,
+                'name' => $createdPayment->user_name,
+                'order_id' => $createdPayment->r_order_id,
+            ]);
+
+            return $createdPayment;
+
+        } catch (\Exception $e) {
+            Log::channel('order')->error('Razorpay payment processing failed.', ['error' => $e->getMessage()]);
+            return false;
+        }
+    }
+
+    public function donateOnline(Request $request)
+    {
+        // dd($request->all());
+        DB::beginTransaction();
+        try{
+            $request->validate([
+                'razorpay_payment_id' => 'required|string',
+                'razorpay_order_id' => 'required|string',
+                'transaction_via' => 'required|string',
+                'amount' => 'required|numeric',
+            ]);
+
+            $paymentData = [
+                'razorpay_payment_id' => $request->razorpay_payment_id,
+                'amount' => $request->amount,
+                'name' => $request->name,
+                'email' => $request->email,
+                'mobile_no' => $request->mobile_no,
+            ];
+            $payment = $this->proceedPayment($paymentData);
+            if($payment){
+                $r_payment_id = $request->razorpay_payment_id;
+                $payment_table = Payment::where('r_payment_id',$r_payment_id)->first();
+                // dd($payment_table);
+                if(!$payment_table){
+                    Log::channel('razorpay')->error("Payment record not found for r_payment_id: " . $r_payment_id);
+                    return back()->with('error','Record Not Found!');
+                }
+                $invoiceNumber = now()->format('Ym') . rand(100000, 999999);
+                Log::channel('razorpay')->info("Generating invoice", ['invoice_number' => $invoiceNumber]);
+                $qrCodeFilePath = $this->generateQRCode($invoiceNumber);
+                $payment_table->update([
+                    'qr_image' => $qrCodeFilePath,
+                    'invoice_no' => $invoiceNumber,
+                ]);
+
+                $invoicePdfPath = $this->generateInvoicePdf($invoiceNumber, $payment_table,$qrCodeFilePath);
+                $payment_table->update([
+                    'invoice_pdf' => $invoicePdfPath,
+                ]);
+
+                // Send emails
+                $this->sendEmail($r_payment_id);
+                $this->sendWhatsappMessage($r_payment_id);
+                DB::commit();
+                return redirect()->route('razorpay-thank-you', ['invoiceNumber' => $invoiceNumber])
+                    ->with('success', 'Payment successful! The receipt has been sent to your email address.');
+            }
+
+        }catch (\Exception $e){
+            DB::rollBack();
+            Log::channel('razorpay')->error('❌ Exception in donateNowAmount', [
+                'error_message' => $e->getMessage(),
+                'stack_trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+            return back()->with('error', 'Warning : ' .$e->getMessage());
+        }
+    }
+
+     private function generateQRCode($invoiceNumber)
+    {
+        $year = now()->year;
+        $month = now()->format('M');
+        $qrCodeDirectory = public_path("app/invoice/qr-codes/{$year}/{$month}");
+        Log::channel('razorpay')->info("Generating QR code for invoice", ['invoice_no' => $invoiceNumber]);
+        if (!File::exists($qrCodeDirectory)) {
+            File::makeDirectory($qrCodeDirectory, 0777, true);
+        }
+        try {
+            $encodedInvoice = base64_encode($invoiceNumber);
+            $qrCode = new QrCode(route('invoice-detail', ['invoice_no' => $encodedInvoice]));
+            $writer = new PngWriter();
+            $qrCodeContent = $writer->write($qrCode)->getString();
+            $qrCodeFilePath = "{$qrCodeDirectory}/{$invoiceNumber}-qr.jpg";
+            file_put_contents($qrCodeFilePath, $qrCodeContent);
+            Log::channel('razorpay')->info("QR code generated successfully", ['file_path' => $qrCodeFilePath]);
+            return "app/invoice/qr-codes/{$year}/{$month}/{$invoiceNumber}-qr.jpg";
+        } catch (\Exception $e) {
+            Log::channel('razorpay')->error("QR code generation failed", ['error' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    private function generateInvoicePdf($invoiceNumber, $payment_table, $qrCodeFilePath)
+    {
+        $year = now()->year;
+        $month = now()->format('M');
+        $today = Carbon::now()->format('d-M-Y');
+        $fileName = "invoice_{$invoiceNumber}.pdf";
+        $directoryPath = public_path("app/invoice/{$year}/{$month}");
+        $adminEmail = BusinessSetting::where('type', 'email')->value('value');
+        Log::channel('razorpay')->info("Generating invoice PDF", ['invoiceNumber' => $invoiceNumber]);
+        if (!File::exists($directoryPath)) {
+            File::makeDirectory($directoryPath, 0777, true);
+        }
+        try {
+            $filePath = "{$directoryPath}/{$fileName}";
+            $pdf = Pdf::loadView('pdf.razorpay.invoice', compact('payment_table', 'adminEmail', 'today', 'qrCodeFilePath'));
+            $pdf->save($filePath);
+            Log::channel('razorpay')->info("Invoice PDF generated successfully", ['file_path' => $filePath]);
+            return "app/invoice/{$year}/{$month}/{$fileName}";
+        } catch (\Exception $e) {
+            Log::channel('razorpay')->error("Invoice PDF generation failed", ['error' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    private function sendEmail($r_payment_id)
+    {
+        try{
+
+            $payment_table = Payment::where('r_payment_id',$r_payment_id)->first();
+            $invoice_no = $payment_table->invoice_no;
+            $subject = 'Gaam Raam Trust Donation Invoice #'.$invoice_no.' | '.\Carbon\Carbon::today()->format('d-M-Y').' | '.\Carbon\Carbon::now()->format('h:i A');
+            $adminEmail =  BusinessSetting::where('type','email')->value('value');
+            $email =  $payment_table->user_email ?? $adminEmail;
+            if (!$payment_table) {
+                Log::channel('razorpay')->error('Payment record not found for R-Payment ID: ' . $r_payment_id);
+                return;
+            }
+            $pdfPath = public_path($payment_table->donation_pdf);
+            Log::channel('razorpay')->info('Invoice PDF Path: ' . $pdfPath);
+            Mail::to($email)->cc($adminEmail)->queue(
+                (new SendUserInvoice($payment_table,$subject))
+                    ->attach($pdfPath)
+            );
+            Log::channel('razorpay')->info('Email Sent With PDF To ' . $email);
+
+        }catch (\Exception $mailException) {
+            Log::channel('razorpay')->error('Failed to send email to ' . $email . '. Error: ' . $mailException->getMessage());
+        }
+
+    }
+
+    private function sendWhatsappMessage($r_payment_id)
+    {
+
+        $payment_table = Payment::where('r_payment_id',$r_payment_id)->first();
+        if (!$payment_table) {
+            Log::channel('order')->warning("Payment not found for Razorpay ID: $r_payment_id");
+            return;
+        }
+        $name = $payment_table->user_name ?? 'Unknown Donor';
+        $pdfPath = env('ASSET_URL') . '/' . ltrim($payment_table->donation_pdf, '/');
+        Log::channel('order')->info('Invoice PDF Path: ' . $pdfPath);
+        $MobileNo = $payment_table->user_mobile ?? '0000000000';
+        $message = "🙏 *Thank you for your donation, $name!*\n\n" .
+                "💸 *Amount Paid:* ₹" . $payment_table->amount . "\n" .
+                "🆔 *Razorpay Payment ID:* {$payment_table->r_payment_id}\n\n" .
+                "📄 Your donation invoice is attached with this message.\n\n" .
+                "❤️ We truly appreciate your support to *GaamRaam NGO*.\n" .
+                "Together, we are making a difference! 🌍\n\n" .
+                "Warm Regards,\n" .
+                "*GaamRaam NGO Team*";
+        if (!str_starts_with($MobileNo, '+91')) {
+            $MobileNo = '+91' . $MobileNo;
+        }
+        try {
+            $apiKey = BusinessSetting::find(3)->value;
+            $response = Http::get('http://api.textmebot.com/send.php', [
+                'recipient' => $MobileNo,
+                'apikey'    => $apiKey,
+                'text'      => $message,
+                // 'document' => $pdfPath,
+            ]);
+            if ($response->successful()) {
+                $body = strtolower($response->body());
+                if (str_contains($body, 'error') || str_contains($body, 'failed')) {
+                    Log::channel('order')->error('API responded but failed to send message : ' . $response->body());
+                }
+            } else {
+                Log::channel('order')->error('API Error: ' . $response->status() . ' - ' . $response->body());
+            }
+        } catch (Exception $e) {
+            Log::channel('order')->error('WhatsApp API Exception', ['error' => $e->getMessage()]);
+        }
+    }
+
+    public function thankYou($invoiceNumber){
+        // dd($invoiceNumber);
+        $payment_table = Payment::where('invoice_no',$invoiceNumber)->first();
+        return view('auth.thank-you', compact('payment_table'));
+    }
+
+    public function invoiceDetail($invoice_no)
+    {
+        dd($invoice_no);
+    }
+}
+
+
+
+
+Step :10 Invoice PDF Blade File (resources/views/pdf/razorpay/invoice.blade.php)
+
+<table width="100%" cellpadding="0" cellspacing="0" style="font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.6;">
+	<tr>
+		<td align="center" style="padding: 20px; background-color: #f4f4f4;">
+			<table width="100%" cellpadding="0" cellspacing="0" style="background: #ffffff; border: 1px solid #ddd; border-radius: 8px;">
+				<tr>
+					<td style="padding: 5px 20px; text-align: center; border-bottom: 1px solid #ddd; background-color: #ff7029;">
+						@php
+						$logoPath = public_path($websiteLogo);
+						$logoData = base64_encode(file_get_contents($logoPath));
+						$logoSrc = 'data:image/png;base64,' . $logoData;
+						@endphp
+						<img src="{{$logoSrc}}" height="80px" width="300px" alt="logo">
+						<h2 style="margin: 0; font-size: 20px; color: #fff;">Gaam Raam Trust Donation Invoice</h2>
+					</td>
+				</tr>
+				<tr>
+					<td style="padding: 20px;">
+						<table style="width: 100%; border-collapse: collapse;">
+							<tbody>
+								<tr>
+									<td style="width: 50%; vertical-align: top;">
+										<table width="100%">
+											<tr>
+												<td style="padding: 5px; font-weight: bold; white-space: nowrap;">Invoice ID:</td>
+												<td style="padding: 5px; color: #555;">{{ $payment_table['invoice_no'] ?? $invoiceNumber }}</td>
+
+											</tr>
+											<tr>
+												<td style="padding: 5px; font-weight: bold; white-space: nowrap;">Donate Date:</td>
+												<td style="padding: 5px; color: #555;">{{ $today ?? '---' }}</td>
+											</tr>
+										</table>
+									</td>
+									<td style="width: 50%; vertical-align: top; text-align: right;">
+										@if($payment_table['qr_image'])
+										@php
+										$imagePath = public_path($payment_table['qr_image']);
+										$imageData = base64_encode(file_get_contents($imagePath));
+										$src = 'data:image/png;base64,' . $imageData;
+										@endphp
+										<img src="{{ $src }}" alt="QR Code" style="max-width: 100px; max-height: 100px;">
+										@endif
+									</td>
+								</tr>
+							</tbody>
+						</table>
+					</td>
+				</tr>
+				<!-- Doner Details Section -->
+				<tr>
+					<td style="padding: 20px;">
+						<p style="margin: 0; font-weight: bold;">Doner Details</p>
+						<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 10px 0;">
+							<tr>
+								<td style="padding: 8px; border: 1px solid #ddd;">Name</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $payment_table->user_name ?? 'Unknown Doner' }}</td>
+							</tr>
+							<tr>
+								<td style="padding: 8px; border: 1px solid #ddd;">Contact</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">+91 {{ $payment_table->user_mobile ?? '0000000000' }}</td>
+							</tr>
+							<tr>
+								<td style="padding: 8px; border: 1px solid #ddd;">Email</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">
+									<a href="mailto:{{ $payment_table['user_email'] ?? '' }}" style="color: #007bff; text-decoration: none;">{{ $payment_table['user_email'] ?? 'unknowndoner' }}</a>
+								</td>
+							</tr>
+
+						</table>
+					</td>
+				</tr>
+
+				<!-- Payment Details Section -->
+				<tr>
+					<td style="padding: 20px;">
+						<p style="margin: 0; font-weight: bold;">Payment Details</p>
+						<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 10px 0;">
+							<tr>
+								<td style="padding: 8px; border: 1px solid #ddd;">Razorpay Id</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $payment_table['r_payment_id'] ?? '' }}</td>
+							</tr>
+							<tr>
+								<td style="padding: 8px; border: 1px solid #ddd;">Order Id</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ $payment_table['r_order_id'] ?? '' }}</td>
+							</tr>
+							<tr style="font-weight: bold; background-color: #f8f8f8;">
+								<td style="padding: 8px; border: 1px solid #ddd;">Donate Amount</td>
+								<td style="padding: 8px; border: 1px solid #ddd; text-align: right;">{{ number_format($payment_table['amount'] ?? 0, 2) }}</td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+				<!-- Footer Section -->
+				<tr>
+					<td style="padding: 20px; border-top: 1px solid #ddd;">
+						<p style="margin: 0;">We sincerely appreciate your donation to <strong>Gaam Raam Trust</strong></p>
+                        <p>Thank you for your generous contribution!</p>
+						<p style="margin: 10px 0;">For any queries, contact our support team at:
+							<a href="mailto:{{ $adminEmail ?? '' }}" style="color: #007bff; text-decoration: none;">{{ $adminEmail ?? '' }}</a>
+						</p>
+					</td>
+				</tr>
+				<tr>
+					<td style="padding: 10px; text-align: center; background-color: #f4f4f4; border-top: 1px solid #ddd;">
+						<p>{{ date('Y') }} © All Rights Reserved <i class="fa fa-heart heart text-danger"></i> By
+                            <a href="{{ url('/') }}" target="_blank" style="color:#ff7029 !important;" >Gaam Raam Trust</a> And Powered By <a href="{{ url('https://www.pearlorganisation.com/') }}" target="_blank" style="color:#ff7029 !important;">Pearl Organisation</a></p>
+					</td>
+				</tr>
+			</table>
+		</td>
+	</tr>
+</table>
+
+
+Step :11 Thank You Blade File (resources/views/auth/thank-you.blade.php)
+
+@extends('layout.app')
+@section('content')
+@push('css')
+<style>
+    .card {
+        border-radius: 10px;
+    }
+    .table th {
+        background-color: #f8f9fa;
+    }
+</style>
+@endpush
+<div class="container mt-5">
+    <div class="card shadow">
+        <div class="card-header bg-success text-white text-center">
+            <h4>🎉 Thank You for Your Payment!</h4>
+        </div>
+        <div class="card-body">
+            <p class="text-center text-success" style="font-size: 18px;">
+                Your payment was successful. Below are your payment details:
+            </p>
+
+            <table class="table table-bordered">
+                <tr>
+                    <th>Name</th>
+                    <td>{{ $payment_table->user_name ?? '' }}</td>
+                </tr>
+                <tr>
+                    <th>Mobile No</th>
+                    <td>{{ $payment_table->user_mobile ??'' }}</td>
+                </tr>
+                <tr>
+                    <th>Email</th>
+                    <td>{{ $payment_table->user_email ?? '' }}</td>
+                </tr>
+                <tr>
+                    <th>Amount</th>
+                    <td>₹{{ $payment_table->amount ?? '' }}</td>
+                </tr>
+                <tr>
+                    <th>Order ID</th>
+                    <td>{{ $payment_table->r_order_id ?? '' }}</td>
+                </tr>
+                <tr>
+                    <th>Razorpay ID</th>
+                    <td>{{ $payment_table->r_payment_id ?? '' }}</td>
+                </tr>
+
+            </table>
+        </div>
+    </div>
+</div>
+@endsection
+
+
+Step :12 Email Template File (resources/views/auth/mail-template.razorpay.invoice-template.blade.php)
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Donation Template</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0;">
+    <div style="max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border: 1px solid #dddddd; border-radius: 5px;">
+        <div style="text-align: center; background-color: #ff7029; color: #ffffff; padding: 10px 0; border-radius: 5px 5px 0 0; margin-bottom: 20px;">
+            <img src="{{ $websiteLogo }}" alt="Company Logo" style="max-width: 150px;">
+            <h2 style="margin: 0; font-size: 24px;">Gaam Raam Trust Donation Invoice</h2>
+        </div>
+
+        <div style="padding: 20px;">
+                <p style="font-size: 16px; line-height: 1.6;">Hello <strong>{{ $payment_table->user_name ?? 'Donor' }}</strong>,</p>
+                <p style="font-size: 16px; line-height: 1.6;">We sincerely appreciate your donation to <strong>Gaam Raam Trust</strong>.</p>
+                <p style="font-size: 16px; line-height: 1.6;">Please find your invoice attached below.</p>
+                <p style="font-size: 16px; line-height: 1.6;">Thank you for your generous contribution!</p>
+        </div>
+
+        <div style="text-align: center; margin-top: 20px; font-size: 14px; color: #888888;">
+            <p style="margin: 0;">{{ date('Y') }} © All Rights Reserved. <span style="color:red;">♥</span> By
+            <a href="{{ url('/') }}" target="_blank" style="color:#ff7029; text-decoration: none;">Gaam Raam Trust</a>
+            And Powered By
+            <a href="https://www.pearlorganisation.com/" target="_blank" style="color:#ff7029; text-decoration: none;">Pearl Organisation</a></p>
+        </div>
+    </div>
+</body>
+</html>
+
+
+Step :13 App/Mail/SendUserInvoice.php file code 
+
+<?php
+
+namespace App\Mail;
+
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Content;
+use Illuminate\Mail\Mailables\Envelope;
+use Illuminate\Queue\SerializesModels;
+
+class SendUserInvoice extends Mailable implements ShouldQueue
+{
+    use Queueable, SerializesModels;
+
+    public $payment_table;
+    public $subjectLine;
+
+    public function __construct($payment_table, $subjectLine)
+    {
+        $this->payment_table = $payment_table;
+        $this->subjectLine = $subjectLine;
+    }
+
+    public function build()
+    {
+        return $this->subject($this->subjectLine)
+                    ->view('mail-template.razorpay.invoice-template')
+                    ->with([
+                            'payment_table' => $this->payment_table,
+                  ]);
+    }
+}
