@@ -40,7 +40,7 @@ class VerifyApiToken
 
 Step :2 app/Http/Kernel.php
 
-protected $routeMiddleware = [
+protected $middlewareAliases = [
     // ...
     'verify.token' => \App\Http\Middleware\VerifyApiToken::class,
 ];
