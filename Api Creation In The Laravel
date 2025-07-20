@@ -45,47 +45,6 @@ protected $middlewareAliases = [
     'verify.token' => \App\Http\Middleware\VerifyApiToken::class,
 ];
 
-Step :3 app/Exceptions/Handler.php file code 
-
-use Illuminate\Auth\AuthenticationException;
-
-  protected function unauthenticated($request, AuthenticationException $exception)
-    {
-        // Force JSON response for any token-based auth guard
-        if ($request->expectsJson() || $request->is('api/*') || $request->bearerToken()) {
-            return response()->json(['message' => 'Unauthenticated.'], 401);
-        }
-
-            return response()->json(['message' => 'Unauthenticated.'], 401);
-
-    }
-
-Step :4 config/auth.php file code 
-    'guards' => [
-        'web' => [
-            'driver' => 'session',
-            'provider' => 'users',
-        ],
-
-        'api' => [
-            'driver' => 'token',
-            'provider' => 'users',
-            'hash' => false,
-        ],
-    ],
-
-Step :5 app/Http/Middleware/Authenticate.php
-
-protected function redirectTo(Request $request): ?string
-    {
-        if ($request->expectsJson() || $request->is('api/*') || $request->bearerToken()) {
-            return null;
-        }
-        return '/login'; 
-    }
-
-
-
 
 Step :6 api.php file code 
 
