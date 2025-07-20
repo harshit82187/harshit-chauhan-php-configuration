@@ -46,42 +46,52 @@ protected $middlewareAliases = [
 ];
 
 
-Step :6 api.php file code 
+Step :3 api.php file code 
 
 
 Route::post('user/register', [AuthController::class, 'register']);
 Route::post('user/login', [AuthController::class, 'login']);
 
 Route::prefix('user')->middleware('verify.token')->group(function () {
-    Route::get('profile', [AuthController::class, 'profile']);
+      Route::controller(AuthController::class)->group(function(){
+        Route::get('profile', 'profile')->name('profile');
+        Route::post('profile-update', 'profileUpdate')->name('profile-update');
+        Route::get('booking-info', 'bookingInfo')->name('booking-info');
+        Route::post('logout','logout')->name('logout');       
+    });
 });
 
 
 
 
-
-
-
-
-
-
-Step :5 Controller Side Code 
+Step :4 Controller Side Code 
 
 <?php 
 
-namespace App\Http\Controllers\API\User;
+namespace App\Http\Controllers\API\User\Auth;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+
 use App\Models\User;
+use App\Models\Payment;
+
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\File;
 
 
 class AuthController extends Controller
 {
+    protected $assetUrl;
+
+    public function __construct()
+    {
+        $this->assetUrl = env('ASSET_URL', '');
+    }
+
     // User Registration
     public function register(Request $request)
     {
@@ -130,7 +140,10 @@ class AuthController extends Controller
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json(['status' => false, 'message' => 'Invalid credentials'], 401);
         }
-        $user->api_token  = Str::random(60);
+        if($user->api_token == null){
+            $user->api_token  = Str::random(60);
+            $user->save();
+        }
         $user->save();
         return response()->json([
             'status' => true,
@@ -140,14 +153,12 @@ class AuthController extends Controller
         ]);
     }
 
-   public function profile(Request $request)
-    {
-        // dd($request->all());
+    // user profile
+    public function profile(Request $request){
         try{
             $user = $request->get('auth_user');
-            $assetUrl = env('ASSET_URL', '');
-            $user->photo = $user->photo
-            ? ($assetUrl ? rtrim($assetUrl, '/') . '/' . ltrim($user->photo, '/') : $user->photo)
+            $user->profile_image = $user->profile_image
+            ? ($this->assetUrl ? rtrim($this->assetUrl, '/') . '/' . ltrim($user->profile_image, '/') : $user->profile_image)
             : 'Image Not Available';
             if (!$user) {
                 return response()->json([
@@ -170,183 +181,197 @@ class AuthController extends Controller
       
     }
 
-
- public function profileUpdate(Request $request)
-    {
-       $user = $request->get('auth_user');
-        $rules = [
-            'name' => 'required|string|max:250',
-            'mobile' => 'required|digits:10|unique:students,mobile,' .$student->id,
-            'email' => 'required|email|unique:students,email,' .$student->id,
-            'dob' => 'required|date',
-            'course' => 'required|in:UPSC,SSC',
-            'gender' => 'required|in:male,female',
-            'state' => 'required|numeric',
-            'city' => 'required|numeric',
-            'block' => 'required|numeric',
-            'address' => 'required|string|max:250',
-            'image'   => 'nullable|image|mimes:jpeg,jpg,png|max:2048',
-        ];
-        $validator = Validator::make($request->all(), $rules);
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation errors',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $data = [
-            'name' => $request->name,
-            'mobile' => $request->mobile,
-            'email' => $request->email,
-            'dob' => $request->dob,
-            'course' => $request->course,
-            'gender' => $request->gender,
-            'state' => $request->state,
-            'city' => $request->city,
-            'block' => $request->block,
-            'address' => $request->address,
-        ];
-
-        if ($request->hasFile('image') && $request->file('image')->isValid()) {
-            if ($student->image && File::exists(public_path($student->image))) {
-                File::delete(public_path($student->image));
-            }
-            $file = $request->file('image');
-            $filename = time(). '.' . $file->getClientOriginalExtension();
-            $year = now()->year;
-            $month = now()->format('M');
-            $folderPath = public_path("app/student-profile/{$year}/{$month}");
-            if (!file_exists($folderPath)) {
-                mkdir($folderPath, 0777, true);  
-            }
-            $file->move($folderPath, $filename);
-            $data['image'] = "app/student-profile/{$year}/{$month}/" . $filename;
-        }
-        $student->update($data);
-        $assetUrl = env('ASSET_URL', '');
-        $student->image = $student->image 
-            ? ($assetUrl ? rtrim($assetUrl, '/') . '/' . ltrim($student->image, '/') : $student->image) 
-            : 'Image Not Available';
-        return response()->json([
-            'status' => true,
-            'message' => 'Student profile update successfully',
-            'email'   => $student->email,
-            'student' => $student
-        ]);
-    }
-
-
-    // User Logout 
-  public function logout(Request $request)
-    {
-       
+    // user profile update
+    public function profileUpdate(Request $request){
+        $user = $request->get('auth_user');
         try{
-            $user = $request->get('auth_user');
-            $user->api_token = null;
-            $user->save();
+            $rules = [
+                'name' => 'required|string|max:250',
+                'mobile' => 'required|digits:10|unique:users,mobile,' .$user->id,
+                'email' => 'required|email|unique:users,email,' .$user->id,
+                'address' => 'required|string|max:250',
+                'profile_image'   => 'nullable|image|mimes:jpeg,jpg,png|max:2048',
+            ];
+            $validator = Validator::make($request->all(), $rules);
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation errors',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $data = [
+                'name' => $request->name,
+                'mobile' => $request->mobile,
+                'email' => $request->email,
+                'address' => $request->address,
+            ];
+
+            if ($request->hasFile('profile_image') && $request->file('profile_image')->isValid()) {
+                if ($user->profile_image && File::exists(public_path($user->profile_image))) {
+                    File::delete(public_path($user->profile_image));
+                }
+                $file = $request->file('profile_image');
+                $filename = time(). '.' . $file->getClientOriginalExtension();
+                $year = now()->year;
+                $month = now()->format('M');
+                $folderPath = public_path("app/users/profile/{$year}/{$month}");
+                if (!file_exists($folderPath)) {
+                    mkdir($folderPath, 0777, true);  
+                }
+                $file->move($folderPath, $filename);
+                $data['profile_image'] = "app/users/profile/{$year}/{$month}/" . $filename;
+            }
+            $user->update($data);
+            $user->profile_image = $user->profile_image 
+                ? ($this->assetUrl ? rtrim($this->assetUrl, '/') . '/' . ltrim($user->profile_image, '/') : $user->profile_image) 
+                : 'Image Not Available';
             return response()->json([
                 'status' => true,
-                'message' => 'Logout successful'
+                'message' => 'user profile update successfully',
+                'email'   => $user->email,
+                'user' => $user
             ]);
-
         }catch (\Throwable  $e) {
                 return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage()
             ], 500);
         }
-     
     }
 
-    // Send Otp Via Email 
-    public function sendOtp(Request $request)
-    {
-    
-        $rules = [
-            'email' => 'required|email'
-        ];
-        $validator = Validator::make($request->all(), $rules);
-        if ($validator->fails()) {
+    // user booking
+    public function bookingInfo(Request $request){
+        $user = $request->get('auth_user');
+        try{
+            $bookings = Payment::where('user_id',$user->id)->orderBy('id','desc')->get()->map(function ($booking) {
+                           if ($booking->invoice_pdf) {
+                                $booking->invoice_pdf = $this->assetUrl ? rtrim($this->assetUrl, '/') . '/' . ltrim($booking->invoice_pdf, '/') : $booking->invoice_pdf;
+                            } else {
+                                $booking->invoice_pdf = 'Image Not Available';
+                            }
+                            return $booking;
+                        });
+            if ($bookings->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No bookings found!'
+                ],404);
+            }
             return response()->json([
-                'success' => false,
-                'message' => 'Validation errors',
-                'errors' => $validator->errors()
-            ], 422);
+                'status' => true,
+                'message' => 'user bookings fetch successfully!',
+                'count'   =>count($bookings),
+                'bookings' => $bookings
+            ]);
+        }catch (\Throwable  $e) {
+                return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 500);
         }
-        $studentExist = Student::where('email', $request->email)->first();
-        if($studentExist){
-            return response()->json(['success' => false, 'message' => 'Email already exists']);
-        }
-
-        $otp = rand(100000, 999999);
-        DB::table('otps')->updateOrInsert(
-            ['email' => $request->email],
-            ['otp' => $otp, 'updated_at' => now(), 'created_at' => now()]
-        );
-        Mail::to($request->email)->queue(new OtpMail($otp, $request->email));
-        Log::channel('email-verify')->info('Email sent successfully to: ' . json_encode($request->all()));
-        return response()->json(['success' => true, 'message' => 'OTP Sent Successfully, Please Check Your Inbox.']);
-    }
-
-    // Verify Otp Via Email
-    public function verifyOtp(Request $request)
-    {
-        $rules = [
-            'otp' => 'required|digits:6',
-            'email' => 'required|email',
-        ];
-        $validator = Validator::make($request->all(), $rules);
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation errors',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-        $otpEntry = DB::table('otps')->where('email', $request->email)->first();       
-        if ($otpEntry && $otpEntry->otp == $request->otp) {            
-            Log::channel('email-verify')->info("OTP verified successfully for email: $request->email");
-            DB::table('otps')->where('email', $request->email)->delete();
-            return response()->json(['status' => true, 'message' => 'Email verified successfully']);
-        }
-        Log::channel('email-verify')->warning("Failed OTP verification attempt for email: $request->email with OTP: {$request->otp}");
-        return response()->json(['status' => false, 'message' => 'Invalid OTP']);
     }
 
 
+    // User Logout 
+    public function logout(Request $request){
+        
+            try{
+                $user = $request->get('auth_user');
+                $user->api_token = null;
+                $user->save();
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Logout successful'
+                ]);
 
-}
+            }catch (\Throwable  $e) {
+                    return response()->json([
+                    'status' => 'error',
+                    'message' => $e->getMessage()
+                ], 500);
+            }
+        
+        }
+
+        // Send Otp Via Email 
+        public function sendOtp(Request $request)
+        {
+        
+            $rules = [
+                'email' => 'required|email'
+            ];
+            $validator = Validator::make($request->all(), $rules);
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation errors',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+            $studentExist = Student::where('email', $request->email)->first();
+            if($studentExist){
+                return response()->json(['success' => false, 'message' => 'Email already exists']);
+            }
+
+            $otp = rand(100000, 999999);
+            DB::table('otps')->updateOrInsert(
+                ['email' => $request->email],
+                ['otp' => $otp, 'updated_at' => now(), 'created_at' => now()]
+            );
+            Mail::to($request->email)->queue(new OtpMail($otp, $request->email));
+            Log::channel('email-verify')->info('Email sent successfully to: ' . json_encode($request->all()));
+            return response()->json(['success' => true, 'message' => 'OTP Sent Successfully, Please Check Your Inbox.']);
+        }
+
+        // Verify Otp Via Email
+        public function verifyOtp(Request $request)
+        {
+            $rules = [
+                'otp' => 'required|digits:6',
+                'email' => 'required|email',
+            ];
+            $validator = Validator::make($request->all(), $rules);
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation errors',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+            $otpEntry = DB::table('otps')->where('email', $request->email)->first();       
+            if ($otpEntry && $otpEntry->otp == $request->otp) {            
+                Log::channel('email-verify')->info("OTP verified successfully for email: $request->email");
+                DB::table('otps')->where('email', $request->email)->delete();
+                return response()->json(['status' => true, 'message' => 'Email verified successfully']);
+            }
+            Log::channel('email-verify')->warning("Failed OTP verification attempt for email: $request->email with OTP: {$request->otp}");
+            return response()->json(['status' => false, 'message' => 'Invalid OTP']);
+        }
+
+
+
+    }
 
 
 
 
-Step 7 Postman 
 
-Url 1 : https://test.pearl-developer.com/econ-market/api/user/register
-Choose Body And Then raw
-{
-  "name": "Ajay Singh Test",
-  "email": "ajay@gmail.com",
-  "mobile_no": "8410147857",
-  "password": "password",
-  "address": "Haridwar"
-}
+Step 5 Postman 
+
+Url 1 : User login Api
+POST : https://server1.pearl-developer.com/tensor/public/api/user/login
+Choose Body And Then form-data
+    email : harshitk@pearlorganisation.com
+    password : 12345678
 
 
-Url 2 : https://test.pearl-developer.com/econ-market/api/user/login
-Choose Body And Then raw
-{
-  "email": "ajay@gmail.com",
-  "password": "password"
-}
-
-Url 3 : https://test.pearl-developer.com/econ-market/api/user/profile
-Choose Header and set key and value 
-Authorization             Bearer <your-token-which-you-get-login-time>
+Url 2: User profile fetch Api
+GET : https://server1.pearl-developer.com/tensor/public/api/user/profile
+Choose Authorization and choose Bearer Token and the paste <your-token-which-you-get-login-time>
 
 
-Url 4 : https://test.pearl-developer.com/econ-market/api/user/logout
-Choose Header and set key and value 
-Authorization             Bearer <your-token-which-you-get-login-time>
+Url 3 : User Logout Api
+POST : https://server1.pearl-developer.com/tensor/public/api/user/logout
+Choose Authorization and choose Bearer Token and the paste <your-token-which-you-get-login-time>
