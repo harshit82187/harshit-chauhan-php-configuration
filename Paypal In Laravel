@@ -1,0 +1,300 @@
+ ******************************************** Paypal In Laravel *********************************************************
+
+Step :1 Install Paypal Package
+ composer require paypal/paypal-checkout-sdk
+
+Step :2 app/Helpers/PayPalClient.php
+
+<?php
+
+namespace App\Helpers;
+
+use PayPalCheckoutSdk\Core\PayPalHttpClient;
+use PayPalCheckoutSdk\Core\SandboxEnvironment;
+use PayPalCheckoutSdk\Core\ProductionEnvironment;
+
+class PayPalClient
+{
+    public static function client()
+    {
+        return new PayPalHttpClient(self::environment());
+    }
+
+    private static function environment()
+    {
+        $clientId = config('paypal.client_id');
+        $clientSecret = config('paypal.client_secret');
+
+        if (config('paypal.mode') === 'live') {
+            return new ProductionEnvironment($clientId, $clientSecret);
+        }
+
+        return new SandboxEnvironment($clientId, $clientSecret);
+    }
+}
+
+
+Step :3 config/paypal.php
+
+<?php
+
+return [
+    'mode' => env('PAYPAL_MODE', 'sandbox'),
+    'client_id' => env('PAYPAL_CLIENT_ID'),
+    'client_secret' => env('PAYPAL_CLIENT_SECRET'),
+];
+
+
+Step :4 .env file 
+
+PAYPAL_CLIENT_ID=AX1YPGA56tG8WF6vCQYCnGabkMHhQU3a80tQez1EnoRwydkmGp1_0gz-QAt1xi1Rd88hIbz5RPNq0D70
+PAYPAL_CLIENT_SECRET=EIAU2JgmtG6cCEI1qnS2XhxPbq4u0n16YOJxzwYhzp0Qse5dL4CxApXOB-x3Xb4XVGodRSkv1eguFYbi
+PAYPAL_MODE=sandbox
+
+Step :5 Make Paypal Controller 
+
+php artisan make:controller PayPalController 
+
+
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use PayPalCheckoutSdk\Core\PayPalHttpClient;
+use PayPalCheckoutSdk\Core\SandboxEnvironment;
+use PayPalCheckoutSdk\Orders\OrdersCreateRequest;
+use PayPalCheckoutSdk\Orders\OrdersCaptureRequest;
+use Illuminate\Support\Facades\Log;
+use App\Models\PaypalPayment;
+
+class PayPalController extends Controller
+{
+    protected $client;
+
+    public function __construct()
+    {
+        $env = new SandboxEnvironment(env('PAYPAL_CLIENT_ID'), env('PAYPAL_CLIENT_SECRET'));
+        $this->client = new PayPalHttpClient($env);
+    }
+
+    public function showForm()
+    {
+        return view('paypal.form');
+    }
+
+    public function createOrder(Request $request)
+    {
+        $request->validate([
+            'name' => 'required',
+            'email' => 'required|email',
+            'mobile_no' => 'required',
+            'amount' => 'required|numeric'
+        ]);
+
+        Log::channel('paypal')->info("📝 Form data stored before creating order", $request->all());
+
+        $order = new OrdersCreateRequest();
+        $order->prefer('return=representation');
+        $order->body = [
+            'intent' => 'CAPTURE',
+            'purchase_units' => [[
+                'amount' => [
+                    'currency_code' => 'USD',
+                    'value' => number_format($request->amount, 2, '.', '')
+                ]
+            ]],
+            'application_context' => [
+                'cancel_url' => route('paypal.cancel'),
+                'return_url' => route('paypal.success'),
+            ]
+        ];
+
+        try {
+            $response = $this->client->execute($order);
+            Log::channel('paypal')->info("✅ PayPal Order Created", [
+                'orderID' => $response->result->id,
+                'status' => $response->statusCode,
+                'links' => $response->result->links
+            ]);
+
+            foreach ($response->result->links as $link) {
+                if ($link->rel === 'approve') {
+                    return redirect()->away($link->href);
+                }
+            }
+
+            return redirect()->back()->with('error', 'Unable to redirect to PayPal.');
+        } catch (\Throwable $e) {
+           Log::channel('paypal')->error("❌ PayPal Order Creation Error: " . $e->getMessage());
+            return redirect()->route('paypal.failure')->with('error', 'Something went wrong.');
+        }
+    }
+
+    public function captureOrder(Request $request) {
+        $orderId = $request->get('token');
+
+        $captureRequest = new OrdersCaptureRequest($orderId);
+        $captureRequest->prefer('return=representation');
+
+        try {
+            $response = $this->client->execute($captureRequest);
+
+            $result = $response->result;
+            $purchase_unit = $result->purchase_units[0];
+
+            // ✅ Save to DB
+            PaypalPayment::create([
+                'order_id'      => $result->id,
+                'payment_id'    => $result->id,
+                'payer_id'      => $result->payer->payer_id ?? null,
+                'payer_email'   => $result->payer->email_address ?? null,
+                'status'        => $result->status,
+                'amount'        => $purchase_unit->payments->captures[0]->amount->value ?? 0,
+                'currency'      => $purchase_unit->payments->captures[0]->amount->currency_code ?? 'USD',
+                'json_response' => json_encode($result)
+            ]);
+
+            Log::channel('paypal')->info("✅ PayPal Payment Captured", [
+                'status' => $response->statusCode,
+                'data' => $result
+            ]);
+
+            return view('paypal.success', ['data' => $result]);
+        } catch (\Throwable $e) {
+            Log::channel('paypal')->error("❌ PayPal Capture Error: " . $e->getMessage());
+            return redirect()->route('paypal.failure')->with('error', 'Payment capture failed.');
+        }
+    }
+
+
+    public function cancel()
+    {
+        return view('paypal.cancel');
+    }
+
+    public function failure()
+    {
+        return view('paypal.failure');
+    }
+}
+
+
+
+Step :6 Web file code
+
+Route::controller(PayPalController::class)->group(function () {
+    Route::get('/paypal', 'showForm');
+    Route::post('/paypal/pay', 'createOrder')->name('paypal.pay');
+    Route::get('/paypal/success', 'captureOrder')->name('paypal.success');
+    Route::get('/paypal/cancel', 'cancel')->name('paypal.cancel');
+    Route::get('/paypal/failure', 'failure')->name('paypal.failure');
+});
+
+
+Srep :7 paypal.form blade file code
+
+@extends('layout.app')
+@section('content')
+@push('css')
+@endpush
+<div id="paymentLoader" class="payment-loader-overlay d-none">
+	<p class="payment-processing">⏳ Processing Payment, Please Wait...</p>
+</div>
+<section class="hero">
+	<div class="container">
+		<h1>Welcome to Harshit's Laravel Project</h1>
+		<p>A modern, responsive homepage powered by Bootstrap 5 and Laravel Blade.</p>
+	</div>
+</section>
+<main class="container">
+	<div class="row justify-content-center mt-5">
+		<div class="payment-container">
+             <h2>
+                <img src="https://www.paypalobjects.com/webstatic/icon/pp258.png" width="30" />
+                Pay with PayPal
+            </h2>
+			<p>📝 Enter your details and click the button below to proceed.</p>
+			<form action="{{ route('paypal.pay') }}" id="paypal-pay" method="POST">
+				@csrf
+                <input type="text" name="name" id="name" class="form-control mb-3" value="Harshit Chauhan">
+				<input type="text" name="email" id="email" class="form-control mb-3" value="harshitk@pearlorganisation.com">
+				<input type="text" name="mobile_no" id="mobile_no" class="form-control mb-3" value="1234567890">
+                <input type="number" name="amount" id="amount" class="form-control mb-3" placeholder="Enter Amount (e.g. 100)" min="1" step="0.01" required>
+			    <button id="pay-now" type="submit">💳 Pay Now</button>
+            </form>
+
+		</div>
+	</div>
+</main>
+@endsection
+@push('js')
+<script>
+    $("#paypal-pay").submit(function(e) {
+        e.preventDefault();
+        $("#paymentLoader").removeClass("d-none");
+        $("#pay-now").prop("disabled", true);
+        this.submit();
+    });
+</script>
+@endpush
+
+
+Step : 8 paypal.success blade file code
+
+@extends('layout.app')
+@section('content')
+@push('css')
+<style>
+    .card {
+        border-radius: 10px;
+    }
+    .table th {
+        background-color: #f8f9fa;
+    }
+</style>
+@endpush
+<div class="container mt-5">
+    <div class="card shadow">
+        <div class="card-header bg-success text-white text-center">
+            <h4>🎉 Thank You for Your payment!</h4>
+        </div>
+        <div class="card-body">
+            <p class="text-center text-success" style="font-size: 18px;">
+                Your payment was successful. Below are your payment details:
+            </p>
+
+            <table class="table table-bordered">
+                <tr>
+                    <th>Order ID</th>
+                    <td>{{ $data->id }}</td>
+                </tr>
+                <tr>
+                    <th>Status</th>
+                    <td>{{  $data->status }}</td>
+                </tr>
+                <tr>
+                    <th>Payer ID</th>
+                    <td>{{ $data->payer->payer_id ?? 'N/A' }}</td>
+                </tr>
+                <tr>
+                    <th>Email</th>
+                    <td>{{ $data->payer->email_address ?? 'N/A' }}</td>
+                </tr>
+                <tr>
+                    <th>Amount</th>
+                    <td>{{ $data->purchase_units[0]->payments->captures[0]->amount->value }} {{ $data->purchase_units[0]->payments->captures[0]->amount->currency_code }}</td>
+                </tr>
+                <tr>
+                    <th>Capture ID</th>
+                    <td>{{ $data->purchase_units[0]->payments->captures[0]->id }}</td>
+                </tr>
+                <tr>
+                    <th>Full JSON Response</th>
+                   <td><pre>{{ json_encode($data, JSON_PRETTY_PRINT) }}</pre></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>
+@endsection
