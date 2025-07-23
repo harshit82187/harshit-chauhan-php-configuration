@@ -38,12 +38,59 @@ class VerifyApiToken
 }
 
 
-Step :2 app/Http/Kernel.php
+Step :2 app/Http/Kernel.php and app/Exceptions/Handler.php file code
 
 protected $middlewareAliases = [
     // ...
     'verify.token' => \App\Http\Middleware\VerifyApiToken::class,
 ];
+
+********************************************************************************************************************
+
+ public function render($request, Throwable $exception)
+    {
+        // Check if request expects JSON (API call)
+        \Log::error('Exception caught in render', [
+            'exception' => $exception,
+            'url' => $request->fullUrl(),
+            'input' => $request->all(),
+        ]);
+        if ($request->expectsJson() || $request->is('api/*')) {
+
+            // Handle method not found
+            if ($exception instanceof \BadMethodCallException) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'API method does not exist: ' . $exception->getMessage()
+                ], 500);
+            }
+
+            // Handle Model not found
+            if ($exception instanceof \Illuminate\Database\Eloquent\ModelNotFoundException) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Resource not found.'
+                ], 404);
+            }
+
+            // Handle unauthorized
+            if ($exception instanceof \Illuminate\Auth\AuthenticationException) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Unauthenticated (Invalid or missing token).'
+                ], 401);
+            }
+
+            // Handle any other exception
+            return response()->json([
+                'status' => false,
+                'message' => $exception->getMessage(),
+            ], 500);
+        }
+
+        // For non-API calls (web)
+        return parent::render($request, $exception);
+}
 
 
 Step :3 api.php file code 
