@@ -34,7 +34,7 @@ class PayPalClient
 }
 
 
-Step :3 config/paypal.php
+Step :3 config/paypal.php and config/logging.php 
 
 <?php
 
@@ -43,6 +43,14 @@ return [
     'client_id' => env('PAYPAL_CLIENT_ID'),
     'client_secret' => env('PAYPAL_CLIENT_SECRET'),
 ];
+
+********************************************************************************
+
+'paypal' => [
+    'driver' => 'single',
+    'path' => storage_path('logs/paypal.log'), 
+    'level' => 'info', 
+],
 
 
 Step :4 .env file 
