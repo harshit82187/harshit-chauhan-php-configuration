@@ -59,22 +59,54 @@ PAYPAL_CLIENT_ID=AX1YPGA56tG8WF6vCQYCnGabkMHhQU3a80tQez1EnoRwydkmGp1_0gz-QAt1xi1
 PAYPAL_CLIENT_SECRET=EIAU2JgmtG6cCEI1qnS2XhxPbq4u0n16YOJxzwYhzp0Qse5dL4CxApXOB-x3Xb4XVGodRSkv1eguFYbi
 PAYPAL_MODE=sandbox
 
-Step :5 Make Paypal Controller 
+
+Step : 5 make model with migration 
+
+
+Schema::create('paypal_payments', function (Blueprint $table) {
+    $table->id();
+    $table->string('order_id');
+    $table->string('payment_id')->nullable();
+    $table->string('payer_id')->nullable();
+    $table->string('payer_email')->nullable();
+    $table->string('status');
+    $table->decimal('amount', 10, 2);
+    $table->string('currency');
+    $table->json('json_response');
+    $table->json('customer_info');
+    $table->timestamps();
+});
+
+Schema::create('paypal_order_requests', function (Blueprint $table) {
+    $table->id();
+    $table->string('order_id')->unique();
+    $table->json('request_data'); // store the full form JSON
+    $table->timestamps();
+});
+
+
+Step :6 Make Paypal Controller 
 
 php artisan make:controller PayPalController 
 
 
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\API\Front;
 
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+
 use PayPalCheckoutSdk\Core\PayPalHttpClient;
 use PayPalCheckoutSdk\Core\SandboxEnvironment;
 use PayPalCheckoutSdk\Orders\OrdersCreateRequest;
 use PayPalCheckoutSdk\Orders\OrdersCaptureRequest;
-use Illuminate\Support\Facades\Log;
 use App\Models\PaypalPayment;
+use App\Models\Report;
+use App\Models\PaypalOrderRequest;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class PayPalController extends Controller
 {
@@ -86,21 +118,33 @@ class PayPalController extends Controller
         $this->client = new PayPalHttpClient($env);
     }
 
-    public function showForm()
-    {
-        return view('paypal.form');
-    }
-
     public function createOrder(Request $request)
     {
-        $request->validate([
+        $rules = [
             'name' => 'required',
             'email' => 'required|email',
             'mobile_no' => 'required',
-            'amount' => 'required|numeric'
-        ]);
-
-        Log::channel('paypal')->info("📝 Form data stored before creating order", $request->all());
+            'amount' => 'required|numeric',
+            'company_name' => 'required',
+            'title' => 'required|string',
+            'country' => 'required|exists:countries,id',
+            'address' => 'required|string',
+            'city' => 'required|string',
+            'state' => 'required|string',
+            'zip' => 'required|numeric',
+            'report_id' => [
+                'required',
+                Rule::exists('reports', 'report_id')->whereNull('deleted_at')
+            ],
+        ];
+        $validator = Validator::make($request->all(), $rules);
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
 
         $order = new OrdersCreateRequest();
         $order->prefer('return=representation');
@@ -113,45 +157,60 @@ class PayPalController extends Controller
                 ]
             ]],
             'application_context' => [
-                'cancel_url' => route('paypal.cancel'),
-                'return_url' => route('paypal.success'),
+                'cancel_url' => env('FRONTEND_CANCEL_URL'),
+                'return_url' => env('FRONTEND_SUCCESS_URL'),
             ]
         ];
 
         try {
             $response = $this->client->execute($order);
-            Log::channel('paypal')->info("✅ PayPal Order Created", [
-                'orderID' => $response->result->id,
-                'status' => $response->statusCode,
-                'links' => $response->result->links
-            ]);
-
             foreach ($response->result->links as $link) {
                 if ($link->rel === 'approve') {
-                    return redirect()->away($link->href);
+                    PaypalOrderRequest::create([
+                        'order_id' => $response->result->id,
+                        'request_data' => json_encode($request->all())
+                    ]);
+                    Log::channel('paypal')->info("API PayPal Order Created: " . $response->result->id);
+                    return response()->json([
+                        'success' => true,
+                        'order_id' => $response->result->id,
+                        'approval_url' => $link->href
+                    ]);
                 }
             }
-
-            return redirect()->back()->with('error', 'Unable to redirect to PayPal.');
+            return response()->json(['success' => false, 'message' => 'Approval URL not found.'], 500);
         } catch (\Throwable $e) {
-           Log::channel('paypal')->error("❌ PayPal Order Creation Error: " . $e->getMessage());
-            return redirect()->route('paypal.failure')->with('error', 'Something went wrong.');
+            Log::channel('paypal')->error("API PayPal Order Creation Error: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error creating PayPal order.'], 500);
         }
     }
 
-    public function captureOrder(Request $request) {
+    public function captureOrder(Request $request)
+    {
         $orderId = $request->get('token');
+        if (!$orderId) {
+            return response()->json(['success' => false, 'message' => 'Missing token parameter.'], 400);
+        }
 
         $captureRequest = new OrdersCaptureRequest($orderId);
         $captureRequest->prefer('return=representation');
 
         try {
             $response = $this->client->execute($captureRequest);
-
             $result = $response->result;
             $purchase_unit = $result->purchase_units[0];
+            $originalData = PaypalOrderRequest::where('order_id', $result->id)->first();
+            if($originalData === null) {
+                return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
+            }
+            $formData = json_decode($originalData->request_data, true);
+            $report_id = $formData['report_id'] ?? null;
+            $report = Report::where('report_id', $report_id)->first();
+            if($report === null) {
+                return response()->json(['success' => false, 'message' => 'Report not found.'], 404);
+            }
+            // Log::channel('paypal')->info("Report Fetch Successfully! " . $report);
 
-            // ✅ Save to DB
             PaypalPayment::create([
                 'order_id'      => $result->id,
                 'payment_id'    => $result->id,
@@ -160,36 +219,30 @@ class PayPalController extends Controller
                 'status'        => $result->status,
                 'amount'        => $purchase_unit->payments->captures[0]->amount->value ?? 0,
                 'currency'      => $purchase_unit->payments->captures[0]->amount->currency_code ?? 'USD',
-                'json_response' => json_encode($result)
+                'json_response' => json_encode($result),
+                'customer_info' => json_encode($formData),
             ]);
 
-            Log::channel('paypal')->info("✅ PayPal Payment Captured", [
-                'status' => $response->statusCode,
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment captured successfully.',
+                'report' => $report,
+                'order_id' => $result->id,
                 'data' => $result
             ]);
-
-            return view('paypal.success', ['data' => $result]);
         } catch (\Throwable $e) {
-            Log::channel('paypal')->error("❌ PayPal Capture Error: " . $e->getMessage());
-            return redirect()->route('paypal.failure')->with('error', 'Payment capture failed.');
+            Log::channel('paypal')->error("API PayPal Capture Error: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Payment capture failed.'
+            ], 500);
         }
-    }
-
-
-    public function cancel()
-    {
-        return view('paypal.cancel');
-    }
-
-    public function failure()
-    {
-        return view('paypal.failure');
     }
 }
 
 
 
-Step :6 Web file code
+Step :7 Web file code
 
 Route::controller(PayPalController::class)->group(function () {
     Route::get('/paypal', 'showForm');
@@ -200,7 +253,7 @@ Route::controller(PayPalController::class)->group(function () {
 });
 
 
-Srep :7 paypal.form blade file code
+Srep :8 paypal.form blade file code
 
 @extends('layout.app')
 @section('content')
@@ -248,7 +301,7 @@ Srep :7 paypal.form blade file code
 @endpush
 
 
-Step : 8 paypal.success blade file code
+Step : 9 paypal.success blade file code
 
 @extends('layout.app')
 @section('content')
