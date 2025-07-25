@@ -156,6 +156,7 @@ class BussinessSettingController extends Controller
         $envContent = preg_replace('/^MAIL_HOST=.*/m', "MAIL_HOST={$config['host']}", $envContent);
         $envContent = preg_replace('/^MAIL_MAILER=.*/m', "MAIL_MAILER={$config['driver']}", $envContent);
         $envContent = preg_replace('/^MAIL_PORT=.*/m', "MAIL_PORT={$config['port']}", $envContent);
+       $envContent = preg_replace('/^MAIL_PASSWORD=.*/m', "MAIL_PASSWORD={$config['password']}", $envContent);
         $envContent = preg_replace('/^MAIL_USERNAME=.*/m', "MAIL_USERNAME={$config['username']}", $envContent);
         $envContent = preg_replace('/^MAIL_FROM_ADDRESS=.*/m', "MAIL_FROM_ADDRESS={$config['email']}", $envContent);
         $envContent = preg_replace('/^MAIL_ENCRYPTION=.*/m', "MAIL_ENCRYPTION={$config['encryption']}", $envContent);
