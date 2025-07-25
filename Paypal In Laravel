@@ -359,3 +359,466 @@ Step : 9 paypal.success blade file code
     </div>
 </div>
 @endsection
+
+
+
+
+
+
+
+
+
+ ******************************************************************************* Paypal In Api ************************************************************************************
+
+Step :1 api.php file code
+
+Route::prefix('paypal')->controller(PayPalController::class)->group(function () {
+    Route::post('/create-order', 'createOrder'); 
+    Route::get('/capture-order', 'captureOrder'); 
+});
+
+
+Step :2 App\Http\Controllers\API\Front\PayPalController file code
+
+<?php
+
+namespace App\Http\Controllers\API\Front;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+
+use PayPalCheckoutSdk\Core\PayPalHttpClient;
+use PayPalCheckoutSdk\Core\SandboxEnvironment;
+use PayPalCheckoutSdk\Orders\OrdersCreateRequest;
+use PayPalCheckoutSdk\Orders\OrdersCaptureRequest;
+use PayPalCheckoutSdk\Orders\OrdersGetRequest;
+use App\Models\PaypalPayment;
+use App\Models\Report;
+use App\Models\PaypalOrderRequest;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+
+class PayPalController extends Controller
+{
+    protected $client;
+
+    public function __construct()
+    {
+        $env = new SandboxEnvironment(env('PAYPAL_CLIENT_ID'), env('PAYPAL_CLIENT_SECRET'));
+        $this->client = new PayPalHttpClient($env);
+    }
+
+    public function createOrder(Request $request)
+    {
+        $rules = [
+            'name' => 'required',
+            'email' => 'required|email',
+            'mobile_no' => 'required',
+            'amount' => 'required|numeric',
+            'company_name' => 'required',
+            'title' => 'required|string',
+            'country' => 'required|exists:countries,id',
+            'address' => 'required|string',
+            'city' => 'required|string',
+            'state' => 'required|string',
+            'zip' => 'required|numeric',
+            'report_id' => [
+                'required',
+                Rule::exists('reports', 'report_id')->whereNull('deleted_at')
+            ],
+        ];
+        $validator = Validator::make($request->all(), $rules);
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $order = new OrdersCreateRequest();
+        $order->prefer('return=representation');
+        $order->body = [
+            'intent' => 'CAPTURE',
+            'purchase_units' => [[
+                'amount' => [
+                    'currency_code' => 'USD',
+                    'value' => number_format($request->amount, 2, '.', '')
+                ]
+            ]],
+            'application_context' => [
+                'cancel_url' => env('FRONTEND_CANCEL_URL'),
+                'return_url' => env('FRONTEND_SUCCESS_URL'),
+            ]
+        ];
+
+        try {
+            $response = $this->client->execute($order);
+            foreach ($response->result->links as $link) {
+                if ($link->rel === 'approve') {
+                    PaypalOrderRequest::create([
+                        'order_id' => $response->result->id,
+                        'request_data' => json_encode($request->all())
+                    ]);
+                    Log::channel('paypal')->info("API PayPal Order Created: " . $response->result->id);
+                    return response()->json([
+                        'success' => true,
+                        'order_id' => $response->result->id,
+                        'approval_url' => $link->href
+                    ]);
+                }
+            }
+            return response()->json(['success' => false, 'message' => 'Approval URL not found.'], 500);
+        } catch (\Throwable $e) {
+            Log::channel('paypal')->error("API PayPal Order Creation Error: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error creating PayPal order.'], 500);
+        }
+    }
+
+
+    public function captureOrder(Request $request){
+        $orderId = $request->get('token');
+        if (!$orderId) {
+            return response()->json(['success' => false, 'message' => 'Missing token parameter.'], 400);
+        }
+
+        $captureRequest = new OrdersCaptureRequest($orderId);
+        $captureRequest->prefer('return=representation');
+
+        try {
+            $response = $this->client->execute($captureRequest);
+            $result = $response->result;
+
+            if ($result->status === 'COMPLETED') {
+                if (PaypalPayment::where('order_id', $result->id)->exists()) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Payment was already captured.',
+                        'order_id' => $result->id,
+                        'data' => $result
+                    ]);
+                }
+
+                $originalData = PaypalOrderRequest::where('order_id', $result->id)->first();
+                if ($originalData === null) {
+                    return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
+                }
+
+                $formData = json_decode($originalData->request_data, true);
+                $report_id = $formData['report_id'] ?? null;
+                $report = Report::where('report_id', $report_id)->first();
+                if ($report === null) {
+                    return response()->json(['success' => false, 'message' => 'Report not found.'], 404);
+                }
+
+                $report->industry = $report->industryInfo->name;
+                $reportKeyword = $report->reportMetas->keyword;
+
+                PaypalPayment::create([
+                    'order_id'      => $result->id,
+                    'payment_id'    => $result->id,
+                    'payer_id'      => $result->payer->payer_id ?? null,
+                    'payer_email'   => $result->payer->email_address ?? null,
+                    'status'        => $result->status,
+                    'amount'        => $result->purchase_units[0]->payments->captures[0]->amount->value ?? 0,
+                    'currency'      => $result->purchase_units[0]->payments->captures[0]->amount->currency_code ?? 'USD',
+                    'json_response' => json_encode($result),
+                    'customer_info' => json_encode($formData),
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Payment captured successfully.',
+                    'reportKeyword' => $reportKeyword,
+                    'report' => $report,
+                    'order_id' => $result->id,
+                    'data' => $result
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Payment not completed.',
+                    'paypal_status' => $result->status,
+                    'order_id' => $result->id
+                ]);
+            }
+        } catch(\PayPalHttp\HttpException $e) {
+            $errorData = json_decode($e->getMessage(), true);
+            $issue = $errorData['details'][0]['issue'] ?? null;
+            $description = $errorData['details'][0]['description'] ?? $errorData['message'] ?? 'Something went wrong.';
+
+            if ($issue === 'ORDER_ALREADY_CAPTURED') {
+                $originalData = PaypalOrderRequest::where('order_id', $orderId)->first();
+                $formData = json_decode($originalData->request_data ?? '{}', true);
+                $report_id = $formData['report_id'] ?? null;
+                $report = Report::where('report_id', $report_id)->first();
+                $reportKeyword = $report->reportMetas->keyword ?? null;
+                $report->industry = $report->industryInfo->name ?? null;
+
+                try {
+                    $getOrderRequest = new OrdersGetRequest($orderId);
+                    $paypalOrderResponse = $this->client->execute($getOrderRequest);
+                    $result = $paypalOrderResponse->result;
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'This order has already been captured.',
+                        'paypal_status' => 'ORDER_ALREADY_CAPTURED',
+                        'reportKeyword' => $reportKeyword,
+                        'report' => $report,
+                        'order_id' => $orderId,
+                        'data' => $result
+                    ]);
+                } catch (\Throwable $ex) {
+                    Log::channel('paypal')->error("PayPal Order GET Error: " . $ex->getMessage());
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Order already captured but failed to retrieve details.',
+                        'paypal_status' => 'ORDER_ALREADY_CAPTURED',
+                        'error' => $ex->getMessage()
+                    ]);
+                }
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => $description,
+                'paypal_issue' => $issue ?? 'UNKNOWN_ERROR'
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::channel('paypal')->error("API PayPal Capture Error: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Internal Server Error',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+
+}
+
+
+Step :3 postman api 
+
+*******************************************************************************************************************************************************************************************
+Step :A 
+Create PayPal Order (POST /api/paypal/create-order)
+Body → form-data:
+
+  "name": "Harshit Chauhan",
+  "email": "harshit@example.com",
+  "mobile_no": "9999999999",
+  "amount": 10.00,
+  "company_name": "Test Company",
+  "title": "Test Report Purchase",
+  "country": 101,
+  "address": "123 Main Street",
+  "city": "Delhi",
+  "state": "Delhi",
+  "zip": 110001,
+  "report_id": "RPT123456"
+
+
+🔸 Expected Response:
+{
+    "success": true,
+    "order_id": "2PF21295ER990480B",
+    "approval_url": "https://www.sandbox.paypal.com/checkoutnow?token=2PF21295ER990480B"
+}
+
+
+******************************************************************************************************************************************************************************************
+ Step B: Approve Payment
+Open the approval_url from Step 1 in your browser.
+Login using a PayPal Sandbox Buyer Account.
+Approve the payment.
+PayPal will redirect you to your FRONTEND_SUCCESS_URL with a query param:
+
+Step C: Capture PayPal Order (GET /api/paypal/capture-order)
+GET http://yourdomain.com/api/paypal/capture-order?token=XXXXXX
+{{baseURL}}/api/paypal/capture-order?token=2PF21295ER990480B
+
+🔸 Expected Response:
+
+{
+    "success": true,
+    "message": "This order has already been captured.",
+    "paypal_status": "ORDER_ALREADY_CAPTURED",
+    "reportKeyword": "Automotive Lead Acid Battery Market",
+    "report": {
+        "id": 2,
+        "report_id": "MWI0002",
+        "industry": "Automobile and Transportation",
+        "name": "Automotive Lead-Acid Battery Market Insights: Size, Share, Trends, Growth, and Industry Analysis by Product (SLI Batteries and Micro Hybrid Batteries), By Type (Flooded Batteries and VRLA Batteries), By End-Use (Passenger Cars and Light & Heavy Commercial Vehicles), and Regional Forecast to 2034.",
+        "slug": "automotive-lead-acid-battery-market",
+        "image": null,
+        "page": "215",
+        "dprice": "2500",
+        "sprice": "3750",
+        "mprice": "4750",
+        "cprice": "6750",
+        "summary": "<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><u><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Automotive Lead-Acid Battery Industry Snapshot</span></u></strong></p>\r\n\r\n\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">The global </span><strong><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Automotive Lead-Acid Battery market</span></strong><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\"> was valued at </span><strong><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">USD 32.72 billion</span></strong><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\"> in 2024 and is set to reach </span><strong><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">USD 47.94 billion</span></strong><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\"> by 2034, growing at a steady </span><strong><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">CAGR of 4.89%</span></strong></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Automotive Lead-Acid batteries are widely used in\r\n        cars, trucks, motorcycles, and other automobiles for the functioning of\r\n        essential electrical units like starting a vehicle and headlights. The primary\r\n        factors driving the market include increased demand for power sources that can\r\n        be trusted in vehicles, and advancements in the technology related to batteries\r\n        which enhances efficiency and increases lifespan. Lead-acid batteries are the\r\n        most popular batteries as they are cost-effective, long-lasting, and have an\r\n        already established base in the automobile sector.</span></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Notably, expansion opportunities abound, especially\r\n        in developing economies with fast-growing sales for vehicles. A change in the\r\n        preference of consumer taste to a new market demand for electric cars,\r\n        depending on various kinds of batteries like lithium-ion, and others still push\r\n        the old trend of using traditional lead-acid batteries as there is cost\r\n        competitiveness and reliability with regard to the demand for traditional\r\n        conventional vehicles. The main environmental concerns regarding lead disposal\r\n        and the development of alternative battery technologies pose challenges, but\r\n        manufacturers are working on innovations to make these batteries more\r\n        eco-friendly. The market is competitive, with key players investing in\r\n        technological improvements to enhance battery performance and meet stricter\r\n        regulatory standards.</span></p>\r\n\r\n\r\n\r\n\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; line-height: 107%; font-size: 15px; font-family: Calibri, sans-serif;\"><strong><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 107%; font-family: Arial, sans-serif; color: black;\">Automotive\r\n            Lead-Acid Battery Market Report Scope</span></strong></p>\r\n\r\n<table class=\"GridTable4-Accent51\" border=\"1\" cellspacing=\"0\" cellpadding=\"0\" width=\"630\" style=\"width: 627px;\">\r\n    <tbody>\r\n        <tr style=\"height: 21px;\">\r\n            <td width=\"264\" valign=\"top\" style=\"width: 263px; background: rgb(91, 155, 213); padding: 0in 7px; height: 21px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Report Attribute</span></strong></p>\r\n            </td>\r\n            <td width=\"366\" valign=\"top\" style=\"width: 365px; background: rgb(91, 155, 213); padding: 0in 7px; height: 21px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Details</span></strong></p>\r\n            </td>\r\n        </tr>\r\n        <tr style=\"height: 21px;\">\r\n            <td width=\"264\" valign=\"top\" style=\"width: 263px; background: rgb(222, 234, 246); padding: 0in 7px; height: 21px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Market Value (2024)</span></strong></p>\r\n            </td>\r\n            <td width=\"366\" valign=\"top\" style=\"width: 365px; background: rgb(222, 234, 246); padding: 0in 7px; height: 21px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">USD 32.72 Billion</span></p>\r\n            </td>\r\n        </tr>\r\n        <tr style=\"height: 21px;\">\r\n            <td width=\"264\" valign=\"top\" style=\"width: 263px; padding: 0in 7px; height: 21px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Projected Market Value (2034)</span></strong></p>\r\n            </td>\r\n            <td width=\"366\" valign=\"top\" style=\"width: 365px; padding: 0in 7px; height: 21px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">USD\r\n                        47.94 Billion</span></p>\r\n            </td>\r\n        </tr>\r\n        <tr style=\"height: 21px;\">\r\n            <td width=\"264\" valign=\"top\" style=\"width: 263px; background: rgb(222, 234, 246); padding: 0in 7px; height: 21px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Base Year</span></strong></p>\r\n            </td>\r\n            <td width=\"366\" valign=\"top\" style=\"width: 365px; background: rgb(222, 234, 246); padding: 0in 7px; height: 21px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">2024</span></p>\r\n            </td>\r\n        </tr>\r\n        <tr style=\"height: 21px;\">\r\n            <td width=\"264\" valign=\"top\" style=\"width: 263px; padding: 0in 7px; height: 21px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Historical Year</span></strong></p>\r\n            </td>\r\n            <td width=\"366\" valign=\"top\" style=\"width: 365px; padding: 0in 7px; height: 21px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">2020-2023</span></p>\r\n            </td>\r\n        </tr>\r\n        <tr style=\"height: 21px;\">\r\n            <td width=\"264\" valign=\"top\" style=\"width: 263px; background: rgb(222, 234, 246); padding: 0in 7px; height: 21px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Forecast Years</span></strong></p>\r\n            </td>\r\n            <td width=\"366\" valign=\"top\" style=\"width: 365px; background: rgb(222, 234, 246); padding: 0in 7px; height: 21px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">2025 – 2034</span></p>\r\n            </td>\r\n        </tr>\r\n        <tr style=\"height: 21px;\">\r\n            <td width=\"264\" valign=\"top\" style=\"width: 263px; padding: 0in 7px; height: 21px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Scope of the Report</span></strong></p>\r\n            </td>\r\n            <td width=\"366\" valign=\"top\" style=\"width: 365px; padding: 0in 7px; height: 21px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Historical\r\n                        and Forecast Trends, Industry Drivers and Constraints, Historical and\r\n                        Forecast Market Analysis by Segment- Based on By Product, By Type, By End-Use,\r\n                        &amp; Region.</span></p>\r\n            </td>\r\n        </tr>\r\n        <tr style=\"height: 21px;\">\r\n            <td width=\"264\" valign=\"top\" style=\"width: 263px; background: rgb(222, 234, 246); padding: 0in 7px; height: 21px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Quantitative Units</span></strong></p>\r\n            </td>\r\n            <td width=\"366\" valign=\"top\" style=\"width: 365px; background: rgb(222, 234, 246); padding: 0in 7px; height: 21px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Revenue in USD million/billion and CAGR from 2025 to\r\n                        2034.</span></p>\r\n            </td>\r\n        </tr>\r\n        <tr style=\"height: 21px;\">\r\n            <td width=\"264\" valign=\"top\" style=\"width: 263px; padding: 0in 7px; height: 21px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Report Coverage</span></strong></p>\r\n            </td>\r\n            <td width=\"366\" valign=\"top\" style=\"width: 365px; padding: 0in 7px; height: 21px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Market\r\n                        growth drivers, restraints, opportunities, Porter’s five forces analysis,\r\n                        PEST analysis, value chain analysis, regulatory landscape, market\r\n                        attractiveness analysis by segments and region, company market share\r\n                        analysis.</span></p>\r\n            </td>\r\n        </tr>\r\n        <tr style=\"height: 21px;\">\r\n            <td width=\"264\" valign=\"top\" style=\"width: 263px; background: rgb(222, 234, 246); padding: 0in 7px; height: 21px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Delivery Format</span></strong></p>\r\n            </td>\r\n            <td width=\"366\" valign=\"top\" style=\"width: 365px; background: rgb(222, 234, 246); padding: 0in 7px; height: 21px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Delivered as an attached PDF and Excel through\r\n                        email, according to the purchase option.</span></p>\r\n            </td>\r\n        </tr>\r\n    </tbody>\r\n</table>\r\n\r\n\r\n\r\n\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%; font-size: 15px;\"><span lang=\"EN-IN\" style=\"line-height: 150%; font-family: Arial, sans-serif; color: black; font-size: 16px;\"><strong style=\"\"><u>Dynamic Insights</u></strong></span></p><p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">The main reason\r\n        behind this trend is the growth of vehicles on roads, particularly in emerging\r\n        markets. There is always a demand for efficient and cheap power sources in\r\n        traditional internal combustion engine (ICE) vehicles. Moreover, many car\r\n        manufacturers stick to lead-acid batteries, which are low-cost, well-proven for\r\n        reliability, and have long-established usage in the automotive sector.</span></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">On the other hand,\r\n        the increase in electric vehicles is shifting focus to alternative battery\r\n        technologies, including lithium-ion, which can challenge the lead-acid market.\r\n        However, the lead-acid battery remains to be widely used in hybrid vehicles and\r\n        for SLI applications in automotive starting, lighting, and ignition. A further\r\n        factor that is becoming important is environmental sustainability, as the\r\n        disposal of lead can be harmful to the environment. This has led to increased\r\n        regulation and a drive for innovation in recycling and the production of more\r\n        environmentally friendly batteries. Manufacturers are investing in the\r\n        development of advanced lead-acid battery technologies to improve energy\r\n        efficiency, charging speed, and reduce environmental impact. The market is\r\n        therefore expected to remain resilient, although competition from emerging\r\n        battery technologies and evolving consumer preferences for greener alternatives\r\n        will continue to shape its future trajectory.</span></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><u><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Core Drivers:</span></u></strong></p>\r\n\r\n<p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span></span></span><strong><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Rising Vehicle Production and Sales</span></strong></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">The increasing\r\n        number of vehicles globally, particularly in emerging economies, is one of the\r\n        primary drivers of the automotive lead-acid battery market. As disposable\r\n        incomes rise and urbanization accelerates in developing nations, vehicle sales\r\n        continue to grow, leading to higher demand for automotive batteries. Lead-acid\r\n        batteries are still the preferred choice for many internal combustion engine\r\n        (ICE) vehicles due to their affordability and reliability. Additionally, the\r\n        growing adoption of motorcycles and commercial vehicles further fuels the\r\n        demand for automotive lead-acid batteries. This trend is expected to persist in\r\n        the foreseeable future, particularly in regions such as Asia-Pacific, where\r\n        vehicle production and sales are surging.</span></p>\r\n\r\n\r\n\r\n<p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span></span></span><strong><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Established Technology and Affordability</span></strong></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Lead-acid batteries\r\n        have been used in vehicles as a reliable source of power for over a century.\r\n        They have proven to be attractive to car manufacturers because their technology\r\n        is well understood, and they are cost-effective besides being able to stand extreme\r\n        weather conditions. Where modern, high-price technologies like lithium-ion are\r\n        very expensive, the lead-acid battery is significantly cheaper, allowing its\r\n        use in the entry-level versions of vehicles, especially in locations where cost\r\n        factors are considered essential. In addition to this, a capability to provide\r\n        peak cranking currents to crank-crank engines in subfreezing temperatures seals\r\n        their position within the automotive domain.</span></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><u><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Market Constraints:</span></u></strong></p>\r\n\r\n<p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span></span></span><strong><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Environmental Concerns</span></strong></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">One of the major restrictions that the\r\n        automotive lead-acid battery market faces is the pollution caused by lead. The\r\n        improper disposal and recycling of lead-acid batteries cause soil pollution and\r\n        pose health hazards to humans. Although the recycling rate for lead-acid\r\n        batteries is quite high, the toxic nature of lead is a matter of concern.\r\n        Increasing environmental awareness and stringent regulations on waste\r\n        management and recycling are forcing manufacturers to adopt more sustainable\r\n        practices and create batteries that are easier to recycle and less harmful to\r\n        the environment. This adds complexity and costs to the production process,\r\n        challenging the growth of the market.</span></p>\r\n\r\n\r\n\r\n<p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span></span></span><strong><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Competition from Alternative Battery\r\n            Technologies</span></strong></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">As the industry revolves around electric\r\n        vehicles and hybrid vehicles, the competition from new battery technologies\r\n        like lithium-ion, having better energy density and longer life cycles,\r\n        intensifies. The trend of clean energy and efficiency in vehicles makes\r\n        automakers choose newer technologies in electric vehicles and hybrid models.\r\n        Despite the continued usage of lead-acid batteries in traditional cars,\r\n        lead-acid is unlikely to dominate the future automotive market as other\r\n        emerging technologies capable of offering higher performance and energy\r\n        efficiency are becoming popular, especially within EVs. This would, therefore,\r\n        limit the utilization of lead-acid batteries in the long run.</span></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><u><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Future Potential:</span></u></strong></p>\r\n\r\n<p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span></span></span><strong><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Improvement in Recycling and Sustainability</span></strong></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">The lead-acid\r\n        battery industry has significant growth opportunities in the area of battery\r\n        recycling and sustainability. As regulations around waste management become\r\n        stricter, companies can leverage innovations in recycling technologies to\r\n        ensure that lead-acid batteries are more environmentally friendly. Developing\r\n        efficient, closed-loop recycling systems can help recover valuable materials\r\n        like lead and sulfuric acid, reducing the environmental footprint of battery\r\n        production. Furthermore, improving the sustainability of the manufacturing\r\n        process and creating more eco-friendly batteries could attract consumers and\r\n        businesses that prioritize green technologies, offering a competitive edge in\r\n        the market.</span></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><u><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Market Segmentation Overview:</span></u></strong></p>\r\n\r\n<p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span></span></span><strong><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">By Product:</span></strong></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">The lead-acid\r\n        battery market for the automobile industry can be primarily divided into SLI,\r\n        or starting, lighting, and ignition batteries, and micro-hybrid batteries. SLI\r\n        batteries constitute the prime function of a conventional vehicle and are\r\n        required for the initial start-up of the engine, activation of lights, and\r\n        other electricals. SLI batteries currently remain the most prominent in\r\n        passenger cars and light commercial vehicles because they are affordable,\r\n        reliable, and relatively efficient. The other segment, which is also gaining\r\n        popularity, is micro-hybrid batteries, primarily driven by the demand for fuel\r\n        efficiency and reduced emissions in vehicles. The micro-hybrid battery supports\r\n        stop-start systems in micro-hybrid vehicles, enabling the engine to shut down\r\n        when the vehicle is stationary and then to restart very quickly, which further\r\n        reduces fuel consumption and emissions. Micro-hybrid batteries, which are\r\n        usually designed with advanced lead-acid or AGM (Absorbent Glass Mat)\r\n        technologies, are now gaining popularity in the European market as part of the\r\n        automotive industry's shift toward greener and more energy-efficient vehicles.</span></p>\r\n\r\n\r\n\r\n<p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span></span></span><strong><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">By Type:</span></strong></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">The automotive\r\n        lead-acid battery market is segmented by type into flooded batteries and VRLA\r\n        (Valve-Regulated Lead-Acid) batteries. Flooded batteries are the traditional\r\n        type of lead-acid battery, commonly used in the automotive sector. They require\r\n        maintenance, such as topping up with water, but are inexpensive and deliver\r\n        strong performance. They are primarily used in vehicles that have less\r\n        demanding electrical requirements or for budget-friendly models. VRLA batteries\r\n        are more advanced, maintenance-free, and designed to operate in sealed\r\n        environments. They offer superior performance, reliability, and longer\r\n        lifespan. VRLA batteries are commonly used in higher-end vehicles and\r\n        applications where minimal maintenance is preferred. The VRLA battery provides\r\n        better safety through its sealed design and is hence more popular in modern\r\n        passenger cars, light trucks, and hybrid vehicles requiring more consistent\r\n        performance and minimal upkeep.</span></p>\r\n\r\n\r\n\r\n<p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span></span></span><strong><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">By End-Use:</span></strong></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">The automotive\r\n        lead-acid battery market is also segmented based on end-use, primarily into\r\n        passenger cars and light and heavy commercial vehicles. Passenger cars remain\r\n        the largest end-use segment, as the demand for reliable and cost-effective\r\n        power sources for a vast range of personal vehicles continues to grow.\r\n        Lead-acid batteries, with their affordable pricing and dependable performance,\r\n        dominate this segment for traditional internal combustion engine (ICE)\r\n        vehicles. In addition, micro-hybrid passenger cars are gaining popularity and\r\n        driving the growth of this market. The light and heavy commercial vehicle\r\n        segments, including trucks, buses, among others, account for a significant\r\n        share. These vehicles require more powerful batteries for demanding applications\r\n        such as frequent starts, long hours of driving, and powering larger electrical\r\n        systems. Though the commercial vehicle sector is moving toward more\r\n        energy-efficient alternatives, lead-acid batteries remain a staple in powering\r\n        commercial fleets because of their durability, cost-effectiveness, and high\r\n        cranking power, especially in regions with harsher operating environments.</span></p>\r\n\r\n\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><u><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Regional Overview</span></u></strong></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">North America and\r\n        Europe are leading markets for lead-acid batteries, with their high demand from\r\n        conventional internal combustion engine (ICE) vehicles. Even though there is\r\n        growth in electric vehicles and hybrid models, the market has remained dominated\r\n        by these two continents. In North America, specifically in the United States,\r\n        strong vehicle sales, coupled with an already well-developed automotive\r\n        industry, help spur the market. The use of micro-hybrid vehicles is increasing,\r\n        further expanding the demand for advanced lead-acid batteries. In contrast,\r\n        Europe is embracing greener technologies. In response to very tough emission\r\n        regulations that force consumers into higher sales of hybrid and micro-hybrid\r\n        cars that nonetheless employ lead acid batteries in all the others for their\r\n        necessary tasks.</span></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Asia-Pacific is\r\n        expected to be the growth leader in the automotive lead-acid battery market,\r\n        with rapid vehicle production and rising demand in countries like China and\r\n        India. As the economies continue to urbanize and as disposable incomes rise, so\r\n        does vehicle ownership, which supports the demand for reliable and affordable\r\n        lead-acid batteries. The growth of automotive industries in these regions is\r\n        further fueling new battery technologies in response to consumers' demands.\r\n        However, the transition of electric vehicles in these regions does come with a\r\n        mix of both challenges and opportunities. Lead-acid batteries are also being\r\n        threatened by lithium-ion and other advanced battery technologies. The other\r\n        major regions are Latin America and the Middle East &amp; Africa (MEA), where\r\n        vehicle sales continue to grow steadily with improvement in the economy and\r\n        transportation need, thus supporting demand for lead-acid batteries, mainly in\r\n        passenger and commercial vehicles.</span></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><u><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Market Player Analysis</span></u></strong></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Major market players in the market are\r\n        Johnson Controls, Exide Technologies, East Penn Manufacturing, and GS Yuasa.\r\n        These companies are known for having a giant distribution network and a\r\n        comprehensive product portfolio. Given this, these companies have cornered the\r\n        market due to the availability of every type of lead-acid battery: flooded and\r\n        VRLA Batteries that suit passenger cars, light and heavy commercial vehicles,\r\n        and micro-hybrid vehicles. They invest heavy amounts in their R&amp;D divisions\r\n        to innovate in the field by improving battery performances, such as energy\r\n        efficiency and charging speed-lifespan - to meet market demand for high\r\n        performance and ecofriendly solutions.</span></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">In addition to such industry leaders,\r\n        regional players, and emerging battery manufacturers are carving their niche in\r\n        the automotive lead-acid battery market by focusing on cost-effective solutions\r\n        and local market needs. The companies such as Amara Raja Batteries and Su-Kam\r\n        Power Systems have strengthened their position in the Asia-Pacific region,\r\n        offering affordable and reliable batteries for a growing automotive sector in\r\n        countries like India and China. The market also faces increasing rivalry from players\r\n        in the electric vehicle space, as more and more companies in the sector are\r\n        trying to reduce the weight, improve life, and low cost of substitute battery\r\n        technologies to lithium-ion, which could be a major competitor in automotive\r\n        power sources over the future. </span></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><u><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Leading Companies:</span></u></strong></p>\r\n\r\n<p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\r\n            </span></span></span><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">CSB Battery Company Limited</span></p>\r\n\r\n<p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\r\n            </span></span></span><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">East Penn Manufacturing Company</span></p>\r\n\r\n<p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\r\n            </span></span></span><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">EnerSys Inc.</span></p>\r\n\r\n<p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\r\n            </span></span></span><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Exide Technologies Inc.</span></p>\r\n\r\n<p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\r\n            </span></span></span><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Exide Industries Ltd.</span></p>\r\n\r\n<p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\r\n            </span></span></span><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">GS Yuasa Corporation</span></p>\r\n\r\n<p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\r\n            </span></span></span><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Clarios</span></p>\r\n\r\n<p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\r\n            </span></span></span><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Leoch International Technology Limited</span></p>\r\n\r\n<p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\r\n            </span></span></span><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Panasonic Corporation <span>&nbsp;</span></span></p>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><a name=\"_Hlk129074281\"><strong><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Global Automotive Lead-Acid Battery </span></strong></a><span><strong><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black; background: white;\">Report </span></strong></span><span><strong><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Segmentation:</span></strong></span></p>\r\n\r\n<br><p><strong><u><span style=\"font-size: 18px; font-family: Bahnschrift, sans-serif;\">Objectives of the Study</span></u></strong></p><table class=\"ListTable4-Accent51\" border=\"1\" cellspacing=\"0\" cellpadding=\"0\">\r\n    <tbody>\r\n        <tr>\r\n            <td width=\"288\" valign=\"top\" style=\"width: 287px; background: rgb(91, 155, 213); padding: 0in 7px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; line-height: 150%;\"><span><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">ATTRIBUTE</span></strong></span></p>\r\n            </td>\r\n\r\n            <td width=\"313\" valign=\"top\" style=\"width: 312px; background: rgb(91, 155, 213); padding: 0in 7px;\">\r\n                <p class=\"MsoNormal\" align=\"center\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: center; line-height: 150%;\"><span><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">DETAILS</span></strong></span></p>\r\n            </td>\r\n\r\n        </tr>\r\n        <tr>\r\n            <td width=\"288\" valign=\"top\" style=\"width: 287px; background: rgb(222, 234, 246); padding: 0in 7px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">By Product<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span></span></strong></span></p>\r\n            </td>\r\n\r\n            <td width=\"313\" valign=\"top\" style=\"width: 312px; background: rgb(222, 234, 246); padding: 0in 7px;\">\r\n                <p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span><span style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\r\n                                </span></span></span><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">SLI Batteries</span></span></p>\r\n                <p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span><span style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\r\n                                </span></span></span><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Micro Hybrid\r\n                            Batteries</span></span></p>\r\n            </td>\r\n\r\n        </tr>\r\n        <tr>\r\n            <td width=\"288\" valign=\"top\" style=\"width: 287px; padding: 0in 7px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif;\">By Type</span></strong></span></p>\r\n            </td>\r\n\r\n            <td width=\"313\" valign=\"top\" style=\"width: 312px; padding: 0in 7px;\">\r\n                <p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span><span style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span></span></span><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Flooded Batteries</span></span></p>\r\n                <p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span><span style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span></span></span><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">VRLA Batteries</span></span></p>\r\n            </td>\r\n\r\n        </tr>\r\n        <tr>\r\n            <td width=\"288\" valign=\"top\" style=\"width: 287px; background: rgb(222, 234, 246); padding: 0in 7px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">By End-Use</span></strong></span></p>\r\n            </td>\r\n\r\n            <td width=\"313\" valign=\"top\" style=\"width: 312px; background: rgb(222, 234, 246); padding: 0in 7px;\">\r\n                <p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span><span style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\r\n                                </span></span></span><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Passenger Cars</span></span></p>\r\n                <p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span><span style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\r\n                                </span></span></span><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Light &amp; Heavy\r\n                            Commercial Vehicles</span></span></p>\r\n            </td>\r\n\r\n        </tr>\r\n        <tr>\r\n            <td width=\"288\" valign=\"top\" style=\"width: 287px; padding: 0in 7px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">By\r\n                                Geography</span></strong></span></p>\r\n            </td>\r\n\r\n            <td width=\"313\" valign=\"top\" style=\"width: 312px; padding: 0in 7px;\">\r\n                <p class=\"MsoListParagraph\" style=\"margin: 0in 0in 0in 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span><span style=\"font-size: 13px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\r\n                                </span></span></span><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">North America (USA,\r\n                            and Canada)</span></span></p>\r\n                <ul type=\"disc\" style=\"margin-bottom: 0in;\">\r\n                    <li class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; color: black; text-align: justify; line-height: 150%;\"><span><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif;\">Europe (UK, Germany,\r\n                                France, Italy, Spain, Russia and Rest of Europe)</span></span></li>\r\n                    <li class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; color: black; text-align: justify; line-height: 150%;\"><span><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif;\">Asia Pacific (Japan,\r\n                                China, India, Australia, Southeast Asia and Rest of Asia Pacific)</span></span></li>\r\n                    <li class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; color: black; text-align: justify; line-height: 150%;\"><span><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif;\">Latin America (Brazil,\r\n                                Mexico, and Rest of Latin America)</span></span></li>\r\n                    <li class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; color: black; text-align: justify; line-height: 150%;\"><span><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif;\">Middle East &amp; Africa\r\n                                (South Africa, GCC, and Rest of Middle East &amp; Africa)</span></span></li>\r\n                </ul>\r\n            </td>\r\n\r\n        </tr>\r\n        <tr>\r\n            <td width=\"288\" valign=\"top\" style=\"width: 287px; background: rgb(222, 234, 246); padding: 0in 7px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Customization\r\n                                Scope</span></strong></span></p>\r\n            </td>\r\n\r\n            <td width=\"313\" valign=\"top\" style=\"width: 312px; background: rgb(222, 234, 246); padding: 0in 7px;\">\r\n                <ul type=\"disc\" style=\"margin-bottom: 0in;\">\r\n                    <li class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; color: black; text-align: justify; line-height: 150%;\"><span><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif;\">Available\r\n                                upon request</span></span></li>\r\n                </ul>\r\n            </td>\r\n\r\n        </tr>\r\n        <tr>\r\n            <td width=\"288\" valign=\"top\" style=\"width: 287px; padding: 0in 7px;\">\r\n                <p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Pricing</span></strong></span></p>\r\n            </td>\r\n\r\n            <td width=\"313\" valign=\"top\" style=\"width: 312px; padding: 0in 7px;\">\r\n                <p class=\"MsoListParagraph\" style=\"margin: 0in 0in 11px 0.5in; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; text-indent: -0.25in; line-height: 150%;\"><span><span style=\"font-size: 16px; line-height: 150%; font-family: Symbol; color: black;\"><span>·<span style=\"font: 9px &quot;Times New Roman&quot;;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span></span></span><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">Available upon request</span></span></p>\r\n            </td>\r\n\r\n        </tr>\r\n    </tbody></table>\r\n\r\n\r\n\r\n\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; line-height: normal;\"><span style=\"font-size: 16px; font-family: Arial, sans-serif;\">The study focuses on analyzing the global Automotive Lead-Acid Battery\r\n        market through the following key objectives:</span></p>\r\n\r\n<ul type=\"disc\" style=\"margin-bottom: 0in;\">\r\n    <li class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif;\">Market Sizing and Forecasting</span></strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif;\">: Estimate\r\n            the market size and growth for Automotive Lead-Acid Battery By Product, By\r\n            Type, By End-Use, and <strong>Region</strong> from <strong>2025 to 2034</strong>.</span></li>\r\n    <li class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif;\">Market Dynamics and Trends</span></strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif;\">: Analyze\r\n            key drivers, challenges, and opportunities shaping the market, along with\r\n            evolving consumer preferences and fashion trends.</span></li>\r\n    <li class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif;\">Consumer Insights</span></strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif;\">:\r\n            Understand factors influencing consumer behavior, including brand\r\n            perception, sustainability, and regional differences.</span></li>\r\n    <li class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif;\">Competitive Landscape</span></strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif;\">: Profile\r\n            major players with insights into <strong>financial performance</strong>, <strong>product\r\n                portfolios</strong>, <strong>SWOT analysis</strong>, and strategic initiatives.</span></li>\r\n    <li class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif;\">Strategic Recommendations</span></strong><span style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif;\">: Identify\r\n            future trends, technologies, and actionable strategies for stakeholders to\r\n            drive growth and address challenges effectively.</span></li>\r\n</ul>\r\n\r\n<p class=\"MsoNormal\" style=\"margin: 0in 0in 11px; font-size: 15px; font-family: Calibri, sans-serif; text-align: justify; line-height: 150%;\"><span lang=\"EN-IN\" style=\"font-size: 16px; line-height: 150%; font-family: Arial, sans-serif; color: black;\">&nbsp;</span><br></p>",
+        "toc": null,
+        "taf": null,
+        "segment": null,
+        "author_name": "Market Research Analyst at MetricWave Insights, specializing in automotive and energy sectors. Gaurav delivers actionable insights through data-driven research on global battery and mobility trends.",
+        "author_desc": null,
+        "status": 1,
+        "deleted_at": null,
+        "created_at": "2025-07-18T10:11:03.000000Z",
+        "updated_at": "2025-07-18T10:11:03.000000Z",
+        "report_metas": {
+            "id": 2,
+            "report_id": 2,
+            "keyword": "Automotive Lead Acid Battery Market",
+            "meta_title": "Automotive Lead-Acid Battery Market",
+            "meta_keyword": "Automotive Lead-Acid Battery Market",
+            "meta_desccription": "Automotive Lead-Acid Battery Market",
+            "created_at": "2025-07-18T10:11:03.000000Z",
+            "updated_at": "2025-07-18T10:11:03.000000Z"
+        },
+        "industry_info": {
+            "id": 3,
+            "name": "Automobile and Transportation",
+            "slug": "automobile-and-transportation",
+            "image": "app/industrys/2025/Jul/1752765638.jpg",
+            "status": 1,
+            "deleted_at": null,
+            "created_at": "2025-07-17T15:20:38.000000Z",
+            "updated_at": "2025-07-17T15:20:38.000000Z"
+        }
+    },
+    "order_id": "2PF21295ER990480B",
+    "data": {
+        "id": "2PF21295ER990480B",
+        "intent": "CAPTURE",
+        "status": "COMPLETED",
+        "payment_source": {
+            "paypal": {
+                "email_address": "sb-0k4kx37099947@personal.example.com",
+                "account_id": "DBLBLTHDQ4N7W",
+                "account_status": "VERIFIED",
+                "name": {
+                    "given_name": "John",
+                    "surname": "Doe"
+                },
+                "address": {
+                    "country_code": "IN"
+                }
+            }
+        },
+        "purchase_units": [
+            {
+                "reference_id": "default",
+                "amount": {
+                    "currency_code": "USD",
+                    "value": "120.00"
+                },
+                "payee": {
+                    "email_address": "sb-ebrbs44300202@business.example.com",
+                    "merchant_id": "HJN7K2E268Y86"
+                },
+                "soft_descriptor": "PAYPAL *TEST STORE",
+                "shipping": {
+                    "name": {
+                        "full_name": "John Doe"
+                    },
+                    "address": {
+                        "address_line_1": "Flat no. 507 Wing A Raheja Residency",
+                        "address_line_2": "Film City Road, Goregaon East",
+                        "admin_area_2": "Mumbai",
+                        "admin_area_1": "Maharashtra",
+                        "postal_code": "400097",
+                        "country_code": "IN"
+                    }
+                },
+                "payments": {
+                    "captures": [
+                        {
+                            "id": "52741091X5950021X",
+                            "status": "COMPLETED",
+                            "amount": {
+                                "currency_code": "USD",
+                                "value": "120.00"
+                            },
+                            "final_capture": true,
+                            "seller_protection": {
+                                "status": "ELIGIBLE",
+                                "dispute_categories": [
+                                    "ITEM_NOT_RECEIVED",
+                                    "UNAUTHORIZED_TRANSACTION"
+                                ]
+                            },
+                            "seller_receivable_breakdown": {
+                                "gross_amount": {
+                                    "currency_code": "USD",
+                                    "value": "120.00"
+                                },
+                                "paypal_fee": {
+                                    "currency_code": "USD",
+                                    "value": "4.98"
+                                },
+                                "net_amount": {
+                                    "currency_code": "USD",
+                                    "value": "115.02"
+                                },
+                                "receivable_amount": {
+                                    "currency_code": "GBP",
+                                    "value": "82.48"
+                                },
+                                "exchange_rate": {
+                                    "source_currency": "USD",
+                                    "target_currency": "GBP",
+                                    "value": "0.717050909902913"
+                                }
+                            },
+                            "links": [
+                                {
+                                    "href": "https://api.sandbox.paypal.com/v2/payments/captures/52741091X5950021X",
+                                    "rel": "self",
+                                    "method": "GET"
+                                },
+                                {
+                                    "href": "https://api.sandbox.paypal.com/v2/payments/captures/52741091X5950021X/refund",
+                                    "rel": "refund",
+                                    "method": "POST"
+                                },
+                                {
+                                    "href": "https://api.sandbox.paypal.com/v2/checkout/orders/2PF21295ER990480B",
+                                    "rel": "up",
+                                    "method": "GET"
+                                }
+                            ],
+                            "create_time": "2025-07-25T06:47:22Z",
+                            "update_time": "2025-07-25T06:47:22Z"
+                        }
+                    ]
+                }
+            }
+        ],
+        "payer": {
+            "name": {
+                "given_name": "John",
+                "surname": "Doe"
+            },
+            "email_address": "sb-0k4kx37099947@personal.example.com",
+            "payer_id": "DBLBLTHDQ4N7W",
+            "address": {
+                "country_code": "IN"
+            }
+        },
+        "create_time": "2025-07-25T06:46:27Z",
+        "update_time": "2025-07-25T06:47:22Z",
+        "links": [
+            {
+                "href": "https://api.sandbox.paypal.com/v2/checkout/orders/2PF21295ER990480B",
+                "rel": "self",
+                "method": "GET"
+            }
+        ]
+    }
+}
+
