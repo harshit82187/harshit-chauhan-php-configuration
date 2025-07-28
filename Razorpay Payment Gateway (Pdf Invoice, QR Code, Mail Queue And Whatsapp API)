@@ -397,6 +397,10 @@ class RazorpayController extends Controller
                 Log::channel('order')->error('Invalid Razorpay payment object.', ['response' => $payment]);
                 return false;
             }
+		Log::channel('order')->info('Razorpay Payment Fetched:', [
+		    'payment_id' => $razorpayPaymentId,
+		    'payment_data' => $payment->toArray()
+		]);
 
             $createdPayment = Payment::create([
                 'mode' => '2',
