@@ -1292,5 +1292,36 @@ public function __construct()
 
 
 
+******************************************************************* Task ************************************************************************************************
+
+1. Implement the Manage Employee module in the admin panel.
+2. This module will have two sub-modules: Employee Role Setup and Employees.
+3. Configure the Employee Role Setup module. This module will include a form where the admin can add roles as needed.
+4. The form should include a list of module permissions that the admin can assign to the specified role.
+5. Display a list of all roles along with their associated module permissions.
+6. In this listing, provide Edit and Delete options for the admin to update the role and its permissions.
+7. In the Delete module, implement soft delete functionality. When a role is deleted, it should be soft-deleted from the admin_roles table, and all employees associated with that role should have their status automatically disabled.
+8. Configure the Employees module. This module will include a form to add employees. The form should have the following input fields:
+
+Name
+Email
+Mobile Number
+Role
+Password
+Confirm Password
+Profile Photo
+Identity Type (Aadhaar Card, PAN Card, or Driving License)
+Identity Number
+Identity Proof Photo
+
+9. Display a list of all employees along with their role details.
+
+10. If an admin deletes a role, display the following message below the "Role" column for affected employees:
+"You have deleted this role. Please assign a new role to this employee."
+11. The admin should not be able to update the status of this employee until a new role is assigned.
+
+
+
+
 
 
