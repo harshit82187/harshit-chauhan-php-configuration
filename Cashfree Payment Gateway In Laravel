@@ -1,0 +1,461 @@
+************************************************************** Cashfree Payment Gateway In Laravel ***************************************************************************************
+
+Step :1  config/logging.php file
+
+	'cashfree' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/cashfree.log'), 
+            'level' => 'info', 
+    ],
+
+
+Step 2 env file code
+
+CASHFREE_APP_ID=TEST101075128315fdb3cefbc782c3f821570101
+CASHFREE_SECRET_KEY=cfsk_ma_test_fa26b9092b2bfc705800d4b2626ac277_ff6e749e
+CASHFREE_MODE=sandbox
+
+
+Step : 3 config/services.php file code 
+
+'cashfree' => [
+    'app_id'        => env('CASHFREE_APP_ID'),
+    'secret_key'    => env('CASHFREE_SECRET_KEY'),
+    'mode'          => env('CASHFREE_MODE', 'sandbox'),
+    'sandbox_url'   => 'https://sandbox.cashfree.com/pg',
+    'production_url'=> 'https://api.cashfree.com/pg',
+],
+
+
+Step : 4 web.php file code  and migration file code 
+
+Route::prefix('cashfree')->controller(CashfreeController::class)->group(function () {
+    Route::get('/', 'showPaymentForm')->name('cashfree.index');
+    Route::post('/order/create', 'createOrder')->name('cashfree.order.create');
+    Route::get('/payment/callback', 'handleCallback')->name('cashfree.callback');
+    Route::get('/payment/success', 'showSuccessPage')->name('cashfree.success');
+    Route::get('/payment/failed', 'showFailurePage')->name('cashfree.failed');
+});
+
+Schema::create('cashfree_payments', function (Blueprint $table) {
+    $table->id();
+    $table->string('order_id')->unique(); // Your order id like grievance_xyz
+    $table->json('order_details')->nullable(); // Full order block from API
+    $table->json('payment_info')->nullable(); // Full payment block from API
+    $table->string('status')->nullable(); // e.g. PAID, FAILED
+    $table->timestamp('paid_at')->nullable(); // payment time
+    $table->timestamps();
+});
+
+
+
+Step : 5 CashfreeController  file code 
+
+php artisan make:model CashfreePayment
+
+
+
+<?php
+
+namespace App\Http\Controllers;
+use Log;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
+use App\Models\CashfreePayment;
+use Carbon\Carbon;
+
+class CashfreeController extends Controller
+{
+
+    protected $appId;
+    protected $secretKey;
+    protected $mode;
+    protected $baseUrl;
+
+    public function __construct()
+    {
+        $this->appId     = config('services.cashfree.app_id');
+        $this->secretKey = config('services.cashfree.secret_key');
+        $this->mode      = config('services.cashfree.mode');
+        $this->baseUrl   = $this->mode === 'production'
+            ? config('services.cashfree.production_url')
+            : config('services.cashfree.sandbox_url');
+    }
+
+    public function showPaymentForm(){
+        return view('cashfree.index');
+    }
+
+    public function createOrder(Request $request)
+    {
+        $request->validate([
+            'name'      => 'required|string|max:255',
+            'email'     => 'required|email',
+            'mobile_no' => 'required|string',
+            'amount'    => 'required|numeric|min:1',
+        ]);
+        $orderId = 'grievance_' . uniqid();
+        session(['cashfree_data_' . $orderId => $request->except('_token')]);
+
+        $response = Http::withHeaders([
+                'x-api-version'   => '2023-08-01',
+                'x-client-id'     => $this->appId,
+                'x-client-secret' => $this->secretKey,
+            ])->post("{$this->baseUrl}/orders", [
+                'order_id'       => $orderId,
+                'order_amount'   => $request->amount,
+                'order_currency' => 'INR',
+                'customer_details' => [
+                    'customer_id'    => 'cust_' . uniqid(),
+                    'customer_name'  => $request->name,
+                    'customer_email' => $request->email,
+                    'customer_phone' => $request->mobile_no,
+                ],
+                'order_meta' => [
+                    'return_url' => route('cashfree.callback') . '?order_id={order_id}',
+                    'notify_url' => url('/webhook'),
+                ],
+        ]);
+
+        if ($response->successful()) {
+            return response()->json($response->json());
+        }
+        Log::channel('cashfree')->error('Cashfree API Error', [
+            'status' => $response->status(),
+            'body' => $response->body(),
+        ]);
+
+        return response()->json([
+            'error' => 'Failed to create Cashfree order',
+            'details' => $response->json() ?: $response->body(),
+        ], $response->status());
+    }
+
+
+    public function handleCallback(Request $request)
+    {
+        $orderId = $request->query('order_id');
+        if (!$orderId) {
+            return redirect()->route('cashfree.failed')->with('error', 'Order ID missing.');
+        }
+
+        $orderResponse = Http::withHeaders([
+            'x-api-version'   => '2023-08-01',
+            'x-client-id'     => $this->appId,
+            'x-client-secret' => $this->secretKey,
+        ])->get("{$this->baseUrl}/orders/{$orderId}");
+
+        if (!$orderResponse->successful()) {
+            Log::channel('cashfree')->error('Failed to retrieve order details', [
+                'order_id' => $orderId,
+                'response' => $orderResponse->body(),
+            ]);
+            return redirect()->route('cashfree.failed')->with('error', 'Unable to fetch payment status.');
+        }
+
+        $orderDetails = $orderResponse->json();
+        $sessionData  = session('cashfree_data_' . $orderId);
+
+        if (!$sessionData) {
+            return redirect()->route('cashfree.failed')->with('error', 'Session expired. Try again.');
+        }
+
+        // Fetch payment details
+        $paymentResponse = Http::withHeaders([
+            'x-api-version'   => '2022-01-01',
+            'x-client-id'     => $this->appId,
+            'x-client-secret' => $this->secretKey,
+        ])->get("{$this->baseUrl}/orders/{$orderId}/payments");
+
+        $paymentData = $paymentResponse->successful() ? ($paymentResponse->json()[0] ?? []) : [];
+
+        if ($orderDetails['order_status'] === 'PAID') {
+            CashfreePayment::updateOrCreate(
+                ['order_id' => $orderId],
+                [
+                    'order_details' => json_encode($orderDetails),
+                    'payment_info'  => json_encode($paymentData),
+                    'status'        => $orderDetails['order_status'],
+                    'paid_at'       => isset($paymentData['payment_time'])
+                        ? Carbon::parse($paymentData['payment_time'])->format('Y-m-d H:i:s')
+                        : now(),
+                ]
+            );
+
+            return redirect()->route('cashfree.success', ['order_id' => $orderId])
+                ->with('success', 'Payment successful.');
+        }
+
+        return redirect()->route('cashfree.failed')->with('error', 'Payment not completed.');
+    }
+
+
+    public function showSuccessPage(Request $request)
+    {
+        $orderId = $request->query('order_id');
+        $payment = CashfreePayment::where('order_id', $orderId)->first();
+
+        if (!$payment) {
+            return redirect()->route('cashfree.index')->with('error', 'Payment record not found.');
+        }
+
+        $orderDetails = json_decode($payment->order_details, true);
+        $paymentInfo  = json_decode($payment->payment_info, true);
+        $paymentDetails = array_merge($orderDetails, ['payment_info' => $paymentInfo]);
+
+        return view('cashfree.thank-you', compact('paymentDetails'));
+    }
+
+    public function showFailurePage()
+    {
+        return view('cashfree.failed');
+    }
+
+
+}
+
+
+
+
+
+Step : 7 cashfree.index file code 
+
+@extends('layout.app')
+@section('content')
+@push('css')
+@endpush
+
+<div id="paymentLoader" class="payment-loader-overlay d-none">
+    <p class="payment-processing">⏳ Processing Payment, Please Wait...</p>
+</div>
+
+<section class="hero">
+    <div class="container">
+        <h1>Welcome to Harshit's Laravel Project</h1>
+        <p>A modern, responsive homepage powered by Bootstrap 5 and Laravel Blade.</p>
+    </div>
+</section>
+
+<main class="container">
+    <div class="row justify-content-center mt-5">
+        <div class="payment-container">
+            <h2>
+                <img src="{{ asset('front/img/logo-lightbg_3x.webp') }}" width="50" />
+                Pay with Cashfree
+            </h2>
+            <form id="generate-order">
+                @csrf
+                <input type="text" name="name" class="form-control mb-3" value="Harshit Chauhan">
+                <input type="email" name="email" class="form-control mb-3" value="harshitk@pearlorganisation.com">
+                <input type="text" name="mobile_no" class="form-control mb-3" value="1234567890">
+                <input type="number" name="amount" class="form-control mb-3" placeholder="Enter Amount (e.g. 100)" min="1" step="0.01" required>
+                <button id="proceedToPay" type="submit" class="btn btn-primary w-100">💳 Pay Now</button>
+            </form>
+        </div>
+    </div>
+</main>
+@endsection
+
+@push('js')
+<script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+
+<script>
+    $(document).ready(function() {
+        $('#generate-order').submit(async function(e) {
+            e.preventDefault();
+
+            const submitBtn = $('#proceedToPay');
+            submitBtn.prop('disabled', true).text('Please wait...');
+
+            const formData = new FormData(this);
+
+            try {
+                const response = await fetch('{{ route("cashfree.order.create") }}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    alert('❌ Error creating order: ' + (data.details?.message || 'Unknown error'));
+                    submitBtn.prop('disabled', false).text('💳 Pay Now');
+                    return;
+                }
+
+                const cashfree = Cashfree({ mode: "{{ config('services.cashfree.mode', 'sandbox') }}" });
+
+                cashfree.checkout({
+                    paymentSessionId: data.payment_session_id,
+                    redirectTarget: "_self",
+                    returnUrl: "{{ route('cashfree.callback') }}?order_id=" + data.order_id,
+                });
+
+            } catch (error) {
+                alert('❌ Failed to initiate payment. Please try again.');
+                console.error(error);
+                submitBtn.prop('disabled', false).text('💳 Pay Now');
+            }
+        });
+    });
+</script>
+
+@endpush
+
+
+
+Step : 8 cashfree.thank-ypu file code 
+
+@extends('layout.app')
+@section('content')
+@push('css')
+<style>
+    #invoice {
+        width: 100%;
+        overflow: visible !important;
+        padding: 20px;
+        background: white;
+    }
+
+    #invoice table {
+        width: 100% !important;
+        table-layout: auto;
+    }
+
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+        #invoice, #invoice * {
+            visibility: visible;
+        }
+        #invoice {
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+    }
+</style>
+@endpush
+<div class="container mt-5">
+    <div class="text-center mb-4">
+        <h1 class="text-success">🎉 Payment Successful</h1>
+        <p class="lead">Your payment was processed successfully. Thank you for your transaction!</p>
+    </div>
+
+    <div class="card shadow-sm" >
+        <div id="invoiceWrapper" style="overflow: visible;">
+            <div id="invoice" style="width: 100%; background: #fff; padding: 20px;">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Transaction Summary</h5>
+                </div>
+                <div class="text-center mt-4">
+                    <button id="downloadPdf" class="btn btn-danger">⬇️ Download as PDF</button>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered mb-0 table-hover table-striped">
+                        <tbody>
+                            <tr>
+                                <th>Order ID</th>
+                                <td>{{ $paymentDetails['order_id'] ?? 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Order Amount</th>
+                                <td>₹{{ $paymentDetails['order_amount'] ?? 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Payment Status</th>
+                                <td>{{ $paymentDetails['order_status'] ?? 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Payment Time</th>
+                                <td>{{ $paymentDetails['payment_info']['payment_time'] ?? 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Payment Mode</th>
+                                <td>
+                                    {{ $paymentDetails['payment_info']['payment_group'] ?? 'N/A' }}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Bank Reference</th>
+                                <td>{{ $paymentDetails['payment_info']['bank_reference'] ?? 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Transaction ID</th>
+                                <td>{{ $paymentDetails['payment_info']['cf_payment_id'] ?? 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Customer Email</th>
+                                <td>{{ $paymentDetails['customer_details']['customer_email'] ?? 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Customer Phone</th>
+                                <td>{{ $paymentDetails['customer_details']['customer_phone'] ?? 'N/A' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-center mt-4">
+        <a href="{{ route('cashfree.index') }}" class="btn btn-outline-primary">🔁 Make Another Payment</a>
+    </div>
+</div>
+@endsection
+@push('js')
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+    document.getElementById('downloadPdf').addEventListener('click', function () {
+        const element = document.getElementById('invoice');
+        element.style.minHeight = element.scrollHeight + 'px';
+        const opt = {
+            margin:       0.2,
+            filename:     'payment-summary.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  {
+                scale: 2,
+                useCORS: true,
+                scrollX: 0,
+                scrollY: 0,
+                windowWidth: document.body.scrollWidth,
+                windowHeight: document.body.scrollHeight
+            },
+            jsPDF: {
+                unit: 'in',
+                format: 'letter',
+                orientation: 'portrait'
+            }
+        };
+        html2pdf().set(opt).from(element).save();
+    });
+</script>
+
+
+@endpush
+
+
+
+
+Step : 9 cashfree.failed file code
+
+@extends('layout.app')
+@section('content')
+<div class="container mt-5 text-center">
+    <h2 class="text-danger">❌ Payment Failed</h2>
+    <p>{{ session('error') ?? 'Something went wrong. Your payment could not be completed.' }}</p>
+    <a href="{{ route('cashfree') }}" class="btn btn-warning mt-3">Try Again</a>
+</div>
+@endsection
+
+
+
+
+
+    
