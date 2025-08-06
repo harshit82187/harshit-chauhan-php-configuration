@@ -1,0 +1,68 @@
+*********************************************** Weather API In Laravel **********************************************************
+
+Login Credentials :- 
+harshitk@pearlorganisation.com
+8218756792 
+Api key :- a5d1d311dc2947a1bfb110916250608 
+
+
+
+<div class="col-lg-3">
+    <div class="weather-card mb-4 text-center">
+        <div class="weather-icon mb-2">
+            <img id="weatherIcon" src="" alt="Weather Icon" />
+        </div>
+        <h5 class="mb-1" id="cityName">Loading...</h5>
+        <div class="temperature mb-1" id="temperature"></div>
+        <div class="weather-status" id="conditionText"></div>
+
+        <div class="weather-details mt-2">
+            <div>
+                <i class="fas fa-wind"></i>
+                <strong>Wind</strong><br><span id="windSpeed"></span>
+            </div>
+            <div>
+                <i class="fas fa-tint"></i>
+                <strong>Humidity</strong><br><span id="humidity"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $(document).ready(function () {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function (position) {
+                let lat = position.coords.latitude;
+                let lon = position.coords.longitude;
+                console.log("Lat Value :" + lat);
+                console.log("Lon Value :" + lon);
+
+                // ✅ Replace with your own WeatherAPI key
+                let apiKey = 'a5d1d311dc2947a1bfb110916250608';
+                let url = `https://api.weatherapi.com/v1/current.json?key=${apiKey}&q=${lat},${lon}`;
+
+                $.getJSON(url, function (data) {
+                    $("#cityName").text(data.location.name);
+                    $("#temperature").text(data.current.temp_c + "°C");
+                    $("#conditionText").text(data.current.condition.text);
+                    $("#weatherIcon").attr("src", "https:" + data.current.condition.icon);
+                    $("#windSpeed").text(data.current.wind_kph + " km/h");
+                    $("#humidity").text(data.current.humidity + "%");
+                }).fail(function () {
+                    console.error("API fetch error");
+                    $("#cityName").text("Location Error");
+                });
+            }, function () {
+                $("#cityName").text("Permission Denied");
+            });
+        } else {
+            $("#cityName").text("Geolocation not supported");
+        }
+    });
+</script>
+
+
+
