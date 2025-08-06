@@ -3,6 +3,9 @@
 Step :1 Install Paypal Package
  composer require paypal/paypal-checkout-sdk
 
+Email :- sb-0k4kx37099947@personal.example.com
+Password :- 9?Ln9%XQ
+
 Step :2 app/Helpers/PayPalClient.php
 
 <?php
