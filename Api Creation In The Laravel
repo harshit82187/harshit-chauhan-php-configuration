@@ -320,6 +320,45 @@ class AuthController extends Controller
         }
     }
 
+   public function index(Request $req){
+        $user = $req->get('auth_user');
+        try{
+            $proposals =  Proposal::orderBy('id','desc')->get()->map(function ($proposal) {
+                            if ($proposal->proposal_pdf) {
+                                $proposal->proposal_pdf = $this->assetUrl ? rtrim($this->assetUrl, '/') . '/' . ltrim($proposal->proposal_pdf, '/') : $proposal->proposal_pdf;
+                            } else {
+                                $proposal->proposal_pdf = 'PDF Not Available';
+                            }
+                            if ($proposal->user) {
+                                $proposal->user_id = $proposal->user->first_name . ' ' . $proposal->user->last_name ?? 'N/A';
+                                $proposal->email = $proposal->user->email ?? 'N/A'; 
+                            } else {
+                                $proposal->user_id = 'N/A';
+                                $proposal->email = 'N/A';
+                            }
+                            unset($proposal->user);
+                            return $proposal;
+                        });
+            if ($proposals->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No proposals found!'
+                ],404);
+            }
+            return response()->json([
+                'status' => true,
+                'message' => 'Proposals fetch successfully!',
+                'count'   =>count($proposals),
+                'proposals' => $proposals
+            ]);
+        }catch (\Throwable  $e) {
+                return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
 
     // User Logout 
     public function logout(Request $request){
