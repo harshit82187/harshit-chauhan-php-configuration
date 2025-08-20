@@ -1,0 +1,141 @@
+****************************************************** Sitemap Integration In Laravel ********************************************************
+
+Step : 1 Create SitemapController Controller 
+
+Step : 2 admin.php file 
+
+Route::get('sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
+
+
+Step :3 SitemapController file code 
+
+<?php
+
+namespace App\Http\Controllers\Admin\Setting;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Response;
+use Carbon\Carbon;
+
+use App\Models\Service;
+use App\Models\Industry;
+use App\Models\Country;
+use App\Models\Blog;
+use App\Models\PressRelease;
+use App\Models\BussinessSetting;
+use App\Models\Subscriber;
+use App\Models\Contact;
+use App\Models\Carrer;
+use App\Models\Faq;
+use App\Models\ReportMeta;
+use App\Models\Client;
+use App\Models\Seller;
+use App\Models\Company;
+use App\Models\Report;
+
+
+class SitemapController extends Controller
+{
+    public function index(){
+        $urls = [];
+
+        $staticPages = [
+            ['/', 'daily', '1.0'],
+            ['/contact-us', 'monthly', '0.8'],
+            ['/login', 'monthly', '0.8'],
+            ['/register', 'monthly', '0.8'],
+            ['/about', 'monthly', '0.8'],
+            ['/carrer', 'monthly', '0.8'],
+            ['/services', 'monthly', '0.8'],
+            ['/press-release', 'monthly', '0.8'],
+            ['/blog', 'monthly', '0.8'],
+            ['/faq', 'monthly', '0.8'],
+            ['/testimonials', 'monthly', '0.8'],
+            ['/client', 'monthly', '0.8'],
+            ['/report-store', 'monthly', '0.8'],
+            ['/research-methodology', 'monthly', '0.8'],
+            ['/how-to-order', 'monthly', '0.8'],
+            ['/privacy-policy', 'monthly', '0.8'],
+            ['/terms-and-condition', 'monthly', '0.8'],
+            ['/cookies', 'monthly', '0.8'],
+            ['/refund-policy', 'monthly', '0.8'],
+            ['/gdpr-policy', 'monthly', '0.8'],
+            ['/become-reseller', 'monthly', '0.8'],
+        ];
+
+        foreach ($staticPages as $page) {
+            $urls[] = [
+                'loc'        => url($page[0]),
+                'lastmod'    => Carbon::now()->toAtomString(),
+                'changefreq' => $page[1],
+                'priority'   => $page[2],
+            ];
+        }
+
+        // Reports
+        foreach (Report::whereNull('deleted_at')->get() as $report) {
+            $urls[] = [
+                'loc'        => url($report->slug),
+                'lastmod'    => $report->updated_at->toAtomString(),
+                'changefreq' => 'weekly',
+                'priority'   => '0.9'
+            ];
+        }
+
+        // Blogs
+        foreach (Blog::whereNull('deleted_at')->get() as $blog) {
+            $urls[] = [
+                'loc'        => url('/blog/' . $blog->slug),
+                'lastmod'    => $blog->updated_at->toAtomString(),
+                'changefreq' => 'weekly',
+                'priority'   => '0.7'
+            ];
+        }
+
+        // Industries
+        foreach (Industry::whereNull('deleted_at')->get() as $industry) {
+            $urls[] = [
+                'loc'        => url('/industries/' . $industry->slug),
+                'lastmod'    => $industry->updated_at->toAtomString(),
+                'changefreq' => 'weekly',
+                'priority'   => '0.6'
+            ];
+        }
+
+        // Press Release
+        foreach (PressRelease::whereNull('deleted_at')->get() as $press_release) {
+            $urls[] = [
+                'loc'        => url('/press-release/' . $press_release->slug),
+                'lastmod'    => $press_release->updated_at->toAtomString(),
+                'changefreq' => 'weekly',
+                'priority'   => '0.6'
+            ];
+        }
+       
+        // Response as XML
+        return response()
+                ->view('sitemap', compact('urls'))
+                ->header('Content-Type', 'application/xml')
+                ->header('Cache-Control', 'no-cache, must-revalidate');
+    }
+
+}
+
+
+Step : 4 create sitemap.blade.php file in resource.views folder 
+
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    @foreach ($urls as $url)
+        <url>
+            <loc>{{ $url['loc'] }}</loc>
+            <lastmod>{{ $url['lastmod'] }}</lastmod>
+            <changefreq>{{ $url['changefreq'] }}</changefreq>
+            <priority>{{ $url['priority'] }}</priority>
+        </url>
+    @endforeach
+</urlset>
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+If you want to check for any spacing errors, first remove all whitespaces in the PHP files located in the routes folder
