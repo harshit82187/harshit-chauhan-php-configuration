@@ -1,5 +1,7 @@
 *********************************************************************************** Auth Admin Guard In laravel **********************************************************************
 
+php artisan make:middleware AdminMiddleware
+
 Step 1 : config/auth.php
 
    'guards' => [
