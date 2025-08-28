@@ -105,15 +105,26 @@ use PayPalCheckoutSdk\Orders\OrdersCaptureRequest;
 use Illuminate\Support\Facades\Log;
 use App\Models\PaypalPayment;
 use App\Models\PaypalOrderRequest;
+use PayPalCheckoutSdk\Core\ProductionEnvironment;
 
 class PayPalController extends Controller
 {
     protected $client;
-
     public function __construct()
     {
-        $env = new SandboxEnvironment(env('PAYPAL_CLIENT_ID'), env('PAYPAL_CLIENT_SECRET'));
-        $this->client = new PayPalHttpClient($env);
+        if (env('PAYPAL_MODE') === 'live') {
+            $environment = new ProductionEnvironment(
+                env('PAYPAL_CLIENT_ID'),
+                env('PAYPAL_CLIENT_SECRET')
+            );
+        } else {
+            $environment = new SandboxEnvironment(
+                env('PAYPAL_CLIENT_ID'),
+                env('PAYPAL_CLIENT_SECRET')
+            );
+        }
+        
+        $this->client = new PayPalHttpClient($environment);
     }
 
     public function showForm()
