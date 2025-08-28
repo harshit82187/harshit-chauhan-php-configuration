@@ -6,6 +6,10 @@ Step :1 Install Paypal Package
 Email :- sb-0k4kx37099947@personal.example.com
 Password :- 9?Ln9%XQ
 
+Raj paypal credentials 
+sb-rgl6f37084644@business.example.com
+bZQO)o-0
+
 Step :2 app/Helpers/PayPalClient.php
 
 <?php
@@ -60,6 +64,10 @@ Step :4 .env file
 
 PAYPAL_CLIENT_ID=AX1YPGA56tG8WF6vCQYCnGabkMHhQU3a80tQez1EnoRwydkmGp1_0gz-QAt1xi1Rd88hIbz5RPNq0D70
 PAYPAL_CLIENT_SECRET=EIAU2JgmtG6cCEI1qnS2XhxPbq4u0n16YOJxzwYhzp0Qse5dL4CxApXOB-x3Xb4XVGodRSkv1eguFYbi
+PAYPAL_MODE=sandbox
+
+PAYPAL_CLIENT_ID=AUd-oF7S9taXcbEd9SWTvpqxq_xKhepTB2l2l71KLOrynBKqdvn-BHfhc3YeQXkV3fJprrzcCTwaCWxF
+PAYPAL_CLIENT_SECRET=EK-2Wtg974bqM1oDkKEIaz-QkKfECTGlF5bt6-H1QCIoE2bGRkVxw-ovekEQ4pu4VShfCxxXDs1459TK
 PAYPAL_MODE=sandbox
 
 
