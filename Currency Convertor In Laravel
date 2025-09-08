@@ -1,0 +1,238 @@
+************************************************************** Currency Convertor In Laravel *********************************************************************************************
+
+                                                                  Base Price In Pakastani Ruppess (PKR)
+
+Step :1 app/Services/CurrencyService file code 
+
+<?php
+namespace App\Services;
+
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+
+class CurrencyService
+{
+    protected $base = 'pkr';
+    protected $source = 'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies';
+
+    /**
+     * Get cached rates (with date). Returns ['date' => 'YYYY-MM-DD', 'rates' => [...]]
+     */
+
+    public function convertFromPKR($amount, $toCurrency){
+        if ($toCurrency === 'pkr') {
+            return $amount;
+        }
+
+        $response = Http::get("https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/pkr.json");
+
+        if ($response->failed()) {
+            throw new \Exception("Currency API error");
+        }
+
+        $rates = $response->json()['pkr'];
+        $rate = $rates[$toCurrency] ?? null;
+
+        if (!$rate) {
+            throw new \Exception("Currency not supported: {$toCurrency}");
+        }
+
+        return round($amount * $rate, 2);
+    }
+
+    public function getRates(): array
+    {
+        return Cache::remember('currency_rates_pkr', 3600, function () {
+            $url = "{$this->source}/{$this->base}.json";
+
+            $resp = Http::timeout(10)->get($url);
+
+            // fallback if cdn fails
+            if ($resp->failed()) {
+                $fallback = "https://latest.currency-api.pages.dev/v1/currencies/{$this->base}.json";
+                $resp = Http::timeout(10)->get($fallback);
+            }
+
+            if ($resp->failed()) {
+                throw new \Exception('Currency API failed: ' . $resp->body());
+            }
+
+            $data = $resp->json();
+
+            $date = $data['date'] ?? now()->toDateString();
+            $rates = $data[$this->base] ?? [];
+
+            if (!is_array($rates) || empty($rates)) {
+                throw new \Exception('Unexpected currency API response');
+            }
+
+            return [
+                'date'  => $date,
+                'rates' => $rates
+            ];
+        });
+    }
+
+    /**
+     * Convert amount (base PKR) to $toCurrency (like 'usd', 'EUR', etc.)
+     * Returns ['rate' => float, 'converted' => float, 'date' => 'YYYY-MM-DD']
+     */
+    public function convert(float $amount, string $toCurrency): array
+    {
+        $to = strtolower($toCurrency);
+
+        $data = $this->getRates();
+        $rates = $data['rates'];
+        $date = $data['date'];
+
+        if ($to === $this->base) {
+            return [
+                'rate'      => 1.0,
+                'converted' => round($amount, 2),
+                'date'      => $date
+            ];
+        }
+
+        if (!isset($rates[$to])) {
+            throw new \Exception("Conversion rate not available for {$toCurrency}");
+        }
+
+        $rate = $rates[$to];
+        $converted = round($amount * $rate, 2);
+
+        return [
+            'rate'      => $rate,
+            'converted' => $converted,
+            'date'      => $date
+        ];
+    }
+}
+
+
+Step : 2 api.php file code 
+
+Route::controller(CurrencyController::class)->group(function(){
+    Route::post('currency/convert', 'convertAmount');
+});
+
+Step : 3 CurrencyController file code 
+
+<?php
+
+namespace App\Http\Controllers\API;
+
+use App\Http\Controllers\Controller;
+
+use Illuminate\Http\Request;
+
+
+use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\File;
+
+use App\Services\CurrencyService;
+
+class CurrencyController extends Controller
+{
+    protected $currencyService;
+
+    public function __construct(CurrencyService $currencyService){
+        $this->currencyService = $currencyService;
+    }
+
+    public function convertAmount(Request $request)
+    {
+        $request->validate([
+            'amount'   => 'required|numeric|min:0',
+            'currency' => 'nullable|string',
+            'country'  => 'nullable|string',
+        ]);
+
+        $amount = (float) $request->input('amount');
+        $currency = $request->input('currency');
+
+        if (!$currency) {
+            $country = strtoupper($request->input('country', ''));
+            $currency = $this->mapCountryToCurrency($country);
+            if (!$currency) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Either currency or a supported country code is required.'
+                ], 422);
+            }
+        }
+
+        try {
+            $res = $this->currencyService->convert($amount, $currency);
+
+            return response()->json([
+                'success'          => true,
+                'base_currency'    => 'PKR',
+                'base_amount'      => $amount,
+                'target_currency'  => strtoupper($currency),
+                'rate'             => $res['rate'],
+                'converted_amount' => $res['converted'],
+                'rates_date'       => $res['date'],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Minimal country -> currency mapping. Add more entries as needed.
+     */
+    private function mapCountryToCurrency(string $countryCode): ?string
+    {
+        $map = [
+            'PK' => 'PKR',
+            'IN' => 'INR',
+            'US' => 'USD',
+            'GB' => 'GBP',
+            'EU' => 'EUR',
+            'AE' => 'AED',
+            'SA' => 'SAR',
+            'CA' => 'CAD',
+            'AU' => 'AUD',
+            'NZ' => 'NZD',
+            'SG' => 'SGD',
+            'BD' => 'BDT',
+            // add as needed...
+        ];
+
+        return $map[$countryCode] ?? null;
+    }
+}
+
+
+Step : 4 Poatman URl 
+
+POST https://server1.pearl-developer.com/haven-holiday/public/api/currency/convert
+Body > raw > 
+
+{                                                               {
+  "amount": 10000,                                                "amount": 10000,
+  "currency": "INR"                                               "currency": "INR"
+}                                                               }
+
+
+Resposne :- 
+{                                                               {
+    "success": true,                                              "success": true,
+    "base_currency": "PKR",                                       "base_currency": "PKR",
+    "base_amount": 10000,                                         "base_amount": 10000,
+    "target_currency": "INR",                                     "target_currency": "USD",
+    "rate": 0.31089905,                                           "rate": 0.0035241467,
+    "converted_amount": 3108.99,                                  "converted_amount": 35.24,
+    "rates_date": "2025-09-07"                                    "rates_date": "2025-09-07"
+}                                                               }
+
+
+
+
+
+
