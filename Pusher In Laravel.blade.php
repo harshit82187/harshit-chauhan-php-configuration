@@ -1,6 +1,6 @@
 //////////////////////////////// Pusher In Laravel ///////////////////////////////////////////////////////////////////
 
-Step :1   Composer require pusher/pusher-php-server
+Step :1   composer require pusher/pusher-php-server
 
 Step :2     Setup pusher key in .env file
 
@@ -270,4 +270,5 @@ Step : 6 pusher.blade.php
     </p>
 </body>
 </html>
+
 
