@@ -625,6 +625,26 @@ class RazorpayController extends Controller
 
 
 
+{--  
+use Barryvdh\DomPDF\Facade\Pdf;
+use Barryvdh\DomPDF\Options;
+
+
+	if logo is not showing in the pdf file 
+	    $logo = asset(BussinessSetting::where('type','logo')->value('value'));
+        $pdf = Pdf::loadView('admin.report.sales.filter-transaction-pdf', compact('logo'));
+		$pdf->setOption('isRemoteEnabled', true);
+
+		render this varibale in the blade file 
+		 @if($logoSrc)
+			<img src="{{ $logoSrc }}" width="120">
+		@else
+			<span style="color:red;font-size:12px;">Logo not found</span>
+		@endif
+
+--}
+
+
 
 Step :10 Invoice PDF Blade File (resources/views/pdf/razorpay/invoice.blade.php)
 
