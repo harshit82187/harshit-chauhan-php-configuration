@@ -183,6 +183,37 @@ use Illuminate\Support\Facades\View;
     }
 
 
+   public function sendMail(Request $request){
+        // dd($request->all());
+        $user = auth()->user();
+        $certificate = Certificate::where('project_id', $request->project_id)->where('id',$request->document_id)->first();
+        if(!$certificate){
+            flash('Certificate Entry Not Found')->error();
+            return back();
+        }
+        // dd($certificate->projectInfo->leadInfo->email);
+        $subject = "Certificate Notification  " . $certificate->projectInfo->name . " | " . \Carbon\Carbon::today()->format('d-M-Y') . " | " . \Carbon\Carbon::now()->format('h:i A');
+        $adminEmail = View::shared('adminEmail');
+        $toEmail = $certificate->projectInfo->leadInfo->email;
+        try {
+            Mail::send('emails.certificate.text', ['certificate' => $certificate,'user' => $user], function ($message) use ($certificate,$subject, $adminEmail, $toEmail) {
+                $message->to($toEmail); 
+                $message->cc($adminEmail); 
+                $message->subject($subject);
+                $filePath = public_path($certificate->file_path);
+                if (file_exists($filePath)) {
+                    $message->attach($filePath);
+                }
+            });
+            flash('Documents sent to client successfully.')->success();
+            return back();
+         } catch (\Exception $mailException) {
+            \Log::channel('email')->error('Failed to send email to ' . $adminEmail . '. Error: ' . $mailException->getMessage());
+            return back();
+        }
+    }
+
+
 
 
 
@@ -480,5 +511,6 @@ $("#get-in-touch-email").on("keyup", function() {
             .prop('disabled', true);
     });
                             
+
 
 
