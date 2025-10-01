@@ -1,0 +1,11 @@
+**************************************************************************** Nitropack in the laravel ***********************************************************************************
+
+1. Register your website in the NitroPack application.
+2. Click on Cache Settings > General Options, and you will see the API Keys.
+3. Place the nitropack-sdk folder in the root directory. (https://nitropack.io/download/plugin/nitropack-php-sdk-limited-support)
+4. Open the index.php file located in the public folder, and add the following line of code at the beginning.
+
+define("NITROPACK_HOME_URL", "https://www.metricwaveinsights.com/");
+define("NITROPACK_SITE_ID", "jtKhgvbFZIakFYLhZVckgwMbnbttMYdW");
+define("NITROPACK_SITE_SECRET", "aYstUtFKPl8yLaWD8JHMXE9pETHM22YZTRVawtSF6Bwa1WaYNkJSC4Pzj3zRFtLP");
+require_once __DIR__ . '/nitropack-sdk/bootstrap.php';
