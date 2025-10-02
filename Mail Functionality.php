@@ -205,8 +205,7 @@ use Illuminate\Support\Facades\View;
                     $message->attach($filePath);
                 }
             });
-            flash('Documents sent to client successfully.')->success();
-            return back();
+            \Log::info('Success to send email to ' . $adminEmail .' ' . $toEmail);
          } catch (\Exception $mailException) {
             \Log::channel('email')->error('Failed to send email to ' . $adminEmail . '. Error: ' . $mailException->getMessage());
             return back();
@@ -511,6 +510,7 @@ $("#get-in-touch-email").on("keyup", function() {
             .prop('disabled', true);
     });
                             
+
 
 
 
