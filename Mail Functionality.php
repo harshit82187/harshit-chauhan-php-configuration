@@ -193,7 +193,7 @@ use Illuminate\Support\Facades\View;
         }
         // dd($certificate->projectInfo->leadInfo->email);
         $subject = "Certificate Notification  " . $certificate->projectInfo->name . " | " . \Carbon\Carbon::today()->format('d-M-Y') . " | " . \Carbon\Carbon::now()->format('h:i A');
-        $adminEmail = View::shared('adminEmail');
+        $adminEmail = View::shared('adminEmail');  // BussinessSetting::where('type','email')->value('value')
         $toEmail = $certificate->projectInfo->leadInfo->email;
         try {
             Mail::send('emails.certificate.text', ['certificate' => $certificate,'user' => $user], function ($message) use ($certificate,$subject, $adminEmail, $toEmail) {
@@ -510,6 +510,7 @@ $("#get-in-touch-email").on("keyup", function() {
             .prop('disabled', true);
     });
                             
+
 
 
 
