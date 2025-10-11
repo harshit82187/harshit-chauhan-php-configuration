@@ -1,0 +1,120 @@
+1. Simple Triangle
+
+*
+**
+***
+****
+*****
+
+
+$n = 5;
+
+for ($i = 1; $i <= $n; $i++) {
+    for ($j = 1; $j <= $i; $j++) {
+        echo "*";
+    }
+    echo "<br>";
+}
+
+
+2. Inverted Triangle
+
+*****
+****
+***
+**
+*
+
+
+$n = 5;
+
+for ($i = $n; $i >= 1; $i--) {
+    for ($j = 1; $j <= $i; $j++) {
+        echo "*";
+    }
+    echo "<br>";
+}
+
+
+
+3. Right-Aligned Triangle
+    *
+   **
+  ***
+ ****
+*****
+
+$n = 5;
+
+for ($i = 1; $i <= $n; $i++) {
+    for ($j = $n - 1; $j >= $i; $j--) {
+        echo "&nbsp;"; // space for alignment
+    }
+    for ($k = 1; $k <= $i; $k++) {
+        echo "*";
+    }
+    echo "<br>";
+}
+
+
+4. Pyramid Pattern
+
+    *
+   ***
+  *****
+ *******
+*********
+
+$n = 5;
+
+for ($i = 1; $i <= $n; $i++) {
+    // spaces
+    for ($j = $i; $j < $n; $j++) {
+        echo "&nbsp;";
+    }
+    // stars
+    for ($k = 1; $k <= (2 * $i - 1); $k++) {
+        echo "*";
+    }
+    echo "<br>";
+}
+
+
+
+5. Diamond Pattern
+
+    *
+   ***
+  *****
+ *******
+*********
+ *******
+  *****
+   ***
+    *
+
+
+$n = 5;
+
+// upper part
+for ($i = 1; $i <= $n; $i++) {
+    for ($j = $i; $j < $n; $j++) {
+        echo "&nbsp;";
+    }
+    for ($k = 1; $k <= (2 * $i - 1); $k++) {
+        echo "*";
+    }
+    echo "<br>";
+}
+
+// lower part
+for ($i = $n - 1; $i >= 1; $i--) {
+    for ($j = $n; $j > $i; $j--) {
+        echo "&nbsp;";
+    }
+    for ($k = 1; $k <= (2 * $i - 1); $k++) {
+        echo "*";
+    }
+    echo "<br>";
+}
+
