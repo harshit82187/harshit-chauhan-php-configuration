@@ -1,0 +1,26 @@
+1. If You Want a backup of your project :- 
+   zip -r backup-09-10-2025.zip *
+
+2. IF you remove any type of file or folder :- 
+   rm 05-09-2025.zip
+
+3. If you move any type of file or folder :- 
+  mv 05-09-2025.zip public/
+
+4. Test Server Details
+   ssh -p 65002 use_name@ip_address
+   PearlRoot@12390
+
+5. test1 projects SSH 
+   ssh -p 65002 u128827813@217.21.90.177
+   PearlRoot@12390
+
+
+6. server1 projects SSH
+   ssh -p 65002 u966989102@45.84.204.92
+   PearlRoot@12390
+
+
+
+
+
