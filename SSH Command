@@ -1,5 +1,5 @@
 1. If You Want a backup of your project :- 
-   zip -r backup-09-10-2025.zip *
+   zip -r backup-16-10-2025.zip . -x "./.*/*" -x "./backup-16-10-2025.zip"
 
 2. IF you remove any type of file or folder :- 
    rm 05-09-2025.zip
