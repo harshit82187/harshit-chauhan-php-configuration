@@ -368,7 +368,7 @@ class AuthController extends Controller
    {{baseURL}}/crm/api/get-users?pageNo=3
 
 
-    public function getUsers(Request $request){
+     public function getUsers(Request $request){
         $token = $request->bearerToken();
         $user = User::where('api_token', $token)->first();
 
@@ -383,20 +383,22 @@ class AuthController extends Controller
             $page = $request->get('pageNo', 1);
             $perPage = $request->get('per_page', 10);
             $userlists = Staff::where('is_api', 1)->orderBy('id', 'desc')->paginate($perPage, ['*'], 'page', $page);
+            $startIndex = ($userlists->currentPage() - 1) * $userlists->perPage() + 1;
 
-            // Transform data before returning
-            $userlists->getCollection()->transform(function ($userlist) {
-                if ($userlist->user) {
-                    $userlist->name = $userlist->user->first_name . ' ' . $userlist->user->last_name;
-                    $userlist->email = $userlist->user->email;
-                    $userlist->phone = $userlist->user->phone;
-                    $userlist->deactivated = $userlist->user->deactivated;
-                }
-                if ($userlist->role) {
-                    $userlist->role_name = $userlist->role->name;
-                }
-                unset($userlist->user, $userlist->role);
-                return $userlist;
+             $userlists->getCollection()->transform(function ($userlist, $key) use ($startIndex) {
+                 $userlist->serial_no = $startIndex + $key;
+                // Transform data before returning
+                    if ($userlist->user) {
+                        $userlist->name = $userlist->user->first_name . ' ' . $userlist->user->last_name;
+                        $userlist->email = $userlist->user->email;
+                        $userlist->phone = $userlist->user->phone;
+                        $userlist->deactivated = $userlist->user->deactivated;
+                    }
+                    if ($userlist->role) {
+                        $userlist->role_name = $userlist->role->name;
+                    }
+                    unset($userlist->user, $userlist->role);
+                    return $userlist;
             });
 
             return response()->json([
@@ -410,7 +412,6 @@ class AuthController extends Controller
             ], 200);
         }
     }
-
 
     // User Logout 
     public function logout(Request $request){
