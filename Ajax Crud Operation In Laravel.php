@@ -192,7 +192,7 @@ public function register(Request $req){
         ];
 
 
-        if($request->profile_photo != null){
+        if ($request->hasFile('profile_photo')) {
             ************************** if you want to unlink previous photo *********************
             if ($admin->profile_photo && File::exists(public_path($admin->profile_photo))) {
                 File::delete(public_path($admin->profile_photo));
@@ -211,7 +211,7 @@ public function register(Request $req){
 
 
       **************** when image come in array form ****************************
-        if($req->images != null){
+        if ($request->hasFile('images')) {
                 $uploadedFiles = $req->file('images'); 
                 $images = [];
                 foreach ($uploadedFiles as $file) {
