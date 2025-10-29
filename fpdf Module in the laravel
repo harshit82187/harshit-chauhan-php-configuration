@@ -1,0 +1,103 @@
+*************************************************************************** fpdf Module in the laravel *************************************************************************************
+
+Step :1 Run this command in your project 
+composer require setasign/fpdf
+composer require setasign/fpdi
+
+Step : 2 Create url and controller 
+Route::get('/pdf', [App\Http\Controllers\PdfController::class, 'modify']);
+
+
+Step :3 PdfController Side Code 
+
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use setasign\Fpdi\Fpdi;
+
+class PDFController extends Controller
+{
+    /**
+     * Modify and output the CRM Certificate PDF with dynamic data.
+     *
+     * @return void
+     */
+    public function modify()
+    {
+        $pdf = new Fpdi();
+        $sourcePath = resource_path('views/pdf/crm/coc.pdf');
+
+        // Load the source PDF
+        $pageCount = $pdf->setSourceFile($sourcePath);
+
+        for ($i = 1; $i <= $pageCount; $i++) {
+            $templateId = $pdf->importPage($i);
+            $size = $pdf->getTemplateSize($templateId);
+            $orientation = ($size['width'] > $size['height']) ? 'L' : 'P';
+            $pdf->AddPage($orientation, [$size['width'], $size['height']]);
+            $pdf->useTemplate($templateId, 0, 0, $size['width'], $size['height']);
+
+            if ($i === 1) {
+                $pdf->SetFont('Times', '', 12);
+                $this->addFirstPageContent($pdf);
+            }
+        }
+
+
+        // Output PDF in browser
+        $pdf->Output('I', 'modified.pdf');
+    }
+
+    /**
+     * Add dynamic content to the first page of the PDF.
+     *
+     * @param Fpdi $pdf
+     * @return void
+     */
+    private function addFirstPageContent(Fpdi $pdf): void
+    {
+        $pdf->SetFont('Arial', '', 9);
+
+        $fields = [
+            // Name and Mobile (Upper)
+            [57.6, 24, 'Harshit Chauhan'],
+            [150, 24, '9876543210'],
+            [43, 31, 'abc@gmail.com'],
+            [22, 40, 'Dehradun 2'],
+            [90, 40, 'Uttarakhand'],
+            [151, 40, '249402'],
+            [53, 47, '9878452145'],
+            [53, 55, '98784521452'],
+            [133, 55, 'harshit@gmail.com'],
+            [15, 68, 'Dehradun Uttarakhand'],
+            [95, 84, 'Dehradun Uttarakhand'],
+            [45, 91, 'Dehradun Uttarakhand'],
+            [25, 99, 'Dehradun Uttarakhand'],
+            [89, 99, 'Uttarakhand'],
+            [149, 99, '249402'],
+            [51, 106.9, '122121212'],
+            [123, 106.9, '1221212123445212'],
+            [51, 115, '1221212132'],
+            [135, 113.9, 'h@gmail.com'],
+            [51, 122.5, 'ewwqqwwq'],
+            [130, 129.5, 'yes'],
+            [54, 137.5, 'ewwqqwwq'],
+            [14, 174.8, 'Pearl'],
+            [14, 190.5, 'Pearl 2'],
+            [43, 197.5, 'Harchit G'],
+            [150, 197.5, '25-10-2025'],
+            [33, 205.5, 'poiuytre7654q'],
+        ];
+
+        foreach ($fields as [$x, $y, $text]) {
+            $pdf->SetXY($x, $y);
+            $pdf->Cell(40, 10, $text);
+        }
+    }
+}
+
+
+Step : 4 To check x and y axis url
+https://www.signiflow.com/xy/
