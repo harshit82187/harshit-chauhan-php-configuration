@@ -1,5 +1,11 @@
 ******************************************************************* When You have new project **********************************************************************************
 
+First check which username and email is loggined :- 
+git config user.name
+git config user.email
+
+
+
 Step :1 First choose your directory in windows powershell.
 
 Step :2 Enter this command :- git init
