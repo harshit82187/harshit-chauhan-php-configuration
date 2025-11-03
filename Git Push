@@ -13,19 +13,23 @@ this command create .gitignore file in your root directory.
 
 Step :3 Enter Both Command (Files stage aur commit karo):-
 git add .
+
+Step :4 See Staged files
+git status
+
+Step :5 Create Comment
 git commit -m "Initial commit - Laravel project"
 
-
-Step :4 Create GitHub repo
+Step :6 Create GitHub repo
 
 GitHub pe login → New Repository
 Name: havenholidayhome ya apka preferred name
 Public/Private select karo → Create Repository
 
-Step :5 Remote add karo
+Step :7 Remote add karo
 git remote add origin https://github.com/harshit82187/havenholidayhome.git
 
-Step 6: Push project to GitHub
+Step 8: Push project to GitHub
 git branch -M main
 git push -u origin main
 
