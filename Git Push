@@ -11,6 +11,22 @@ Step :1 First choose your directory in windows powershell.
 Step :2 Enter this command :- git init
 this command create .gitignore file in your root directory.
 
+अपनी .gitignore file में ये lines ज़रूर होनी चाहिए 👇
+/node_modules
+/vendor
+/storage/*.key
+/storage/logs/*
+/public/storage
+/public/hot
+/public/build
+/.idea
+/.vscode
+.env
+*.zip
+*.rar
+*.log
+
+
 Step :3 Enter Both Command (Files stage aur commit karo):-
 git add .
 
@@ -55,3 +71,49 @@ git add src/pages/Register.js package.json package-lock.json
 Step 3 : git commit -m "Implemented React Register module and fixed CORS issue"
 
 Step 4 : git push origin main
+
+
+
+*********************************************************************** if you showing any issue regarding github histoy ***************************************************************
+
+Step 1: Fresh Git Init (Clean Push)
+rmdir -r -force .git
+
+Step 2: नया Git initialize करो
+git init
+
+
+Step 3: नया remote add करो
+git remote add origin https://github.com/harshit82187/gaamraam-trust.git
+
+Step 4: .gitignore ensure करो (Laravel के लिए सही वाला)
+/node_modules
+/vendor
+/storage/*.key
+/storage/logs/*
+/public/storage
+/public/hot
+/public/build
+/.idea
+/.vscode
+.env
+*.zip
+*.rar
+*.log
+
+
+Step 5: if you want add whole repo
+git add .
+
+If you want any particular folder 
+git add app/
+
+Step 6: Commit करो
+git commit -m "Fresh start after removing large files"
+
+Step 7: अब Push करो
+git branch -M main
+git push -u origin main --force
+
+
+
