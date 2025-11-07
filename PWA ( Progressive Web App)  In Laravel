@@ -94,3 +94,194 @@ function detectAndroidPWA(installBtn) {
         installBtn.style.display = "block"; // Show button if install prompt is available
     });
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+****************************************************************************** Method Second **************************************************************************************
+
+Step 1: manifest.json banao
+
+public/manifest.json
+
+
+{
+  "name": "silvaana",
+  "short_name": "silvaana",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#b33533",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://silvaana.com/storage/app/public/company/2025-02-13-67adcf86a4e22.webp",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "https://silvaana.com/storage/app/public/company/2025-02-13-67adcf86a4e22.webp",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "https://silvaana.com/storage/app/public/company/2025-02-13-67adcf86a4e22.webp",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "https://silvaana.com/storage/app/public/company/2025-02-13-67adcf86a4e22.webp",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "https://silvaana.com/storage/app/public/company/2025-02-13-67adcf86a4e22.webp",
+      "sizes": "152x152",
+      "type": "image/png"
+    },
+    {
+      "src": "https://silvaana.com/storage/app/public/company/2025-02-13-67adcf86a4e22.webp",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://silvaana.com/storage/app/public/company/2025-02-13-67adcf86a4e22.webp",
+      "sizes": "384x384",
+      "type": "image/png"
+    },
+    {
+      "src": "https://silvaana.com/storage/app/public/company/2025-02-13-67adcf86a4e22.webp",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
+
+
+
+
+
+
+🧾 Step 2: HTML me meta tags aur manifest link add karo
+
+<link rel="manifest" href="{{ asset('manifest.json') }}">
+<meta name="theme-color" content="#b33533">
+
+<!-- For iOS -->
+<link rel="apple-touch-icon" href="/images/icons/icon-192x192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+
+
+
+🧰 Step 3: serviceworker.js banao
+public/serviceworker.js
+
+
+const CACHE_NAME = "laravel-pwa-cache-v1";
+const urlsToCache = [
+  '/',
+  '/offline',
+];
+
+// Install service worker
+self.addEventListener("install", event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
+  );
+});
+
+// Fetch requests
+self.addEventListener("fetch", event => {
+  event.respondWith(
+    caches.match(event.request).then(response => {
+      return response || fetch(event.request).catch(() => caches.match('/offline'));
+    })
+  );
+});
+
+// Activate service worker
+self.addEventListener("activate", event => {
+  const cacheWhitelist = [CACHE_NAME];
+  event.waitUntil(
+    caches.keys().then(cacheNames =>
+      Promise.all(
+        cacheNames.map(cacheName => {
+          if (!cacheWhitelist.includes(cacheName)) {
+            return caches.delete(cacheName);
+          }
+        })
+      )
+    )
+  );
+});
+
+
+
+📄 Step 4: Laravel me Offline Page banao
+// routes/web.php
+Route::get('/offline', function () {
+    return view('offline');
+});
+
+
+
+resources/views/offline.blade.php
+
+@extends('errors::minimal')
+
+@section('title', translate('Unauthorized'))
+
+@section('message')
+    <div class="container">
+        <div class="row justify-content-center align-items-center vh-100">
+            <div class="col-12">
+                <h1 class="text-center display-1">🚫 You are offline</h1>
+                <h2 class="text-center text-muted py-2">Please check your internet connection.</h2>
+            </div>
+        </div>
+    </div>
+@endsection
+
+
+
+🧩 Step 5: Service Worker register karo
+
+Apni layouts/app.blade.php ke end me (before </body>):
+
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/serviceworker.js')
+      .then(reg => console.log("Service Worker Registered", reg))
+      .catch(err => console.log("SW Registration Failed", err));
+  }
+</script>
+
+
+
+
+when all the process is complete to check once that url is accessable or not 
+https://silvaana.com/manifest.json
+https://silvaana.com/serviceworker.js
+
+
+When everything is set up correctly, a small popup will appear at the top of the screen saying “Install Silvaana”, and a download icon will be displayed on the right side 
+of the address bar.
