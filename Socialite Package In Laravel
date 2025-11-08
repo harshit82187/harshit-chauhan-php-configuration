@@ -1,5 +1,15 @@
 ************************************************************ Socialite Package In Laravel ****************************************************************************************************
 composer require laravel/socialite
+
+-------------------------------------------------------------- Get Secret Key And Client Id ----------------------------------------------------------------------------------------------
+
+Open Google Console.
+Create new project.
+click on API & Services
+Click on 0Auth Cinsent Screen 
+mention you redirect like if you are working in local :- http://127.0.0.1:8000/auth/google/callback and working on live server :- https://test.pearl-developer.com/goatour/public/auth/google/callback
+create website and copy client id & secret id 
+
 -------------------------------------------------------------- Login with Google -------------------------------------------------------------------------------------------------------------
 
 Step :1  config/services.php
