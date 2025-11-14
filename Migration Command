@@ -1,0 +1,15 @@
+
+
+
+    public function up(): void
+    {
+        Schema::create('expense_category_statuses', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('expense_id');
+            $table->integer('category_index');
+            $table->enum('status',['approve','reject']);
+            $table->text('note')->nullable();
+            $table->timestamps();
+            $table->foreign('expense_id')->references('id')->on('expenses')->onDelete('cascade');
+        });
+    }
