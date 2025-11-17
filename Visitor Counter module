@@ -1,0 +1,136 @@
+***************************************** Visitor Counter module **************************************************
+
+STEP 1 — Create Migration (visitors table)
+php artisan make:migration create_visitors_table
+
+
+public function up()
+{
+    Schema::create('visitors', function (Blueprint $table) {
+        $table->id();
+        $table->string('ip')->nullable();
+        $table->string('device')->nullable();
+        $table->string('browser')->nullable();
+        $table->string('platform')->nullable();
+        $table->timestamps();
+    });
+}
+
+
+
+✅ STEP 2 — Create Visitor Middleware (tracks visitor automatically)
+php artisan make:middleware TrackVisitors
+
+
+<?php 
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use App\Models\Visitors;
+
+class TrackVisitors
+{
+    public function handle(Request $request, Closure $next)
+    {
+        // Skip admin panel
+        if ($request->is('admin/*')) {
+            return $next($request);
+        }
+
+        if (!session()->has('visitor_logged')) {
+            session()->put('visitor_logged', true);
+            Visitors::create([
+                'ip' => $request->ip(),
+                'browser'    => $this->getBrowser($request),
+                'device'     => $this->getDevice($request->header('User-Agent')),
+                'platform'   => $this->getPlatform($request->header('User-Agent')),
+            ]);
+        }
+
+        return $next($request);
+    }
+
+    private function getBrowser(Request $request)
+    {
+        $agent = $request->header('User-Agent');
+        if (strpos($agent, 'Firefox') !== false) return 'Firefox';
+        if (strpos($agent, 'Chrome') !== false) return 'Chrome';
+        if (strpos($agent, 'Safari') !== false) return 'Safari';
+        if (strpos($agent, 'Opera') !== false) return 'Opera';
+        return 'Unknown';
+    }
+
+    private function getDevice($agent)
+    {
+        if (preg_match('/mobile/i', $agent)) return 'Mobile';
+        if (preg_match('/tablet/i', $agent)) return 'Tablet';
+        return 'Desktop';
+    }
+
+    private function getPlatform($agent)
+    {
+        if (preg_match('/windows/i', $agent)) return 'Windows';
+        if (preg_match('/macintosh|mac os x/i', $agent)) return 'Mac';
+        if (preg_match('/linux/i', $agent)) return 'Linux';
+        if (preg_match('/android/i', $agent)) return 'Android';
+        if (preg_match('/iphone|ipad/i', $agent)) return 'iOS';
+        return 'Unknown';
+    }
+}
+
+
+
+✅ STEP 3 — Register Middleware
+app/Http/Kernel.php
+
+protected $middlewareGroups = [
+    'web' => [
+        // ...
+        \App\Http\Middleware\TrackVisitors::class,
+    ],
+];
+
+
+
+✅ STEP 4 — Create Visitor Model
+php artisan make:model Visitor
+
+
+<?php
+
+namespace App\Models;
+
+use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
+class Visitors extends Model
+{   
+    use HasFactory;
+    protected $table="visitors";
+    protected $guarded = [];   
+    
+   
+}
+
+✅ STEP 5 — Get Visitor Count (for footer)
+app/Providers/AppServiceProvider.php
+
+public function boot()
+{
+    view()->composer('*', function ($view) {
+        $view->with('visitorCount', \App\Models\Visitor::count());
+    });
+}
+
+
+✅ STEP 6 — Show Count in Footer
+In your footer.blade.php:
+<div class="footer-visitor">
+    Total Visitors: <strong>{{ number_format($visitorCount) }}</strong>
+</div>
