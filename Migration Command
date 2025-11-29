@@ -1,15 +1,122 @@
+**************************************** Migration Command *******************************************************
+
+1. Create a new table with migration
+php artisan make:migration create_products_table
+
+public function up()
+{
+    Schema::create('products', function (Blueprint $table) {
+        $table->id();
+        $table->string('name');
+        $table->integer('price');
+        $table->timestamps();
+    });
+}
+
+public function down()
+{
+    Schema::dropIfExists('products');
+}
+
+
+2. Create a table with model + migration
+php artisan make:model Product -m
+
+public function up()
+{
+    Schema::create('products', function (Blueprint $table) {
+        $table->id();
+        $table->string('title');
+        $table->timestamps();
+    });
+}
+
+public function down()
+{
+    Schema::dropIfExists('products');
+}
+
+
+3. Add a new column in an existing table (as foreign key)
+php artisan make:migration add_category_id_to_products_table --table=products
+
+public function up()
+{
+    Schema::table('products', function (Blueprint $table) {
+        $table->foreignId('category_id')->references('id')->on('categories')->onDelete('cascade');
+    });
+}
+
+public function down()
+{
+    Schema::table('products', function (Blueprint $table) {
+        $table->dropForeign(['category_id']);
+        $table->dropColumn('category_id');
+    });
+}
 
 
 
-    public function up(): void
-    {
-        Schema::create('expense_category_statuses', function (Blueprint $table) {
-            $table->id();
-            $table->unsignedBigInteger('expense_id');
-            $table->integer('category_index');
-            $table->enum('status',['approve','reject']);
-            $table->text('note')->nullable();
-            $table->timestamps();
-            $table->foreign('expense_id')->references('id')->on('expenses')->onDelete('cascade');
-        });
-    }
+4. Add a column after a specific column
+php artisan make:migration add_statuc_column_in_products_table --table=products
+
+
+public function up()
+{
+    Schema::table('products', function (Blueprint $table) {
+        $table->string('status')->after('price');
+    });
+}
+
+public function down()
+{
+    Schema::table('products', function (Blueprint $table) {
+        $table->dropColumn('status');
+    });
+}
+
+
+
+5. Run a specific migration file
+php artisan migrate --path=/database/migrations/2025_01_01_123456_create_products_table.php
+
+
+
+
+
+
+
+
+
+
+1. What is a migration in Laravel?
+Migration is a version control system for the database. It helps you create, update, or delete tables using PHP code instead of SQL.
+
+2. Why do we use migrations?
+To keep database structure in sync across all environments and team members.
+
+3. What is the difference between up() and down() in migration?
+up() → applies changes (create/modify table)
+
+down() → undo changes (drop/revert table)
+
+4. How to rollback last migration?
+php artisan migrate:rollback
+
+5. How to rollback all migrations?
+php artisan migrate:reset
+
+
+6. How to refresh all migrations?
+php artisan migrate:refresh
+
+
+7. How to check migration status?
+php artisan migrate:status
+
+
+8. What is a migration batch?
+A batch is a group of migrations executed together in one run.
+
+9. Which migrations rollback when we run migrate:rollback?
+Only the latest batch of migrations.
