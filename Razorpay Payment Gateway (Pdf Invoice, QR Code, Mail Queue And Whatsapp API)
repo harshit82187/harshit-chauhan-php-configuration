@@ -34,7 +34,7 @@ Route::controller(AuthRazorpayController::class)->group(function () {
 });
 
 Step :4 blade file code with loader 
-
+<meta name="csrf-token" content="{{ csrf_token() }}">
 <style>
     .loader-overlay {
         position: fixed;
