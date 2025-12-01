@@ -1,0 +1,133 @@
+************************************** Repository Pattern + Form Request Validation + Trait Based Utility Architecture ****************************************************
+
+Step :- 1) app/Traits/ImageUploadTrait.php
+
+<?php
+
+namespace App\Traits;
+
+use Illuminate\Http\UploadedFile;
+
+trait ImageUploadTrait
+{
+    /**
+     * Upload Image & return file path
+     */
+    public function uploadImage(?UploadedFile $image, $path)
+    {
+        if (!$image) return null;
+        $year = now()->year;
+        $month = now()->format('M');
+        $fullPath = $path . "/{$year}/{$month}";
+        if (!is_dir(public_path($fullPath))) {
+            mkdir(public_path($fullPath), 0777, true);
+        }
+        $fileName = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
+        $image->move(public_path($fullPath), $fileName);
+        return $fullPath . '/' . $fileName;
+    }
+}
+
+
+
+
+Step :- 2) UserRequest (Form Validation)
+
+app/Http/Requests/UserRequest.php
+
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class UserRequest extends FormRequest
+{
+    public function authorize()
+    {
+        return true;
+    }
+
+    public function rules()
+    {
+        return [
+            "name"          => "required|string|max:255",
+            "email"         => "required|email|unique:users,email",
+            "mobile_no"     => "required|digits:10",
+            "address"       => "required|string",
+            "gender"        => "required|in:male,female,other",
+            "profile_photo" => "nullable|image|mimes:jpg,jpeg,png,webp|max:2048",
+        ];
+    }
+}
+
+
+Step :- 3) UserRepository Create 
+
+<?php
+
+namespace App\Repositories;
+
+use App\Models\User;
+
+class UserRepository
+{
+    public function create(array $data)
+    {
+        return User::create($data);
+    }
+}
+
+
+
+Step :- 4) Controller (store method with trait + repository + request)
+
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Requests\UserRequest;
+use App\Repositories\UserRepository;
+use App\Traits\ImageUploadTrait;
+
+class UserController extends Controller
+{
+    use ImageUploadTrait;
+
+    protected $userRepo;
+
+    public function __construct(UserRepository $userRepo)
+    {
+        $this->userRepo = $userRepo;
+    }
+
+    public function store(UserRequest $request)
+    {
+        $data = $request->validated();
+
+        // Handle Profile Photo Upload
+        if ($request->hasFile('profile_photo')) {
+            $data['profile_photo'] = $this->uploadImage($request->profile_photo, 'app/users');
+        }
+
+        // Store user using Repository
+        $user = $this->userRepo->create($data);
+
+        return response()->json([
+            "message" => "User created successfully!",
+            "data" => $user
+        ]);
+    }
+
+
+    public function getUsers(Request $req){
+        $admin = Auth::guard('admin')->user();
+        $query = Deal::query();
+        $query->orderBy('id', 'desc');      
+        if($admin->admin_role_id != 1){
+           $query->where('user_id',$admin->id);
+        }
+        $deals = $query->paginate(10);
+        return $deals;
+    }
+}
