@@ -1,0 +1,41 @@
+*************************************************** Soft Delete In Laravel ***********************************************************
+
+1. Setup Model 
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;  
+
+
+class Task extends Model
+{
+    use HasFactory, SoftDeletes;
+    protected $table = 'tasks';
+    protected $guarded = [];
+    protected $dates = ['deleted_at'];
+
+
+    public function user(){
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    
+
+}
+
+
+2. In the tasks table, create a deleted_at column with the type timestamp and a default value of null.
+
+
+2. Controller Side Code
+
+public function destroy($id){
+    $task = Task::findOrFail($id);
+    $task->delete();
+    flash('Task Deleted Successfully')->success();
+    return response()->json(['success' => true]);
+}
