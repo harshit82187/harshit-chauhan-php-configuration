@@ -1,0 +1,181 @@
+**************************************************** Upload File with the help of chunk ***************************************************************
+
+Step :- 1 Create blade file and script 
+
+<div class="modal fade" id="addVideo" tabindex="-1" role="dialog" aria-labelledby="modelTitleId" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+	<div class="modal-dialog" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title">Add Video</h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+				<span aria-hidden="true">&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<form id="video-add" action="{{ route('admin.video.store') }}" method="POST" enctype="multipart/form-data">
+					@csrf
+					<div class="form-group">
+						<label>Upload Video (Each Video Should Be Below 250MB)</label><span class="text-danger">*</span>
+						<input type="file" name="content[]" accept=".mp4,.mkv,.avi,.mov" multiple required class="form-control">
+					</div>
+					<div class="form-group mt-3 upload-bar">
+						<label>Upload Progress</label>
+						<div class="progress">
+							<div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%" id="uploadProgress">0%</div>
+						</div>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-danger" data-dismiss="modal">Close</button>
+						<button type="submit" id="submit" class="btn btn-primary">Upload</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+</div>
+
+
+<script>
+    $(document).ready(function() {
+        $('.upload-bar').addClass('d-none');
+	    $('#video-add').on('submit', async function(e) {
+	        e.preventDefault(); // prevent default form submit
+	        let files = $('input[name="content[]"]')[0].files;
+	        let maxSize = 250 * 1024 * 1024; // 250 MB
+	        let errorFiles = [];
+	
+	        // Check file sizes
+	        for (let i = 0; i < files.length; i++) {
+	            if (files[i].size > maxSize) {
+	                errorFiles.push(files[i].name);
+	            }
+	        }
+	
+	        if (errorFiles.length > 0) {
+	            iziToast.error({
+	                title: 'Error!',
+	                message: `File(s) exceed 250 MB: ${errorFiles.join(', ')}`,
+	                position: 'topRight'
+	            });
+	            return false;
+	        } 
+	
+	        $('#loader').removeClass('d-none');   
+	        let formData = new FormData(this);
+	        let btn = $(this).find('#submit');
+	        btn.html('⏳ Uploading...').prop('disabled', true).css('cursor', 'no-drop');
+            $('.upload-bar').removeClass('d-none');
+	
+	        // AJAX upload with progress
+	        $.ajax({
+	            url: $(this).attr('action'),
+	            type: 'POST',
+	            data: formData,
+	            contentType: false,
+	            processData: false,
+	            xhr: function() {
+	                let xhr = new window.XMLHttpRequest();
+	                xhr.upload.addEventListener("progress", function(evt) {
+	                    if (evt.lengthComputable) {
+	                        let percentComplete = Math.round((evt.loaded / evt.total) * 100);
+	                        $('#uploadProgress').css('width', percentComplete + '%').text(percentComplete + '%');
+	                    }
+	                }, false);
+	                return xhr;
+	            },
+	            success: function(res) {
+	                $('#uploadProgress').css('width','100%').text('100%');
+                    $('.upload-bar').addClass('d-none');
+	                iziToast.destroy();
+	                iziToast.info({
+	                    title: 'Success',
+	                    message: 'Videos uploaded successfully!',
+	                    position: 'topRight'
+	                });
+	
+	                // Close modal + refresh page after short delay
+	                setTimeout(function() {
+	                    $('#addVideo').modal('hide');
+	                    location.reload();
+	                }, 1000);
+	            },
+	            error: function(xhr) {
+                    $('.upload-bar').addClass('d-none');
+	                iziToast.destroy();
+	                iziToast.error({
+	                    title: 'Error!',
+	                    message: xhr.responseText || 'Something went wrong',
+	                    position: 'topRight'
+	                });
+	                btn.html('Upload').prop('disabled', false).css('cursor', 'pointer');
+	                $('#uploadProgress').css('width','0%').text('0%');
+	            }
+	        });
+	    });
+	});
+</script>
+
+
+
+
+2. Controller Side Code 
+
+<?php
+
+namespace App\Http\Controllers\admin;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\Models\Video;
+use Str;
+use Auth;
+
+
+class VideoController extends Controller
+{
+    public function index(){
+        $videos = Video::paginate(10);        
+        return view('admin.video.index', compact('videos'));
+    }
+
+    public function store(Request $req) {
+        try {
+            $req->validate([
+                'content.*' => 'required|mimes:mp4,avi,mov,mkv|max:256000', // 250 MB in KB
+            ]);
+            $admin = Auth::guard('admin')->user();
+
+            if ($req->hasFile('content')) {
+                foreach ($req->file('content') as $file) {
+                    $video = new Video();
+                    $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                    $year = now()->year;
+                    $month = now()->format('M');
+                    $folderPath = public_path("app/video-gallery/{$year}/{$month}");
+                    if (!file_exists($folderPath)) {
+                        mkdir($folderPath, 0777, true);
+                    }
+                    $file->move($folderPath, $filename);
+                    $video->content = "app/video-gallery/{$year}/{$month}/{$filename}";
+                    $video->addedd_by = $admin->id;
+                    $video->save();
+                }
+            }
+            return response()->json(['success' => true, 'message' => 'Videos added successfully']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['success' => false, 'errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    } 
+    
+    public function destroy($id){
+        // dd($id);
+        $video = Video::findOrFail($id);
+        if ($video->content && file_exists(public_path($video->content))) {
+            unlink(public_path($video->content));
+        }
+        $video->delete();
+        return back()->with('error','Video Delete Successfully!');
+    }
+}
