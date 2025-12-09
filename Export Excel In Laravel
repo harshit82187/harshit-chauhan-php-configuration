@@ -1,174 +1,277 @@
-composer require maatwebsite/excel 
+******************************************************************* Export Excel Sheet Data In Laravel **********************************************************************************************
 
 
-************************************************ Export Excel Sheet Data In Laravel ******************************************************
-<!-- Export Lead Modal -->
-<div class="modal fade" id="export_lead_modal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" data-backdrop="static" data-keyboard="false" aria-hidden="true" style="margin-top:-5%;">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content" style="margin-left:21%;">
-      <div class="modal-header">
-        <h5 class="modal-title">Export Lead</h5>
-      </div>
-      <div class="modal-body">
-        <form id="" method="POST" action="{{ url('export-lead-data') }}" enctype="multipart/form-data">
-          @csrf 
+Install This Package In your Project :- composer require maatwebsite/excel 
 
-          <div class="mb-3">
-            <label class="form-label">Choose Range <span class="text-danger">*</span> </label>
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="exportStatus" id="today" value="Today">
-              <label class="form-check-label px-2" for="today">Today</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="exportStatus" id="yesterday" value="Yesterday">
-              <label class="form-check-label px-2" for="yesterday">Yesterday</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="exportStatus" id="last_7_day" value="Last 7 Day">
-              <label class="form-check-label px-2" for="last_7_day">Last 7 Day</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="exportStatus" id="thisMonth" value="This Month">
-              <label class="form-check-label px-2" for="thisMonth">This Month</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="exportStatus" id="lastMonth" value="Last Month">
-              <label class="form-check-label px-2" for="lastMonth">Last Month</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="exportStatus" id="export_custom_date" value="Custom Date">
-              <label class="form-check-label px-2" for="export_custom_date">Custom Date</label>
-            </div>
-          </div>
 
-          <div class="row" id="exportDateContainer">
-            <div class="col-6">
-              <label for="export_start_date" class="form-label">Start Date <span class="text-danger">*</span></label>
-              <input type="date" class="form-control" name="export_start_date">
-            </div>
-
-            <div class="col-6">
-              <label for="export_end_date" class="form-label">End Date <span class="text-danger">*</span></label>
-              <input type="date" class="form-control" name="export_end_date">
-            </div>
-          </div>
-
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-            <button type="submit" class="btn btn-primary">Download</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-</div>
+<!-- Export Data UI Section -->
+<div class="d-md-flex justify-content-md-center mb-4 gap-2 flex-wrap availibility_section">
+			<a href="javascript:void(0)">
+				<div class="me-3 d-flex align-items-center mb-2">
+					<div style="width: 20px; height: 20px; background-color: #28a745;  margin-right: 5px;"></div>
+					<span style="color: black;">Available</span>
+				</div>
+			</a>
+			<a href="{{ route('admin.seat.seat-data-download',2) }}">
+				<div class="me-3 d-flex align-items-center mb-2">
+					<div style="width: 20px; height: 20px; background-color: #fd7e14;  margin-right: 5px;"></div>
+					<span style="color: black;">7 Days Expiring Soon</span>
+				</div>				
+			</a>
+			<a href="{{ route('admin.seat.seat-data-download',3) }}">
+				<div class="me-3 d-flex align-items-center mb-2">
+					<div style="width: 20px; height: 20px; background-color: #ff9999;  margin-right: 5px;"></div>
+					<span style="color: black;">3 Days Expiring Soon</span>
+				</div>				
+			</a>
+			<a href="{{ route('admin.seat.seat-data-download',4) }}">
+				<div class="me-3 d-flex align-items-center mb-2">
+					<div style="width: 20px; height: 20px; background-color: #084f8aff;  margin-right: 5px;"></div>
+					<span style="color: black;">15 Days Expiring Soon</span>
+				</div>				
+			</a>
+			<a href="{{ route('admin.seat.seat-data-download',5) }}">
+				<div class="me-3 d-flex align-items-center mb-2">
+					<div style="width: 20px; height: 20px; background-color: #5aaff5ff;  margin-right: 5px;"></div>
+					<span style="color: black;">30 Days Expiring Soon</span>
+				</div>				
+			</a>
+			<a href="{{ route('admin.seat.seat-data-download',6) }}">
+				<div class="d-flex align-items-center mb-2">
+					<div style="width: 20px; height: 20px; background-color: #dc3545;  margin-right: 5px;"></div>
+					<span style="color: black;">Booked</span>
+				</div>				
+			</a>			
+		</div>
 
 
 ************************************************************* Controller Side Code ***********************************************************************
 
-use App\Exports\LeadExport;
+use App\Exports\SeatDataExport;
 use Maatwebsite\Excel\Facades\Excel;
 use Carbon\Carbon;
 
-   public function manageExportLeadData(Request $req)
+    public function seatDataDownload($value)
     {
         try {
-            $req->validate([
-                'exportStatus' => 'required|string',
-            ]);
-    
             $startDate = null;
             $endDate = null;
-    
-            // Handle different export status cases
-            switch ($req->input('exportStatus')) {
-                case 'Today':
-                    $startDate = Carbon::today()->startOfDay()->toDateTimeString();
-                    $endDate = Carbon::today()->endOfDay()->toDateTimeString();
+
+            switch ($value) {
+                case 2:
+                    // Next 7 days expiry
+                    $startDate = Carbon::today()->toDateString();
+                    $endDate   = Carbon::today()->addDays(7)->toDateString();
                     break;
-                case 'Yesterday':
-                    $startDate = Carbon::yesterday()->startOfDay()->toDateTimeString();
-                    $endDate = Carbon::yesterday()->endOfDay()->toDateTimeString();
+
+                case 3:
+                    // Next 3 days expiry
+                    $startDate = Carbon::today()->toDateString();
+                    $endDate   = Carbon::today()->addDays(3)->toDateString();
                     break;
-                case 'Last 7 Day':
-                    $startDate = Carbon::now()->subDays(7)->startOfDay()->toDateTimeString();
-                    $endDate = Carbon::today()->endOfDay()->toDateTimeString();
+
+                case 4:
+                    // Next 15 days expiry
+                    $startDate = Carbon::today()->toDateString();
+                    $endDate   = Carbon::today()->addDays(15)->toDateString();
                     break;
-                case 'This Month':
-                    $startDate = Carbon::now()->startOfMonth()->toDateTimeString();
-                    $endDate = Carbon::now()->endOfMonth()->toDateTimeString();
+
+                case 5:
+                    // Next 30 days expiry
+                    $startDate = Carbon::today()->toDateString();
+                    $endDate   = Carbon::today()->addDays(30)->toDateString();
                     break;
-                case 'Last Month':
-                    $startDate = Carbon::now()->subMonth()->startOfMonth()->toDateTimeString();
-                    $endDate = Carbon::now()->subMonth()->endOfMonth()->toDateTimeString();
+
+                case 6:
+                    // Active bookings only
+                    $startDate = null;
+                    $endDate   = null;
                     break;
-                case 'Custom Date':
-                    // Validate custom date range
-                    $req->validate([
-                        'export_start_date' => 'required|date',
-                        'export_end_date' => 'required|date|after_or_equal:export_start_date',
-                    ]);
-    
-                    $startDate = Carbon::parse($req->input('export_start_date'))->startOfDay()->toDateTimeString();
-                    $endDate = Carbon::parse($req->input('export_end_date'))->endOfDay()->toDateTimeString();
-                    break;
+
                 default:
-                    return back()->with('error', 'Warning: Invalid Export');
+                    Toastr::error('Warning: Invalid Input');
+                    return redirect()->route('admin.book-seat');
             }
-    
-            \Log::info("Start Date: $startDate, End Date: $endDate");
-            return Excel::download(new LeadExport($startDate, $endDate), 'leads_export.xlsx');
-    
+            // dd($startDate, $endDate);
+            $fileName = 'seat-data-export-' . now()->format('Y-m-d') . '-case-' . $value . '.xlsx';
+            return Excel::download(
+                new SeatDataExport($startDate, $endDate, $value), $fileName
+            );
+
         } catch (\Exception $e) {
-            return back()->with('error', 'Warning: ' . $e->getMessage());
+            Toastr::error('Warning: ' . $e->getMessage());
+            return redirect()->back();
         }
     }
 
 
 
 
-
-**************************************** app\Exports\LeadExport.php *********************************************************************
+**************************************** app\Exports\SeatDataExport.php *********************************************************************
 <?php
 
 namespace App\Exports;
 
-use App\Enquiry;
+use App\Models\Bookings;
+use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithColumnWidths;
+use Maatwebsite\Excel\Concerns\WithStyles;
 
-class LeadExport implements FromCollection, WithHeadings
+use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
+use PhpOffice\PhpSpreadsheet\Worksheet\MemoryDrawing;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use Carbon\Carbon;
+
+
+class SeatDataExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithColumnWidths
 {
     protected $startDate;
     protected $endDate;
+    protected $index = 1;
 
-    // Constructor to accept date range
+
     public function __construct($startDate, $endDate)
     {
         $this->startDate = $startDate;
-        $this->endDate = $endDate;
+        $this->endDate   = $endDate;
     }
 
-    // Fetch the data for export
     public function collection()
     {
-        $enquiry = Enquiry::whereBetween('created_at', [$this->startDate, $this->endDate])
-                         ->get(['id', 'name', 'email', 'phone', 'created_at']);
-        
-        return $enquiry;
+        $query = Bookings::with(['user', 'seat', 'hall']);
+
+        if ($this->startDate === null && $this->endDate === null) {
+            $data = $query->whereDate('expiry_date', '>=', now()->toDateString())->get();
+        } else {
+            $data = $query
+                ->whereDate('expiry_date', '>=', $this->startDate)
+                ->whereDate('expiry_date', '<=', $this->endDate)
+                ->get();
+        }
+
+        if ($data->count() == 0) {
+            return collect([[
+                'No Data Found', '', '', '', '', '', '', ''
+            ]]);
+        }
+        return $data;
     }
 
-    // Specify the column headings
+
+    // Map each row
+    public function map($booking): array
+    {
+        if (is_string($booking[0])) {
+                return [
+                    $booking[0], '', '', '', '', '', '', ''
+                ];
+        }     
+            
+        $seatNumbers = $booking->seat_ids ? explode(',', $booking->seat_ids) : [];
+
+        return [
+            $this->index++,
+            optional($booking->user)->name ?? '',
+            optional($booking->user)->email ?? '',
+            optional($booking->user)->phone ?? '',
+            optional($booking->hall)->name ?? '',
+            implode(", ", $seatNumbers),
+            $booking->start_date ? Carbon::parse($booking->start_date)->format('d-M-Y') : '',
+            $booking->expiry_date ? Carbon::parse($booking->expiry_date)->format('d-M-Y') : '',
+        ];
+    }
+
+    // Excel headings
     public function headings(): array
     {
         return [
-            'ID',
-            'Name',
-            'Email',
-            'Phone',
-            'Created At',
+            'SL',
+            'Student Name',
+            'Student Email',
+            'Mobile No',
+            'Hall Name',
+            'Seat No',
+            'Booking Date',
+            'Expiry Date',
         ];
     }
+
+    public function columnWidths(): array
+    {
+        return [
+            'A' => 6,   // SL
+            'B' => 20,  // Student Name
+            'C' => 35,  // Student Email
+            'D' => 15,  // Mobile No
+            'E' => 10,  // Hall No
+            'F' => 15,  // Seat No
+            'G' => 18,  // Booking Date
+            'H' => 18,  // Expiry Date
+        ];
+    }
+
+
+   public function styles(Worksheet $sheet)
+    {
+        // Header Styling
+        $sheet->getStyle('A1:H1')->applyFromArray([
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => [
+                    'rgb' => '063C93',
+                ],
+            ],
+            'font' => [
+                'bold' => true,
+                'size' => 11,
+                'color' => [
+                    'rgb' => 'FFFFFF',
+                ],
+            ],
+            'alignment' => [
+                'horizontal' => 'center',
+                'vertical'   => 'center',
+            ],
+        ]);
+
+          // Header Height
+         $sheet->getRowDimension(1)->setRowHeight(25); 
+
+         // No Data Found Row
+         if ($sheet->getHighestRow() == 2) {
+            $sheet->getStyle('A2:H2')->applyFromArray([
+                'font' => [
+                    'bold' => true,
+                    'size' => 12,
+                    'color' => ['rgb' => 'FF0000'], // Red
+                ],
+                'alignment' => [
+                    'horizontal' => 'center',
+                    'vertical'   => 'center',
+                ],
+            ]);
+            $sheet->mergeCells('A2:H2');
+        }
+
+        // BLACK BORDER (Heading + Entire Data)
+         $sheet->getStyle('A1:H' . $sheet->getHighestRow())
+            ->applyFromArray([
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                        'color' => ['rgb' => '000000'], // Black
+                    ],
+                ],
+            ]);
+        return [];
+    }
+
+
 }
 
 
