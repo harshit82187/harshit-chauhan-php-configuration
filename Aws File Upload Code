@@ -1,0 +1,74 @@
+******************************************************************************* Aws File Upload Code ************************************************************************************************
+
+if ($request->hasFile('employee_aadhar_card_file')) {
+    $aadhaarFile = $request->file('employee_aadhar_card_file');
+    $aadharFileName = $this->uploadToAWS($aadhaarFile, 'housekeeping-employees');
+} else {
+    $aadharFileName = $getDataById->housekeeping_employees_aadhar_card_file;
+}
+
+if ($request->hasFile('employee_pan_card_file')) {
+    $panFile = $request->file('employee_pan_card_file');
+    $panFileName = $this->uploadToAWS($panFile, 'housekeeping-employees');
+} else {
+    $panFileName = $getDataById->housekeeping_employees_pan_card_file;
+}
+
+if ($request->hasFile('employee_profile_image')) {
+    $imageFile = $request->file('employee_profile_image');
+    $imageFileName = $this->uploadToAWS($imageFile, 'housekeeping-employees');
+} else {
+    $imageFileName = $getDataById->housekeeping_employees_employee_profile_image;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+use GuzzleHttp\Client;
+
+function uploadToAWS($file, $folderName)
+{
+    try {
+        $client = new Client(['timeout' => 60]);
+        $imageName = time() . "-" . uniqid() . "." . $file->getClientOriginalExtension();
+        $multipart = [
+            [
+                'name'     => 'upload_files[0]',
+                'contents' => fopen($file->getRealPath(), 'r'),
+                'filename' => $imageName,
+            ],
+            [
+                'name'     => 'original_names[0]',
+                'contents' => $imageName,
+            ],
+            [
+                'name'     => 'folderName',
+                'contents' => $folderName,
+            ],
+        ];
+        $response = $client->request('POST', 'https://erp.pearlorganisation.in/public/api/S3/upload-file', [
+            'multipart' => $multipart,
+            'headers'   => ['Accept' => 'application/json']
+        ]);
+        $responseBody = json_decode($response->getBody()->getContents(), true);
+        if (!empty($responseBody['file_urls'][0])) {
+            return $responseBody['file_urls'][0]; // return uploaded URL
+        }
+    } catch (\Exception $e) {
+        \Log::error("AWS Upload Error: " . $e->getMessage());
+    }
+    return null;
+}
