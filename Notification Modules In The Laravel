@@ -1,0 +1,503 @@
+****************************************************** Notification Modules In The Laravel *****************************************************************
+
+
+Step :1  First Create a sql 
+
+CREATE TABLE crm_notifications (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    type VARCHAR(50) NOT NULL,               
+    title VARCHAR(255) NOT NULL,
+    message TEXT,
+    created_by BIGINT UNSIGNED NOT NULL,      
+    related_id BIGINT UNSIGNED NULL,          
+    related_module VARCHAR(50) NULL,          
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE crm_notification_users (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    notification_id BIGINT UNSIGNED NOT NULL,
+    user_id BIGINT UNSIGNED NOT NULL,
+    is_read TINYINT(1) DEFAULT 0,
+    read_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    FOREIGN KEY (notification_id) REFERENCES crm_notifications(id) ON DELETE CASCADE
+);
+
+CREATE TABLE crm_notification_read_logs (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    notification_id BIGINT UNSIGNED NOT NULL,
+    user_id BIGINT UNSIGNED NOT NULL,
+    read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (notification_id) REFERENCES crm_notifications(id) ON DELETE CASCADE
+);
+
+
+
+Step : 2 Create Model CRMNotification.php, CRMNotificationUser.php and CRMNotificationReadLog.php in app/Models
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class CRMNotificationUser extends Model
+{
+    use HasFactory;
+    protected $table = 'crm_notification_users';
+    protected $guarded = [];
+
+    public function notification()
+    {
+        return $this->belongsTo(CRMNotification::class, 'notification_id');
+    }
+
+
+	
+}
+
+
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class CRMNotification extends Model
+{
+    use HasFactory;
+    protected $table = 'crm_notifications';
+    protected $guarded = [];
+
+    public function getIconAttribute(){
+        $icons = [
+            'user_created'      => 'fa-user-plus',
+            'department_added'  => 'fa-building',
+            'lead_assigned'     => 'fa-briefcase',
+            'message'           => 'fa-envelope',
+        ];
+
+        return $icons[$this->type] ?? 'fa-bell';
+    }
+
+
+	
+}
+
+
+
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class CRMNotificationUser extends Model
+{
+    use HasFactory;
+    protected $table = 'crm_notification_users';
+    protected $guarded = [];
+
+    public function notification()
+    {
+        return $this->belongsTo(CRMNotification::class, 'notification_id');
+    }
+
+
+	
+}
+
+
+
+
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class CRMNotificationReadLog extends Model
+{
+    use HasFactory;
+    protected $table = 'crm_notification_read_logs';
+    protected $guarded = [];
+	
+}
+
+
+
+
+Step : 3  Create trait files where you want to use notification functionality.
+
+
+<?php
+
+namespace App\Traits\User;
+
+use App\Models\CRMNotification;
+use App\Models\CRMNotificationUser;
+use Illuminate\Support\Facades\Auth;
+
+trait NotificationTrait
+{
+
+    public function createCRMNotification($type, $title, $message, $related_id = null, $related_module = null, array $notifyUsers = [])
+    {
+        $notification = CRMNotification::create([
+            'type'           => $type,
+            'title'          => $title,
+            'message'        => $message,
+            'created_by'     => Auth::id(),
+            'related_id'     => $related_id,
+            'related_module' => $related_module,
+        ]);
+
+        foreach ($notifyUsers as $userId) {
+
+            if ($userId == Auth::id()) {
+                $customMessage = "You successfully created new user: " . $message;
+            } else {
+                $customMessage = "Your CRM account has been created by " . Auth::user()->first_name;
+            }
+
+            CRMNotificationUser::create([
+                'notification_id' => $notification->id,
+                'user_id'         => $userId,
+                'message'         => $customMessage,
+                'is_read'         => 0,
+            ]);
+        }
+
+        return $notification;
+    }
+
+
+}
+
+
+
+Step : 4 Use the trait file in your controller where you want to use notification functionality.
+
+use App\Traits\User\NotificationTrait;
+
+class UserController extends Controller
+{
+
+        use NotificationTrait;
+
+    public function store(Request $request)
+    {
+        // dd($request->all());
+        $log = Log::channel('staff_user');
+        $request->validate([
+            'email'  => 'required|email|unique:users,email',
+            'mobile' => 'required|unique:users,phone',
+        ]);
+        try {
+            $log->info('User store request received', ['email' => $request->email]);
+            if (User::where('email', $request->email)->exists()) {
+                $log->warning('Email already used', ['email' => $request->email]);
+                flash(translate('Email already used'))->error();
+                return back();
+            }
+
+            $user = new User;
+            $user->first_name = $request->first_name;
+            $user->last_name  = $request->last_name;
+            $user->email      = $request->email;
+            $user->phone      = $request->mobile;
+            $user->user_type  = "staff";
+            $user->password   = Hash::make($request->password);
+            $user->email_verified_at = now();
+            $user->address = $request->address;
+            $user->department_id = $request->department_id;
+            $user->role_id = $request->role_id;
+            $user->hourly_rate = $request->hourly_rate;
+
+            if (!$user->save()) {
+                $log->error('Failed to save user', ['email' => $request->email]);
+                flash(translate('Failed to save user'))->error();
+                return back();
+            }
+
+            $log->info('User saved successfully', ['user_id' => $user->id]);
+
+            // Aurora API call
+            try {
+                $tenantId = getenv('SOLAR_TENANT_ID');
+                $data = [
+                    'user' => [
+                        'first_name' => $request->first_name,
+                        'last_name'  => $request->last_name,
+                        'email'      => $request->email,
+                        'phone'      => $request->mobile,
+                        'external_provider_id' => 'https://www.pearlorganisation.com?p=' . time()
+                    ]
+                ];
+
+                $response = store_user_curl('https://api.aurorasolar.com/tenants/' . $tenantId . '/users', $data);
+                $log->info('Aurora API response', ['response' => $response]);
+
+                $userId = $response['user']['id'] ?? null;
+            } catch (Exception $apiEx) {
+                $log->error('Aurora API Error', ['message' => $apiEx->getMessage(), 'email' => $request->email]);
+                $userId = null;
+            }
+
+            $staff = new Staff;
+            $staff->user_id = $user->id;
+            $staff->role_id = $request->role_id;
+            $staff->is_api = 1;
+            $staff->is_api_id = $userId;
+
+            $user->assignRole(Role::findOrFail($request->role_id)->name);
+
+            if (!$staff->save()) {
+                $log->error('Failed to save staff record', ['user_id' => $user->id]);
+                flash(translate('Failed to save staff record'))->error();
+                return back();
+            }
+
+            $role_name = Role::where('id', $staff->role_id)->value('name');
+
+            if ($user->email && get_email_template('staff_account_opening_email', 'status')) {
+                EmailUtility::staff_account_opening_email($user, $request->password, $role_name);
+                $log->info('Staff account opening email sent', ['email' => $user->email]);
+            }
+
+            if ($user->phone && addon_activation('otp_system') && (get_sms_template('staff_account_opening', 'status') == 1)) {
+                SmsUtility::staff_account_opening($user, $request->password, $role_name);
+                $log->info('Staff account opening SMS sent', ['phone' => $user->phone]);
+            }
+
+            $log->info('User inserted successfully', ['user_id' => $user->id]);
+
+            $this->createCRMNotification(
+                type: 'user_created',
+                title: 'New Staff User Created',
+                message: $user->first_name . ' ' . $user->last_name . ' has been created.',
+                related_id: $user->id,
+                related_module: 'users',
+                notifyUsers: [
+                    Auth::id(),     // jisne create kiya
+                    $user->id       // jo create hua
+                ]
+            );
+
+            $log->info('User Create Successfylly!');
+            flash(translate('User inserted successfully'))->success();
+            return redirect()->route('users.index');
+
+        } catch (Exception $e) {
+            $log->error('Error in store() method', [
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            flash(translate('Something went wrong. Please check logs.'))->error();
+            return back();
+        }
+    }
+}
+
+
+Step 5 Add view file code to see notifications and notification count in your desired blade file.
+
+<?php
+
+namespace App\Http\View\Composers;
+
+use Illuminate\View\View;
+use App\Models\CRMNotificationUser;
+use Auth;
+
+class NotificationComposer
+{
+    public function compose(View $view)
+    {
+        $count = 0;
+        $notifications = collect([]);
+
+        if (Auth::check()) {
+            $userId = Auth::id();
+            $count = CRMNotificationUser::where('user_id', $userId)
+                    ->where('is_read', 0)->count();
+            $notifications = CRMNotificationUser::with('notification')
+                    ->where('user_id', $userId)
+                    ->orderBy('id', 'DESC')
+                    ->limit(10)
+                    ->get();
+        }
+        // dd($count,$notifications);
+        $view->with([
+            'notificationCount' => $count,
+            'notifications' => $notifications,
+        ]);
+    }
+}
+
+
+Step : 6 register the view composer in App\Providers\ViewServiceProvider.php
+use App\Http\View\Composers\NotificationComposer;
+
+class AppServiceProvider extends ServiceProvider
+{
+
+    public function boot()
+    {
+        View::composer('*', NotificationComposer::class);
+    }
+
+}
+
+
+Step :7 create bell icon and notification dropdown in your desired blade file.
+
+<div class="crm-notify-badge-box">
+    <div class="dropdown">
+        <a class="crm-notify-badge-box dropdown-toggle notification-bell-icon" data-bs-toggle="dropdown">
+            <i class="fa fa-bell"></i>
+            <span class="crm-notify-number">{{ $notificationCount  ?? '0' }}</span>
+        </a>
+        @include('admin.inc.notifications')
+    </div>
+</div>
+
+
+notifications.blade.php
+
+<ul class="crm-notify-list dropdown-menu dropdown-menu-end notify-dropdown p-2">
+    <li><div class="dropdown-arrow"></div></li>
+
+    @forelse($notifications as $noti)
+        <li class="crm-notify-item">
+            <div class="crm-notify-icon">
+                <i class="fa {{ $noti->notification->icon }}"></i>
+            </div>
+
+            <div class="crm-notify-content">
+                <h6>{{ $noti->notification->title }}</h6>
+                <p>{{ $noti->message }}</p>
+
+                <div class="d-flex align-items-center justify-content-between">                    
+                    <span class="crm-notify-time">{{ $noti->created_at->diffForHumans() }}</span>
+                </div>
+            </div>
+        </li>
+    @empty
+        <li class="p-2 text-center">No Notifications Found</li>
+    @endforelse
+
+    <li><a class="fw-bold view-btn" href="#">View All</a></li>
+</ul>
+
+
+Step : 8 Create a method in your NotificationsController, script and route to mark notifications as read.
+
+Route::controller(NotificationsController::class)->group(function () {
+    Route::get('notifications/mark-as-read', 'markAsRead')->name('notifications/mark-as-read');
+});
+
+<script>
+    var notificationRoute = "{{ route('notifications/mark-as-read') }}";
+</script>
+<script src="{{ getenv('APP_ASSET_URL') . 'assets/js/notifications.js' }}"></script>
+
+
+notifications.js file code
+
+$(document).ready(function() {
+    $('.notification-bell-icon').on('click', function() {  
+        $.ajax({
+            url : notificationRoute,
+            type : 'GET',
+            dataType : "JSON",
+            processData : false,
+            contentType : false,
+            success : function(response) {
+                if(response.status === 'success') {
+                    alert(121);
+                }  
+            },
+            error:function(xhr, status, error) {
+                console.error('Error marking notifications as read:', error);
+            }
+        });
+    });
+});
+
+
+controller method code
+
+<?php
+namespace App\Http\Controllers\Member;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+
+use App\Models\CRMNotificationUser;
+use App\Models\CRMNotificationReadLog;
+
+use Mpdf\Mpdf;
+use Mail;
+use Log;
+use auth;
+
+
+
+class NotificationsController extends Controller
+{
+
+    public function markAsRead(){
+        try{
+            $user = auth()->user();
+            $unread =  CRMNotificationUser::where('user_id', $user->id)->where('is_read', 0)->get();
+            CRMNotificationUser::where('user_id', $user->id)->where('is_read', 0)->update(['is_read' => 1,'read_at' => now()]);
+            if(count($unread) == 0){
+                return response()->json([
+                    'status' => 'info',
+                    'message' => 'No unread notifications found.',
+                ], 200);
+            }
+            foreach($unread as $notification){
+                CRMNotificationReadLog::create([
+                    'notification_id' => $notification->notification_id,
+                    'user_id'         => $user->id,
+                    'read_at'         => now(),
+                ]);
+            }
+            return response()->json([
+                'status' => 'success',
+                'message' => 'All notifications marked as read.',
+                'unread'   => count($unread),
+            ], 200);
+
+        }catch (\Throwable  $e) {
+                return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+    
+   
+}
+
+
+
+
+
