@@ -315,133 +315,16 @@ class UserController extends Controller
 }
 
 
-Step 5 Add view file code to see notifications and notification count in your desired blade file.
-
-<?php
-
-namespace App\Http\View\Composers;
-
-use Illuminate\View\View;
-use App\Models\CRMNotificationUser;
-use Auth;
-
-class NotificationComposer
-{
-    public function compose(View $view)
-    {
-        $count = 0;
-        $notifications = collect([]);
-
-        if (Auth::check()) {
-            $userId = Auth::id();
-            $count = CRMNotificationUser::where('user_id', $userId)
-                    ->where('is_read', 0)->count();
-            $notifications = CRMNotificationUser::with('notification')
-                    ->where('user_id', $userId)
-                    ->orderBy('id', 'DESC')
-                    ->limit(10)
-                    ->get();
-        }
-        // dd($count,$notifications);
-        $view->with([
-            'notificationCount' => $count,
-            'notifications' => $notifications,
-        ]);
-    }
-}
 
 
-Step : 6 register the view composer in App\Providers\ViewServiceProvider.php
-use App\Http\View\Composers\NotificationComposer;
-
-class AppServiceProvider extends ServiceProvider
-{
-
-    public function boot()
-    {
-        View::composer('*', NotificationComposer::class);
-    }
-
-}
-
-
-Step :7 create bell icon and notification dropdown in your desired blade file.
-
-<div class="crm-notify-badge-box">
-    <div class="dropdown">
-        <a class="crm-notify-badge-box dropdown-toggle notification-bell-icon" data-bs-toggle="dropdown">
-            <i class="fa fa-bell"></i>
-            <span class="crm-notify-number">{{ $notificationCount  ?? '0' }}</span>
-        </a>
-        @include('admin.inc.notifications')
-    </div>
-</div>
-
-
-notifications.blade.php
-
-<ul class="crm-notify-list dropdown-menu dropdown-menu-end notify-dropdown p-2">
-    <li><div class="dropdown-arrow"></div></li>
-
-    @forelse($notifications as $noti)
-        <li class="crm-notify-item">
-            <div class="crm-notify-icon">
-                <i class="fa {{ $noti->notification->icon }}"></i>
-            </div>
-
-            <div class="crm-notify-content">
-                <h6>{{ $noti->notification->title }}</h6>
-                <p>{{ $noti->message }}</p>
-
-                <div class="d-flex align-items-center justify-content-between">                    
-                    <span class="crm-notify-time">{{ $noti->created_at->diffForHumans() }}</span>
-                </div>
-            </div>
-        </li>
-    @empty
-        <li class="p-2 text-center">No Notifications Found</li>
-    @endforelse
-
-    <li><a class="fw-bold view-btn" href="#">View All</a></li>
-</ul>
-
-
-Step : 8 Create a method in your NotificationsController, script and route to mark notifications as read.
+Step :- 5 Create a method in your desired controller to fetch notifications and pass it to the view.
 
 Route::controller(NotificationsController::class)->group(function () {
     Route::get('notifications/mark-as-read', 'markAsRead')->name('notifications/mark-as-read');
-});
-
-<script>
-    var notificationRoute = "{{ route('notifications/mark-as-read') }}";
-</script>
-<script src="{{ getenv('APP_ASSET_URL') . 'assets/js/notifications.js' }}"></script>
-
-
-notifications.js file code
-
-$(document).ready(function() {
-    $('.notification-bell-icon').on('click', function() {  
-        $.ajax({
-            url : notificationRoute,
-            type : 'GET',
-            dataType : "JSON",
-            processData : false,
-            contentType : false,
-            success : function(response) {
-                if(response.status === 'success') {
-                    alert(121);
-                }  
-            },
-            error:function(xhr, status, error) {
-                console.error('Error marking notifications as read:', error);
-            }
-        });
-    });
+    Route::get('fetch-notifications', 'fetchNotification')->name('fetch-notifications');
 });
 
 
-controller method code
 
 <?php
 namespace App\Http\Controllers\Member;
@@ -461,6 +344,36 @@ use auth;
 
 class NotificationsController extends Controller
 {
+
+    public function fetchNotification(){
+        try{
+            $count = 0;
+            $notifications = collect([]);
+
+            if (Auth::check()) {
+                $userId = Auth::id();
+                $count = CRMNotificationUser::where('user_id', $userId)
+                        ->where('is_read', 0)->count();
+                $notifications = CRMNotificationUser::with('notification')
+                        ->where('user_id', $userId)->where('is_read', 0)
+                        ->orderBy('id', 'DESC')
+                        ->get();
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'All notifications marked as read.',
+                    'count'   => $count,
+                    'notifications'   => $notifications,
+                ], 200);
+            }
+
+        }catch (\Throwable  $e) {
+                return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
 
     public function markAsRead(){
         try{
@@ -500,4 +413,213 @@ class NotificationsController extends Controller
 
 
 
+Step : 6 here is a script to fetch all the unread notifications and display them in the notification dropdown and mark them as read when clicked.
 
+    <script>
+        var notificationRoute = "{{ route('notifications/mark-as-read') }}";
+        var fetchNotificationRoute = "{{ route('fetch-notifications') }}";
+    </script>
+    <script src="{{ getenv('APP_ASSET_URL') . 'assets/js/notifications.js' }}"></script>
+
+
+    $(document).ready(function() {
+        fetchNotification();
+
+        $(document).on('click', '.mark-as-read', function () {
+            var $btn = $(this);
+            $btn.css('pointer-events', 'none')
+                .css('cursor', 'no-drop')
+                .html(`<i class="fa fa-spinner fa-spin me-2"></i> Please wait...`);
+            $.ajax({
+                url: notificationRoute,
+                type: 'GET',
+                dataType: "JSON",
+                success: function (response) {
+                    if (response.status === 'success') {
+                        AIZ.plugins.notify('success', response.message);
+                        fetchNotification(); // refresh list
+                    }
+                },
+                error: function (xhr, status, error) {
+                    AIZ.plugins.notify('danger', error);
+                }
+            });
+        });
+
+
+        function fetchNotification() {
+            $.ajax({
+                url: fetchNotificationRoute,
+                type: 'GET',
+                dataType: "JSON",
+                success: function (response) {
+                    if (response.status === 'success') {
+                        $('.crm-notify-number').text(response.count);
+                        let html = `
+                            <li><div class="dropdown-arrow"></div></li>
+                        `;
+                        if (Array.isArray(response.notifications) && response.notifications.length > 0) {
+                            response.notifications.forEach(function (item) {
+                                html += `
+                                    <li class="crm-notify-item">
+                                        <div class="crm-notify-icon">
+                                            <i class="fa ${item.notification.icon ?? 'fa-bell'}"></i>
+                                        </div>
+                                        <div class="crm-notify-content">
+                                            <h6>${item.notification.title}</h6>
+                                            <p>${item.message}</p>
+                                        </div>
+                                    </li>
+                                `;
+                            });
+                            html += `
+                            <li> <a class="fw-bold view-btn mark-as-read" href="javascript:void(0)">Mark as read <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"> <path d="M2 13l4 4L11 8" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/> <path d="M9 13l4 4L20 6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/> </svg> </a> </li>
+                            `;
+                        } else {
+                            html += `<li class="p-2 text-center">No Notifications Found</li>`;
+                        }
+                        $('.crm-notify-list').html(html);
+                    }
+                },
+                error: function (xhr, status, error) {
+                    AIZ.plugins.notify('danger', error);
+                }
+            });
+        }
+
+
+
+
+
+    });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+****************************************************** End Notification Modules In The Laravel *****************************************************************
+
+when you send a notification only admin which is created or updated department 
+
+
+First make App/Traits/Department/DepartmentNotificationTrait.php
+
+<?php
+
+namespace App\Traits\Department;
+
+use App\Models\CRMNotification;
+use App\Models\CRMNotificationUser;
+use Illuminate\Support\Facades\Auth;
+
+trait DepartmentNotificationTrait
+{
+    public function createDepartmentNotification(
+        string $type,
+        string $title,
+        string $message,
+        int $departmentId
+    ) {
+        $notification = CRMNotification::create([
+            'type'           => $type,
+            'title'          => $title,
+            'message'        => $message,
+            'created_by'     => Auth::id(),
+            'related_id'     => $departmentId,
+            'related_module' => 'departments',
+        ]);
+
+        // 👉 Sirf current user ko notification
+        CRMNotificationUser::create([
+            'notification_id' => $notification->id,
+            'user_id'         => Auth::id(),
+            'message'         => $message,
+            'is_read'         => 0,
+        ]);
+
+        return $notification;
+    }
+}
+
+
+
+
+
+
+
+
+
+Step : 2  Now use this trait in DepartmentController.php
+
+
+
+    public function store(Request $req){
+        // dd($req->all());   
+        $messages = [
+            'name.required' => 'Department Name field is mandatory.',
+            'name.string' => 'Department Name must be a valid string.',
+            'name.unique' => 'This Department  name is already exist. Please try another department name',
+        ];      
+        $validated = $req->validate([
+            'name' => 'required|string|unique:departments,name',
+        ], $messages);
+        $department = new Department();
+        $department->name = $req->name;
+        $department->status = 1;
+        $department->user_id = auth()->user()->id;
+        $department->save(); 
+
+        $this->createDepartmentNotification(
+            type: 'department_created',
+            title: 'Department Created',
+            message: 'Department "' . $department->name . '" created successfully.',
+            departmentId: $department->id
+        );
+
+        flash('Department created successfully!')->success();
+        return redirect()->route('departments.index');
+    }
+
+    public function update(Request $req){
+        // dd($req->all());  
+        $department = Department::findOrFail($req->id);
+        $messages = [
+            'name.required' => 'Department Name field is mandatory.',
+            'name.string' => 'Department Name must be a valid string.',
+            'name.unique' => 'This Department name already exists. Please try another.',
+            'id.required' => 'Department ID is required.',
+            'id.numeric' => 'Department ID must be numeric.',
+            'id.exists' => 'Selected department does not exist.',
+        ];  
+        $validator = Validator::make($req->all(), [
+            'name' => 'required|string|unique:departments,name,' . $department->id,
+            'id' => 'required|numeric|exists:departments,id',
+        ], $messages);
+        if ($validator->fails()) {
+            flash()->error($validator->errors()->first());
+            return redirect()->back()->withErrors($validator)->withInput();
+        }
+        $department->name = $req->name;
+        $department->status = 1;
+        $department->user_id = auth()->user()->id;
+        $department->save(); 
+
+         $this->createDepartmentNotification(
+            type: 'department_updated',
+            title: 'Department Updated',
+            message: 'Department "' . $department->name . '" updated successfully.',
+            departmentId: $department->id
+        );
+
+        flash('Department updated successfully!')->success();
+        return redirect()->route('departments.index');
+    }
