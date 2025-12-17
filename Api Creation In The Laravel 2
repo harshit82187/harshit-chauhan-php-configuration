@@ -1,0 +1,426 @@
+************************************************************************ API CREATION IN LARAVEL WITH SANCTUM PACKAGE ***********************************************************************************************
+
+Step :- 1 Install Package 
+
+composer require laravel/sanctum
+php artisan vendor:publish --provider="Laravel\\Sanctum\\SanctumServiceProvider"
+
+php artisan migrate
+Isse personal_access_tokens table banega
+
+
+
+#### if you did not want to migrate table so you easily create this type of migration 
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('personal_access_tokens', function (Blueprint $table) {
+            $table->id();
+            $table->morphs('tokenable');
+            $table->string('name');
+            $table->string('token', 64)->unique();
+            $table->text('abilities')->nullable();
+            $table->timestamp('last_used_at')->nullable();
+            $table->timestamp('expires_at')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('personal_access_tokens');
+    }
+};
+
+
+
+
+
+
+Step :- 2 📄 app/Models/User.php
+
+<?php
+
+namespace App\Models;
+
+// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
+
+class User extends Authenticatable
+{
+    use HasApiTokens, HasFactory, Notifiable;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $guarded = [];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var array<int, string>
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+    ];
+}
+
+
+
+Step :- 3 api.php and config/app.php
+
+use App\Http\Controllers\Api\AuthController;
+
+Route::post('/login', [AuthController::class, 'login']);
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/profile', [AuthController::class, 'profile']);
+    Route::post('/logout', [AuthController::class, 'logout']);
+});
+
+
+'asset_url_api' => env('ASSET_URL_API', ''),
+
+
+
+Step :- 4 php artisan make:controller Api/AuthController
+
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use App\Models\User;
+
+
+class AuthController extends Controller
+{
+    protected $assetUrl;
+
+    public function __construct()
+    {
+        $this->assetUrl = config('app.asset_url_api');
+    }
+
+    public function login(Request $request)
+    {
+        // dd($request->all());
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required'
+        ]);
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'message' => 'Invalid credentials'
+            ], 401);
+        }
+        $token = $user->createToken('user-login-token')->plainTextToken;
+        return response()->json([
+            'message' => 'Login successful',
+            'token' => $token,
+            'user' => $user
+        ]);
+    }
+
+    public function profile(Request $request)
+    {
+        $user = $request->user();
+
+        $user->image = $user->image
+            ? rtrim($this->assetUrl, '/') . '/' . ltrim($user->image, '/')
+            : null;
+        return response()->json([
+            'user' => $request->user()
+        ]);
+    }
+
+    public function logout(Request $request){
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'message' => 'Logged out successfully'
+        ]);
+    }
+
+
+}
+
+
+
+
+Step :- 5 app/Exceptions/Handler.php file code
+
+public function render($request, Throwable $exception)
+    {
+        // Check if request expects JSON (API call)
+        \Log::error('Exception caught in render', [
+            'exception' => $exception,
+            'url' => $request->fullUrl(),
+            'input' => $request->all(),
+        ]);
+        if ($request->expectsJson() || $request->is('api/*')) {
+
+            // Handle method not found
+            if ($exception instanceof \BadMethodCallException) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'API method does not exist: ' . $exception->getMessage()
+                ], 500);
+            }
+
+            // Handle Model not found
+            if ($exception instanceof \Illuminate\Database\Eloquent\ModelNotFoundException) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Resource not found.'
+                ], 404);
+            }
+
+            // Handle unauthorized
+            if ($exception instanceof \Illuminate\Auth\AuthenticationException) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Unauthenticated (Invalid or missing token).'
+                ], 401);
+            }
+
+            // Handle any other exception
+            return response()->json([
+                'status' => false,
+                'message' => $exception->getMessage(),
+            ], 500);
+        }
+
+        // For non-API calls (web)
+        return parent::render($request, $exception);
+}
+
+
+
+
+Step : 6 create this migration for api logs 
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('api_logs', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->string('method');
+            $table->string('endpoint');
+            $table->json('request')->nullable();
+            $table->longText('response')->nullable();
+            $table->integer('status_code');
+            $table->boolean('is_error')->default(false);
+            $table->string('ip_address')->nullable();
+            $table->string('user_agent')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('api_logs');
+    }
+};
+
+
+
+Step :- 7 Crate ApiLog Model 
+php artisan make:model ApiLog
+
+app/Models/ApiLog.php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class ApiLog extends Model
+{
+    protected $fillable = [
+        'user_id',
+        'method',
+        'endpoint',
+        'request',
+        'response',
+        'status_code',
+        'is_error',
+        'ip_address',
+        'user_agent',
+    ];
+
+    protected $casts = [
+        'request' => 'array',
+        'is_error' => 'boolean',
+    ];
+}
+
+
+Step :- 8 php artisan make:middleware ApiLogger
+
+<?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use App\Models\ApiLog;
+
+use Symfony\Component\HttpFoundation\Response;
+
+class ApiLogger
+{
+    /**
+     * Handle an incoming request.
+     *
+     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     */
+    public function handle(Request $request, Closure $next): Response
+    {
+        $response = $next($request); // 👈 request controller ko bhejo        
+        try {
+            ApiLog::create([
+                'user_id'     => auth()->check() ? auth()->id() : null,
+                'method'      => $request->method(),
+                'endpoint'    => $request->path(),
+                'request'     => $request->except(['password', 'password_confirmation']),
+                'response'    => $response->getContent(),
+                'status_code' => $response->getStatusCode(),
+                'is_error'    => $response->getStatusCode() >= 400,
+                'ip_address'  => $request->ip(),
+                'user_agent'  => $request->userAgent(),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+        return $response;
+
+    }
+}
+
+
+
+Step :- 9
+protected $middlewareGroups = [
+    'api' => [
+        \App\Http\Middleware\ApiLogger::class,
+    ],
+];
+
+
+Step :- 10 Postman Code 
+
+Post http://127.0.0.1:8000/api/login
+body > form-data > 
+
+key                value
+email              harshitk@pearlorgansiation.com
+password           12345678
+
+
+Response :- 
+
+{
+    "message": "Login successful",
+    "token": "6|K3QGnfz96SFbDUydYVNUjVIrzfLhPm91d9iqUUIR39ebf63a",
+    "user": {
+        "id": 1,
+        "name": "Harshit Chauhan",
+        "image": "app/users/2025/Dec/1765987111.JPG",
+        "email": "harshitk@pearlorganisation.com",
+        "mobile_no": "8218756792",
+        "email_verified_at": null,
+        "created_at": "2025-12-17T15:58:32.000000Z",
+        "updated_at": "2025-12-17T15:58:32.000000Z"
+    }
+}
+
+
+GET http://127.0.0.1:8000/api/profile
+Authorization > Auth Type > Baerer Token > 6|K3QGnfz96SFbDUydYVNUjVIrzfLhPm91d9iqUUIR39ebf63a
+Headers 
+
+Key          value
+Accept       application/json
+
+
+Response : 
+
+{
+    "user": {
+        "id": 1,
+        "name": "Harshit Chauhan",
+        "image": "http://127.0.0.1:8000/app/users/2025/Dec/1765987111.JPG",
+        "email": "harshitk@pearlorganisation.com",
+        "mobile_no": "8218756792",
+        "email_verified_at": null,
+        "created_at": "2025-12-17T15:58:32.000000Z",
+        "updated_at": "2025-12-17T15:58:32.000000Z"
+    }
+}
+
+
+Post http://127.0.0.1:8000/api/logout
+Authorization > Auth Type > Baerer Token > 6|K3QGnfz96SFbDUydYVNUjVIrzfLhPm91d9iqUUIR39ebf63a
+Headers 
+
+Key          value
+Accept       application/json
+
+Response :- 
+{
+    "message": "Logged out successfully"
+}
+
+
+
+
