@@ -1,0 +1,72 @@
+******************************************************************************* Accessor and Mutator In Laravel **************************************************************************************
+
+Accessor ka use data ko get karte time modify karne ke liye hota hai.
+Jaise: name ko hamesha ucwords (First letter capital) me dikhana.
+
+
+Mutator ka use data save karte time modify karne ke liye hota hai.
+Jaise: email ko database me hamesha lowercase me save karna.
+
+
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+
+class Query extends Model
+{
+    use HasFactory;
+    protected $table="querys";
+    protected $guarded = [];    
+
+    public function getNameAttribute($value)
+    {
+        return ucwords($value);
+    }
+
+    public function setEmailAttribute($value)
+    {
+        $this->attributes['email'] = strtolower($value);
+    }
+    
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public function contactStore(Request $request){
+        // dd($request->all());
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'mobile_no' => 'required|digits_between:7,15',
+            'email' => 'required|email|max:255',
+            'subject' => 'required|string|max:255',
+            'message' => 'required|string',
+        ]);
+
+        Query::create([
+            'name' => $request->name,
+            'mobile_no' => $request->mobile_no,
+            'email' => $request->email,
+            'subject' => $request->subject,
+            'message' => $request->message,
+        ]);
+        return back()->with('success', 'Your message has been sent successfully.');
+    }
