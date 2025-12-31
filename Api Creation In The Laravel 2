@@ -272,6 +272,31 @@ return new class extends Migration
 
 
 
+*********************************************************************** or sql schema ***********************************************************************************
+CREATE TABLE `api_logs` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT UNSIGNED NULL,
+    `method` VARCHAR(255) NOT NULL,
+    `endpoint` VARCHAR(255) NOT NULL,
+    `request` JSON NULL,
+    `response` LONGTEXT NULL,
+    `status_code` INT NOT NULL,
+    `is_error` TINYINT(1) NOT NULL DEFAULT 0,
+    `ip_address` VARCHAR(255) NULL,
+    `user_agent` VARCHAR(255) NULL,
+    `created_at` TIMESTAMP NULL DEFAULT NULL,
+    `updated_at` TIMESTAMP NULL DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    CONSTRAINT `api_logs_user_id_foreign`
+        FOREIGN KEY (`user_id`)
+        REFERENCES `users` (`id`)
+        ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+
+
+
 Step :- 7 Crate ApiLog Model 
 php artisan make:model ApiLog
 
