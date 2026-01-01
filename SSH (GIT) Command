@@ -13,12 +13,14 @@
 
 5. test1 projects SSH 
    ssh -p 65002 u128827813@217.21.90.177
-   PearlRoot@12390
+   mobilityA8435@
+
 
 
 6. server1 projects SSH
    ssh -p 65002 u966989102@45.84.204.92
-   PearlRoot@12390
+   mobilityA8435@
+
 
 
 
