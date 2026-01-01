@@ -26,6 +26,21 @@ trait ImageUploadTrait
         $image->move(public_path($fullPath), $fileName);
         return $fullPath . '/' . $fileName;
     }
+
+    public function uploadMultipleImages(?array $images, string $path): array
+    {
+        $uploadedPaths = [];
+
+        if (!$images) return $uploadedPaths;
+
+        foreach ($images as $image) {
+            if ($image instanceof UploadedFile) {
+                $uploadedPaths[] = $this->uploadImage($image, $path);
+            }
+        }
+
+        return $uploadedPaths;
+    }
 }
 
 
