@@ -449,3 +449,85 @@ Response :-
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Step :- 11 api Logging listing
+<style>
+    .badge-soft-success {
+        background-color: rgba(25, 135, 84, 0.15);
+        color: #198754;
+    }
+    .badge-soft-info {
+        background-color: rgba(13, 110, 253, 0.15);
+        color: #0d6efd;
+    }
+</style>
+
+ <table class="table mt-5" id="user-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>User</th>
+                        <th>Method</th>
+                        <th>Endpoint</th>
+                        <th>Status</th>
+                        <th>Error</th>
+                        <th>IP</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($logs as $log)
+                        <tr class="{{ $log->is_error ? 'table-danger' : '' }}">
+                            <td>{{ $loop->iteration }}</td>
+                            <td>{{ optional($log->user)->name ?? 'Guest' }}</td>
+                            <td>
+                                <span class="badge
+                                    @if($log->method == 'GET') badge-soft-info
+                                    @elseif($log->method == 'POST') badge-soft-success
+                                    @elseif($log->method == 'PUT') bg-warning
+                                    @elseif($log->method == 'DELETE') bg-danger
+                                    @else bg-secondary
+                                    @endif
+                                ">
+                                    {{ $log->method }}
+                                </span>
+                            </td>
+                            <td>{{ $log->endpoint }}</td>
+                            <td>{{ $log->status_code }}</td>
+                            <td>{{ $log->is_error ? 'Yes' : 'No' }}</td>
+                            <td>{{ $log->ip_address }}</td>
+                            <td>{{ $log->created_at->format('d-m-Y H:i') }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="8" class="text-center">No Logs Found</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+            <div class="d-flex justify-content-center mt-3">
+                {{ $logs->links('pagination::bootstrap-5') }}
+            </div>
+
+
