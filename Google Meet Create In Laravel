@@ -1,0 +1,368 @@
+*************************************************************** Google Meet Create In Laravel ************************************************************************************************
+
+step :1 Create auth id, client id and redirect url in the https://console.cloud.google.com/.
+        Enable google meet and google calender in the library section. 
+        api services>library
+
+
+Step : 2  in env file 
+GOOGLE_CLIENT_ID="365479808010-r81k814oobqhq0pfrrc9phgq20o03ci8.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET="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"
+GOOGLE_REDIRECT_URL="http://127.0.0.1:8000/google-meet"
+
+
+Step : 3 config>services.php file code
+
+  'google' => [
+      'client_id' => env('GOOGLE_CLIENT_ID'),
+      'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+      'redirect' => env('GOOGLE_REDIRECT_URL'),
+  ],
+
+
+Step :4 Install Package 
+composer require google/apiclient:^2.15
+
+
+Step :5 create GoogleMeetController controller 
+
+<?php
+
+namespace App\Http\Controllers\Auth;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+
+use Google\Client;
+use Google\Service\Calendar;
+use Carbon\Carbon;
+use Session;
+use Illuminate\Support\Facades\Log;
+use App\Models\GoogleMeeting;
+
+
+class GoogleMeetController extends Controller
+{
+
+    public function redirectToGoogle()
+    {
+        Log::info('Google Config', config('services.google'));
+
+        $client = new Client();
+        $client->setClientId(config('services.google.client_id'));
+        $client->setClientSecret(config('services.google.client_secret'));
+        $client->setRedirectUri(config('services.google.redirect'));
+
+        $client->addScope(Calendar::CALENDAR);
+        $client->setAccessType('offline');
+        $client->setPrompt('consent select_account');
+
+        return redirect($client->createAuthUrl());
+    }
+
+
+
+    public function handleGoogleCallback(Request $request)
+    {
+        Log::info('Callback Hit', $request->all());
+
+        if (!$request->has('code')) {
+            Log::error('No auth code received');
+            return redirect('/google-auth');
+        }
+
+        // ✅ USE CONFIG — NOT ENV
+        $client = new Client();
+        $client->setClientId(config('services.google.client_id'));
+        $client->setClientSecret(config('services.google.client_secret'));
+        $client->setRedirectUri(config('services.google.redirect'));
+
+        Log::info('Using Redirect URI:', [
+            'uri' => config('services.google.redirect')
+        ]);
+
+        $token = $client->fetchAccessTokenWithAuthCode($request->code);
+
+        Log::info('Token Response:', $token);
+
+        if (isset($token['error'])) {
+            Log::error('Token Error', $token);
+            return response()->json($token);
+        }
+
+        Session::put('google_access_token', $token);
+
+        return redirect('/meeting-form');
+    }
+
+
+
+
+    public function meetingForm(){
+        return view('auth.google-meet.index');
+    }
+
+    public function createMeeting(Request $request)
+    {
+        Log::info('Create Meeting Request', $request->all());
+
+        $token = Session::get('google_access_token');
+        Log::info('Stored Token:', $token ?? []);
+
+        if (!$token || !isset($token['access_token'])) {
+            Log::error('Token missing, redirecting to auth');
+            return redirect('/google-auth');
+        }
+
+        $client = new Client();
+
+        // 🔥 THIS WAS MISSING (MAIN FIX)
+        $client->setClientId(config('services.google.client_id'));
+        $client->setClientSecret(config('services.google.client_secret'));
+
+        $client->setAccessToken($token);
+
+        // OPTIONAL: token expire ho jaye to auto refresh
+        if ($client->isAccessTokenExpired() && isset($token['refresh_token'])) {
+            $newToken = $client->fetchAccessTokenWithRefreshToken($token['refresh_token']);
+            Session::put('google_access_token', array_merge($token, $newToken));
+            $client->setAccessToken(Session::get('google_access_token'));
+        }
+
+        $service = new Calendar($client);
+
+        $start = Carbon::parse($request->date.' '.$request->time);
+        $end   = (clone $start)->addMinutes(30);
+
+        $event = new \Google\Service\Calendar\Event([
+            'summary' => $request->meeting_name,
+            'start' => [
+                'dateTime' => $start->toIso8601String(),
+                'timeZone' => 'Asia/Kolkata',
+            ],
+            'end' => [
+                'dateTime' => $end->toIso8601String(),
+                'timeZone' => 'Asia/Kolkata',
+            ],
+            'conferenceData' => [
+                'createRequest' => [
+                    'requestId' => uniqid(),
+                    'conferenceSolutionKey' => [
+                        'type' => 'hangoutsMeet',
+                    ],
+                ],
+            ],
+        ]);
+
+        $event = $service->events->insert(
+            'primary',
+            $event,
+            ['conferenceDataVersion' => 1]
+        );
+
+        // ✅ SAVE IN DB
+        GoogleMeeting::create([
+            'meeting_name' => $request->meeting_name,
+            'date' => $request->date,
+            'time' => $request->time,
+            'meet_link' => $event->hangoutLink,
+        ]);
+
+        return view('auth.google-meet.result', [
+            'meet_link' => $event->hangoutLink
+        ]);
+    }
+
+
+
+
+
+
+
+}
+
+
+Step :- 6 web file code 
+Route::controller(GoogleMeetController::class)->group(function () {
+    Route::get('/google-auth', 'redirectToGoogle');
+    Route::get('/google-meet', 'handleGoogleCallback');
+    Route::get('/meeting-form', 'meetingForm');
+    Route::post('/create-meeting','createMeeting');
+});
+
+Step :- 7 php artisan make:migration create_google_meetings_table --create=google_meetings
+
+public function up(): void
+    {
+        Schema::create('google_meetings', function (Blueprint $table) {
+            $table->id();
+            $table->string('meeting_name');           // Meeting ka naam
+            $table->date('date');                     // Meeting date
+            $table->time('time');                     // Meeting start time
+            $table->string('meet_link')->nullable();  // Google Meet ka link
+            $table->text('description')->nullable();  // Optional: description
+            $table->timestamps();                     // created_at & updated_at
+        });
+    }
+
+
+Step :- 8 App\Models\GoogleMeeting code
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class GoogleMeeting extends Model
+{
+    use HasFactory;
+    protected $guarded = [];
+    protected $table = 'google_meetings';
+}
+
+
+
+Step :- 9 index file code
+
+@extends('layout.app')
+@section('content')
+@push('css')
+@endpush
+
+<div id="paymentLoader" class="payment-loader-overlay d-none">
+    <p class="payment-processing">⏳ Processing Payment, Please Wait...</p>
+</div>
+
+<section class="hero">
+    <div class="container">
+        <h1>Welcome to Harshit's Laravel Project</h1>
+        <p>A modern, responsive homepage powered by Bootstrap 5 and Laravel Blade.</p>
+    </div>
+</section>
+
+<main class="container">
+    <div class="row justify-content-center mt-5">
+        <div class="payment-container">
+            <h2>
+                <img src="{{ asset('front/img/google-meet.png') }}" width="70" /> Meet
+            </h2>
+            <form id="create-meeting" action="{{ url('create-meeting') }}" method="POST">
+                @csrf
+                <input type="text" name="meeting_name" placeholder="Meeting Name" required>
+                <input type="date" name="date" required>
+                <input type="time" name="time" required>
+                <button type="submit">Create Google Meet</button>
+            </form>
+        </div>
+    </div>
+</main>
+@endsection
+
+@push('js')
+<script>
+    $(document).on('submit', '#create-meeting', function() {
+        let btn = $('button[type="submit"]');
+        btn.prop('disabled', true).css('cursor', 'no-drop').html(`
+                <i class="fa fa-spinner fa-spin me-2"></i>
+                Please wait...
+        `);
+         $('#paymentLoader').removeClass('d-none');
+    });
+</script>
+
+@endpush
+
+
+Step :- 10 result blade file code 
+
+@extends('layout.app')
+@section('content')
+@push('css')
+<style>
+    .meet-result {
+        max-width: 600px;
+        margin: 50px auto;
+        text-align: center;
+        padding: 30px;
+        border: 1px solid #ddd;
+        border-radius: 12px;
+        background-color: #f9f9f9;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+    }
+    .meet-link {
+        display: block;
+        margin: 20px 0;
+        font-size: 1.2rem;
+        word-break: break-all;
+        color: #1a73e8;
+        text-decoration: none;
+    }
+    .copy-btn {
+        background-color: #1a73e8;
+        color: #fff;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+    .copy-btn:hover {
+        background-color: #155ab6;
+    }
+</style>
+@endpush
+
+<div id="paymentLoader" class="payment-loader-overlay d-none">
+    <p class="payment-processing">⏳ Processing Payment, Please Wait...</p>
+</div>
+
+<section class="hero">
+    <div class="container">
+        <h1>Welcome to Harshit's Laravel Project</h1>
+        <p>A modern, responsive homepage powered by Bootstrap 5 and Laravel Blade.</p>
+    </div>
+</section>
+
+<main class="container">
+    <div class="row justify-content-center mt-5">
+        <div class="payment-container">
+            <h2>
+                <img src="{{ asset('front/img/google-meet.png') }}" width="50" />
+            </h2>
+           <div class="meet-result">
+            <h2>🎉 Google Meet Created!</h2>
+            @if(isset($meet_link) && $meet_link)
+                <p>Your meeting link:</p>
+                <a href="{{ $meet_link }}" target="_blank" class="meet-link" id="meetLink">{{ $meet_link }}</a>
+                <button class="copy-btn" onclick="copyLink()">Copy Link</button>
+            @else
+                <p style="color:red;">Oops! Meeting link not generated.</p>
+            @endif
+
+            <div style="margin-top:20px;">
+                <a href="{{ url('/meeting-form') }}" class="btn btn-secondary">Create Another Meeting</a>
+            </div>
+        </div>
+        </div>
+    </div>
+</main>
+@endsection
+
+@push('js')
+<script>
+function copyLink() {
+    const link = document.getElementById('meetLink').textContent;
+    navigator.clipboard.writeText(link).then(() => {
+        alert('Link copied to clipboard!');
+    }).catch(() => {
+        alert('Failed to copy link. Please copy manually.');
+    });
+}
+</script>
+
+@endpush
+
+
+
+                  
