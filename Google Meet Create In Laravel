@@ -10,6 +10,15 @@ GOOGLE_CLIENT_ID="365479808010-r81k814oobqhq0pfrrc9phgq20o03ci8.apps.googleuserc
 GOOGLE_CLIENT_SECRET="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"
 GOOGLE_REDIRECT_URL="http://127.0.0.1:8000/google-meet"
 
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.hostinger.com
+MAIL_PORT=587
+MAIL_USERNAME=laravel@test.pearl-developer.com
+MAIL_PASSWORD=Laravel@12390
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=laravel@test.pearl-developer.com
+MAIL_FROM_NAME="${APP_NAME}"
+
 
 Step : 3 config>services.php file code
 
@@ -32,22 +41,25 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-
 use Google\Client;
 use Google\Service\Calendar;
 use Carbon\Carbon;
-use Session;
 use Illuminate\Support\Facades\Log;
-use App\Models\GoogleMeeting;
 
+use App\Models\User;
+use App\Models\GoogleMeeting;
+use App\Models\GoogleToken;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\GoogleMeet\MeetingScheduleNotification;
 
 class GoogleMeetController extends Controller
 {
-
+    /**
+     * Step 1: Redirect user to Google OAuth
+     */
     public function redirectToGoogle()
     {
-        Log::info('Google Config', config('services.google'));
-
+        Log::info('Redirecting to Google OAuth', config('services.google'));
         $client = new Client();
         $client->setClientId(config('services.google.client_id'));
         $client->setClientSecret(config('services.google.client_secret'));
@@ -60,82 +72,133 @@ class GoogleMeetController extends Controller
         return redirect($client->createAuthUrl());
     }
 
-
-
+    /**
+     * Step 2: Google OAuth Callback
+     * Token DB me save hoga (NO SESSION)
+     */
     public function handleGoogleCallback(Request $request)
     {
-        Log::info('Callback Hit', $request->all());
-
+        Log::info('Google Callback Hit', $request->all());
         if (!$request->has('code')) {
-            Log::error('No auth code received');
+            Log::error('Google callback without auth code');
             return redirect('/google-auth');
         }
 
-        // ✅ USE CONFIG — NOT ENV
         $client = new Client();
         $client->setClientId(config('services.google.client_id'));
         $client->setClientSecret(config('services.google.client_secret'));
         $client->setRedirectUri(config('services.google.redirect'));
 
-        Log::info('Using Redirect URI:', [
-            'uri' => config('services.google.redirect')
-        ]);
-
         $token = $client->fetchAccessTokenWithAuthCode($request->code);
-
-        Log::info('Token Response:', $token);
+        Log::info('Google Token Response', $token);
 
         if (isset($token['error'])) {
-            Log::error('Token Error', $token);
-            return response()->json($token);
+            Log::error('Google Token Error', $token);
+            return redirect('/google-auth');
         }
 
-        Session::put('google_access_token', $token);
+        GoogleToken::updateOrCreate(
+            ['user_id' => auth()->id()],
+            [
+                'access_token'  => $token['access_token'],
+                'refresh_token' => $token['refresh_token'] ?? null,
+                'expires_in'    => $token['expires_in'] ?? null,
+                'scope'         => $token['scope'] ?? null,
+                'token_type'    => $token['token_type'] ?? null,
+            ]
+        );
+        Log::info('Google Token Saved In DB', [
+            'user_id' => auth()->id()
+        ]);
 
         return redirect('/meeting-form');
     }
 
-
-
-
-    public function meetingForm(){
-        return view('auth.google-meet.index');
+    /**
+     * Step 3: Meeting Form
+     */
+    public function meetingForm()
+    {
+        Log::info('Meeting Form Loaded');
+        $users = User::select('id', 'name', 'email')->get();
+        return view('auth.google-meet.index', compact('users'));
     }
 
+    /**
+     * Step 4: Create Google Meet + Save DB
+     */
     public function createMeeting(Request $request)
     {
         Log::info('Create Meeting Request', $request->all());
+        $request->validate([
+            'meeting_name' => 'required|string',
+            'attendees'    => 'required|array',
+            'date'         => 'required|date',
+            'time'         => 'required',
+        ]);
 
-        $token = Session::get('google_access_token');
-        Log::info('Stored Token:', $token ?? []);
-
-        if (!$token || !isset($token['access_token'])) {
-            Log::error('Token missing, redirecting to auth');
+        $tokenData = GoogleToken::where('user_id', auth()->id())->first();
+        Log::info('Fetched Token From DB', $tokenData ? $tokenData->toArray() : []);
+        if (!$tokenData) {
+            Log::error('Google token missing in DB');
             return redirect('/google-auth');
         }
 
+        // Google Client
         $client = new Client();
-
-        // 🔥 THIS WAS MISSING (MAIN FIX)
         $client->setClientId(config('services.google.client_id'));
         $client->setClientSecret(config('services.google.client_secret'));
 
-        $client->setAccessToken($token);
+        $client->setAccessToken([
+            'access_token'  => $tokenData->access_token,
+            'refresh_token' => $tokenData->refresh_token,
+            'expires_in'    => $tokenData->expires_in,
+            'token_type'    => $tokenData->token_type,
+        ]);
 
-        // OPTIONAL: token expire ho jaye to auto refresh
-        if ($client->isAccessTokenExpired() && isset($token['refresh_token'])) {
-            $newToken = $client->fetchAccessTokenWithRefreshToken($token['refresh_token']);
-            Session::put('google_access_token', array_merge($token, $newToken));
-            $client->setAccessToken(Session::get('google_access_token'));
+        // 🔁 Auto refresh token
+        if ($client->isAccessTokenExpired()) {
+            Log::warning('Access token expired, refreshing...');
+            if (!$tokenData->refresh_token) {
+                Log::error('Refresh token missing');
+                return redirect('/google-auth');
+            }
+
+            $newToken = $client->fetchAccessTokenWithRefreshToken(
+                $tokenData->refresh_token
+            );
+            Log::info('New Token Generated', $newToken);
+
+            $tokenData->update([
+                'access_token' => $newToken['access_token'],
+                'expires_in'   => $newToken['expires_in'] ?? null,
+            ]);
+
+            $client->setAccessToken([
+                'access_token'  => $newToken['access_token'],
+                'refresh_token' => $tokenData->refresh_token,
+            ]);
         }
 
         $service = new Calendar($client);
 
-        $start = Carbon::parse($request->date.' '.$request->time);
+        // Attendees (Google)
+        $googleAttendees = [];
+        $users = User::whereIn('id', $request->attendees)->get();
+
+        foreach ($users as $user) {
+            if ($user->email) {
+                $googleAttendees[] = ['email' => $user->email];
+            }
+        }
+        Log::info('Google Attendees', $googleAttendees);
+
+        $start = Carbon::parse($request->date . ' ' . $request->time);
         $end   = (clone $start)->addMinutes(30);
 
         $event = new \Google\Service\Calendar\Event([
-            'summary' => $request->meeting_name,
+            'summary'   => $request->meeting_name,
+            'attendees' => $googleAttendees,
             'start' => [
                 'dateTime' => $start->toIso8601String(),
                 'timeZone' => 'Asia/Kolkata',
@@ -159,26 +222,40 @@ class GoogleMeetController extends Controller
             $event,
             ['conferenceDataVersion' => 1]
         );
-
-        // ✅ SAVE IN DB
-        GoogleMeeting::create([
-            'meeting_name' => $request->meeting_name,
-            'date' => $request->date,
-            'time' => $request->time,
-            'meet_link' => $event->hangoutLink,
+        Log::info('Google Meet Created', [
+            'event_id' => $event->id,
+            'meet_link' => $event->hangoutLink
         ]);
+
+        // Save in DB
+        $meeting =  GoogleMeeting::create([
+            'meeting_name' => $request->meeting_name,
+            'attendees'    => $request->attendees,
+            'date'         => $request->date,
+            'time'         => $request->time,
+            'meet_link'    => $event->hangoutLink,
+        ]);
+        Log::info('Meeting Saved In DB');
+
+        $attendeeUsers = User::whereIn('id', $request->attendees)->get();
+        $passcode = 123456;
+        $attendeeNames = $attendeeUsers->pluck('name')->filter()->implode(', ');
+
+        foreach ($attendeeUsers as $user) {
+            if (!$user->email) {
+                Log::warning('User email missing', ['user_id' => $user->id]);
+                continue;
+            }
+            Mail::to($user->email)->queue(new MeetingScheduleNotification($meeting, $attendeeNames, $passcode));
+            Log::info('Meeting email queued', [
+                'email' => $user->email
+            ]);
+        }
 
         return view('auth.google-meet.result', [
             'meet_link' => $event->hangoutLink
         ]);
     }
-
-
-
-
-
-
-
 }
 
 
@@ -206,6 +283,23 @@ public function up(): void
     }
 
 
+
+Step :- 7 php artisan make:migration create_google_tokens_table
+
+Schema::create('google_tokens', function (Blueprint $table) {
+    $table->id();
+    $table->unsignedBigInteger('user_id')->nullable();
+    $table->text('access_token');
+    $table->text('refresh_token')->nullable();
+    $table->integer('expires_in')->nullable();
+    $table->string('scope')->nullable();
+    $table->string('token_type')->nullable();
+    $table->timestamp('created_at')->nullable();
+    $table->timestamp('updated_at')->nullable();
+});
+
+
+
 Step :- 8 App\Models\GoogleMeeting code
 
 <?php
@@ -223,6 +317,22 @@ class GoogleMeeting extends Model
 }
 
 
+Step :- 8 App\Models\GoogleToken code
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class GoogleToken extends Model
+{
+    protected $guarded = [];
+    protected $table = 'google_tokens';
+}
+
+
 
 Step :- 9 index file code
 
@@ -230,11 +340,6 @@ Step :- 9 index file code
 @section('content')
 @push('css')
 @endpush
-
-<div id="paymentLoader" class="payment-loader-overlay d-none">
-    <p class="payment-processing">⏳ Processing Payment, Please Wait...</p>
-</div>
-
 <section class="hero">
     <div class="container">
         <h1>Welcome to Harshit's Laravel Project</h1>
@@ -250,9 +355,17 @@ Step :- 9 index file code
             </h2>
             <form id="create-meeting" action="{{ url('create-meeting') }}" method="POST">
                 @csrf
-                <input type="text" name="meeting_name" placeholder="Meeting Name" required>
-                <input type="date" name="date" required>
-                <input type="time" name="time" required>
+                <input type="text" name="meeting_name" class="form-control" placeholder="Meeting Name" required>
+                <select class="form-control select2 mt-2" name="attendees[]" multiple required>
+                    <option>-- Select Member Name --</option>
+                    @isset($users)
+                        @foreach($users as $user)
+                            <option value="{{ $user->id }}" >{{ $user->name ?? 'N/A' }}</option>
+                        @endforeach
+                    @endisset
+                </select>
+                <input type="date" name="date" id="meeting_date"  class="form-control mt-2" required>
+                <input type="time" name="time" id="meeting_time" class="form-control mt-2" required>
                 <button type="submit">Create Google Meet</button>
             </form>
         </div>
@@ -268,11 +381,67 @@ Step :- 9 index file code
                 <i class="fa fa-spinner fa-spin me-2"></i>
                 Please wait...
         `);
-         $('#paymentLoader').removeClass('d-none');
     });
+    $(document).ready(function() {
+        $('.select2').select2({
+            allowClear: true,
+            width:'300px'
+        });
+    });
+</script>
+<script>
+$(document).ready(function () {
+
+    /* ---------- DATE ---------- */
+    let today = new Date();
+    let yyyy = today.getFullYear();
+    let mm = String(today.getMonth() + 1).padStart(2, '0');
+    let dd = String(today.getDate()).padStart(2, '0');
+
+    let todayDate = yyyy + '-' + mm + '-' + dd;
+
+    // set current date
+    $('#meeting_date').val(todayDate);
+
+    // disable past dates
+    $('#meeting_date').attr('min', todayDate);
+
+
+    /* ---------- TIME (Current + 1 Hour) ---------- */
+    let now = new Date();
+    now.setHours(now.getHours() + 1);
+
+    let hh = String(now.getHours()).padStart(2, '0');
+    let min = String(now.getMinutes()).padStart(2, '0');
+
+    let timePlusOneHour = hh + ':' + min;
+
+    $('#meeting_time').val(timePlusOneHour);
+
+
+    /* ---------- Prevent past time if today selected ---------- */
+    $('#meeting_date').on('change', function () {
+
+        let selectedDate = $(this).val();
+
+        if (selectedDate === todayDate) {
+            let currentTime = new Date();
+            currentTime.setHours(currentTime.getHours() + 1);
+
+            let h = String(currentTime.getHours()).padStart(2, '0');
+            let m = String(currentTime.getMinutes()).padStart(2, '0');
+
+            $('#meeting_time').attr('min', h + ':' + m);
+        } else {
+            $('#meeting_time').removeAttr('min');
+        }
+    });
+
+});
 </script>
 
 @endpush
+
 
 
 Step :- 10 result blade file code 
@@ -351,18 +520,188 @@ Step :- 10 result blade file code
 
 @push('js')
 <script>
-function copyLink() {
-    const link = document.getElementById('meetLink').textContent;
-    navigator.clipboard.writeText(link).then(() => {
-        alert('Link copied to clipboard!');
-    }).catch(() => {
-        alert('Failed to copy link. Please copy manually.');
-    });
-}
+    function copyLink() {
+        const link = document.getElementById('meetLink').textContent;
+        navigator.clipboard.writeText(link).then(() => {
+            iziToast.info({
+                message: "Link copied to clipboard!",
+                position: 'topRight'
+            });
+        }).catch(() => {
+            iziToast.error({
+                message: "Failed to copy link. Please copy manually.",
+                position: 'topRight'
+            });
+        });
+    }
 </script>
 
 @endpush
 
 
 
-                  
+Step :- 11 MeetingScheduleNotification  file code 
+        
+<?php
+
+namespace App\Mail\GoogleMeet;
+
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Mail\Mailable;
+use Illuminate\Queue\SerializesModels;
+use Carbon\Carbon;
+
+class MeetingScheduleNotification extends Mailable implements ShouldQueue
+{
+    use Queueable, SerializesModels;
+
+    public $meeting, $attendees, $passcode;
+
+    public function __construct($meeting, $attendees, $passcode)
+    {
+        $this->meeting   = $meeting;
+        $this->attendees = $attendees;
+        $this->passcode  = $passcode;
+    }
+
+    public function build()
+    {
+        $start = Carbon::parse(
+            $this->meeting->date . ' ' . $this->meeting->time
+        );
+
+        $end = (clone $start)->addMinutes(40);
+
+        return $this->subject(
+                'Ⓜ️ Invitation: ' . $this->meeting->meeting_name .
+                ' @ ' . $start->format('D M d, Y h:i A') .
+                ' - ' . $end->format('h:i A') .
+                ' (IST) | Harshit Chauhan Laravel Project'
+            )
+            ->view('mail-template.google-meet.meeting-schedule');
+    }
+}
+
+
+Step :- 12 mail-template.google-meet.meeting-schedule blade file code 
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>PEARL Meet Scheduled</title>
+</head>
+<body style="font-family: Arial, sans-serif; color:#333; line-height:1.6;">
+
+    <!-- Header -->
+    <h2 style="margin-bottom:5px;">
+        {{ \Carbon\Carbon::parse($meeting->date)->format('M d D') }}
+    </h2>
+
+    <h3 style="margin-top:0;">{{ $meeting->meeting_name }}</h3>
+
+    <hr>
+
+    <!-- Meeting Details -->
+    <p><strong>When:</strong>
+        {{ \Carbon\Carbon::parse($meeting->date)->format('D M d, Y') }}
+        {{ \Carbon\Carbon::parse($meeting->time)->format('h:i A') }}
+        – {{ \Carbon\Carbon::parse($meeting->time)->addMinutes(40)->format('h:i A') }} (IST)
+    </p>
+
+    <p><strong>Where:</strong> Online Meeting</p>
+    <p><strong>Who:</strong> Unknown Organizer*</p>
+
+    <p>
+        <a href="{{ $meeting->meet_link }}" target="_blank">
+            Add to calendar »
+        </a>
+    </p>
+
+    <hr>
+
+    <!-- Greeting -->
+    <p>Hello,</p>
+
+    <p>
+        New <strong>PEARL Meet - {{ $meeting->meeting_name }}</strong> has been created.
+    </p>
+
+    <!-- Info Block -->
+    <p>💻 <strong>PEARL Meet Name:</strong> {{ $meeting->meeting_name }}</p>
+
+    <p>👤 <strong>Hosted By:</strong>
+        {{ auth()->user()->name ?? 'Organizer' }} - Client
+    </p>
+
+    <p>👥 <strong>Attendees:</strong>
+        {{ $attendees ?? 'Team Members' }}
+    </p>
+
+    <p>🕛 <strong>Start:</strong>
+        {{ $meeting->date }}
+        ({{ $meeting->time }} -
+        {{ \Carbon\Carbon::parse($meeting->time)->addMinutes(40)->format('H:i:s') }})
+    </p>
+
+    <p>
+        <strong>Your meeting passcode is:</strong>
+        <span style="font-weight:bold;">{{ $passcode ?? 'N/A' }}</span>
+    </p>
+
+    <hr>
+
+    <!-- Note -->
+    <p>
+        <strong>Note:</strong> Please note this meeting is scheduled for
+        <strong>40 minutes</strong>. If the client extends the session past this
+        time, you may courteously remind them that the allotted time is 40 minutes
+        because you must proceed with the next project tasks and commitments.
+    </p>
+
+    <p>
+        This Pearl Meet has been scheduled specifically for selected project team
+        members. Each employee invited to this meeting receives a unique,
+        ERP-generated Pearl Meet link in their email. This unique link is used by
+        the ERP/system to verify and record the employee’s attendance.
+    </p>
+
+    <p>
+        To ensure your attendance is marked correctly, it is mandatory to join
+        the meeting only through the Pearl Meet link provided in your email OR
+        available in your ERP's Pearl Meet Calendar.
+    </p>
+
+    <p>
+        If you join the meeting using any link other than the one sent to you personally:
+    </p>
+
+    <ul>
+        <li>The ERP/system will not detect your attendance</li>
+        <li>Your attendance status will remain <strong>“Unattended”</strong></li>
+        <li>A warning letter will be automatically issued for non-attendance</li>
+    </ul>
+
+    <p>
+        Therefore, to avoid receiving an attendance warning, always join using
+        the link you received directly in your email OR available in your ERP's
+        Pearl Meet Calendar.
+    </p>
+
+    <!-- CTA -->
+    <p style="margin-top:25px;">
+        <a href="{{ $meeting->meet_link }}"
+           style="background:#1a73e8;color:#fff;padding:10px 18px;
+                  text-decoration:none;border-radius:4px;">
+            Join the Meet ➜
+        </a>
+    </p>
+
+    <br>
+
+    <p>Thanks,<br>
+    <strong>PEARL Team</strong></p>
+
+</body>
+</html>
