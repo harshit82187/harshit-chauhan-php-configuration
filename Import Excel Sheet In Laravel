@@ -1,4 +1,5 @@
 **************************************************************** Import Excel Sheet In Laravel **************************************************************
+ Install This Package In your Project :- composer require maatwebsite/excel 
 
 <!-- Import Lead Modal -->
 <div class="modal fade" id="import_lead_modal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" data-backdrop="static" data-keyboard="false" aria-hidden="true" style="margin-top:-5%;">
