@@ -1,0 +1,729 @@
+
+
+Please close the FTP if you are not using it
+Please close the FTP if you are not using it
+Please close the FTP if you are not using it
+
+
+*********************************************************** Erp Credentials ********************************************************
+
+https://erp.pearlorganisation.in:2083/
+pearlorganisatio
+D5,NyW88nl})3Sp0
+
+
+gourritu@pearlorganisation.com
+Pankajritu94
+
+akanksharaj@pearlorganisation.com
+akansha@2025
+
+
+************************************** Report Url *************************************************************************
+
+Hello Mam/Sir,
+Greetings of the Day!!
+
+I hope you are doing well ! This email finds you well.
+This email is regarding work done today's.
+
+Project Url :-
+
+
+https://erp.pearlorganisation.in/public/reply-to-project-report/MTI5MTI=/Acs-bfe0132b273adb0ec6f7-Tkn - Reconsult Advisory   4879
+https://erp.pearlorganisation.in/public/reply-to-project-report/MTE4Mjg=/Acs-d56708aac43b68df2651-Tkn - Clean Solar          4466
+https://erp.pearlorganisation.in/public/reply-to-project-report/MTI0MDA=/Acs-8fcb6254c4854cb18765-Tkn - Oshiva Library       4678
+https://erp.pearlorganisation.in/public/reply-to-project-report/MTMzMzc=/Acs-8578b65107dcdbca6bc2-Tkn - Tutor
+https://erp.pearlorganisation.in/public/reply-to-project-report/MTI4MDc=/Acs-e6f4291339a6f481c536-Tkn - Haven                4834
+https://erp.pearlorganisation.in/public/client-support/reply-to-client-support-ticket/MTMwNDQ=/Acs-77edcbdd426e38603e9e-Tkn  Malik
+ https://erp.pearlorganisation.in/public/reply-to-project-report/MTMzNzI=/Acs-d53b531cd3a2d250b269-Tkn - Mastant
+
+
+************************************** Report Url End *************************************************************************
+
+************************************** Projec QC Complete SQL Command Start ********************************************************
+
+UPDATE tasks
+SET
+    qc_users = 307,
+    qc_status = 1,
+    qc_update_date = NOW()
+WHERE
+    project_id = 12538
+    AND created_by IN (
+        63, 126, 127, 148, 154, 171, 175, 176, 177, 178, 179, 180, 181, 183, 184, 201, 205, 209, 216, 227, 228, 245, 248,
+        249, 255, 256, 258, 269, 274, 275, 278, 283, 297, 305, 307, 309, 313, 314, 316, 335, 336, 337, 394, 454, 612,
+        616, 663, 666, 669, 720, 791, 1058, 1072, 1102, 1144, 1151, 1272, 1298, 1331, 1353, 1369, 1400, 1597, 1612, 1643,
+        1751, 1834, 1854, 1963, 2085, 2086, 2111, 2123, 2135, 2148, 2190, 2209, 2280, 2317, 2391, 2537, 2651, 2652, 2818,
+        2825, 2839, 2933, 3058, 3122, 3125, 3130, 3136, 3217, 3219, 3238, 3250, 3272, 3274, 3301, 3302, 3317, 3319, 3334,
+        3344, 3399, 3401, 3408, 3460, 3461, 3462, 3468, 3472, 3473, 3490, 3497, 3501, 3505, 3536, 3539, 3543, 3545, 3583,
+        3610, 3624, 3644, 3645, 3677, 3715, 3716, 3757, 3763, 3774, 3775, 3780, 3811, 3819, 3825, 3878, 3970, 4001, 4015,
+        4074, 4084, 4181, 4193, 4237, 4292, 4322, 4323, 4337, 4366, 4387, 4398, 4403, 4405, 4413, 4469, 4470, 4612, 4649,
+        4678, 4679, 4680, 4745, 4746, 4952, 5014, 5015, 5050, 5087, 5147, 5176, 5178, 5204, 5262, 5333, 5430, 5461, 5471,
+        5473, 5490, 5519, 5557, 5558, 5559, 5565, 5582, 5587, 5590, 5658, 5694, 5715, 5725, 5804, 6053, 6118, 6204, 6206,
+        6327, 6328, 6329, 6530, 6598, 6744, 6746, 6763, 6923, 7202, 7263
+    )
+    AND status = 'completed'
+    AND qc_status = 0;
+
+******************************* Project QC Complete SQL Command End ***************************************************************
+
+
+12345678 - $2y$10$HtjiSKmBjYbEXZc2mcSlSOWbiXpgi9ohi0OReGtBYwcFnblXmWEV6
+
+
+echo "<pre>";
+    print_r($both);
+echo "</pre>";
+
+
+catch (\Throwable  $e) {
+        return response()->json([
+        'status' => 'error',
+        'message' => $e->getMessage()
+    ], 500);
+}
+
+
+ <div style="display: flex;justify-content: space-between;align-items: center;">
+    
+</div>
+
+    <select class="form-control" name="check_in_place1" required style="border:none;">
+        <option value="">--Select--</option>
+        <option value="Makkah" {{ $listing->check_in_place1 == 'Makkah' ? 'selected' : '' }}>Check In Makkah</option>
+        <option value="Madinah" {{ $listing->check_in_place1 == 'Madinah' ? 'selected' : '' }}>Check In Madinah</option>
+    </select>
+
+
+
+  $validatedData = $req->validate([
+        'email' => [
+            'required',
+            'email',
+            'unique:subscribers,email',
+            'regex:/^[a-zA-Z0-9._%+-]+@[a-zA-Z.-]+\.[a-zA-Z]{2,}$/'
+        ],
+    ], [
+        'email.unique' => 'This Email Already Exists in the Database. Try Another Email.',
+        'email.regex' => 'Please enter a valid email address.',
+    ]);
+
+
+class="text-nowrap"
+
+***************************************************** web and date extension *******************************************************
+<title>@yield('title', 'Tensor - Admin Dashboard')</title>
+<title>@yield('title', config('app.title'))</title>
+
+@section('title', 'Login - Metric Wave Insights')
+@section('title', (Auth()->check() ? Auth()->user()->name : 'N/A') . ' Info - Tensor')
+
+require __DIR__ . '/auth.php';
+
+
+{{ \Carbon\Carbon::parse($booking->created_at)->format('d-M-Y') }} 
+{{ \Carbon\Carbon::parse($booking->ferryDetails->created_at)->format('h:i A') }}
+{{ \Carbon\Carbon::parse($ticket->created_at)->format('d-M-Y h:i A') }}
+
+{{ Illuminate\Support\Str::limit($data->gs_answers, 15) }} 
+{{ Illuminate\Support\Str::limit(strip_tags($college->description, 15)) }} 
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/2.5.0/remixicon.css">
+
+
+ <div class="modal-dialog modal-lg" role="document">
+<div class="modal-dialog modal-dialog-centered" role="document">
+
+
+
+
+ <img src="{{ asset($user->image ?? 'front/images/user.png') }}" class="user-profile" />
+
+
+
+
+
+ ************************************************* json encode and decode via help of model **************************************
+
+ $data['other_info'] = json_encode([
+    'capacity_exists_current_account' => $request->capacity_exists_current_account,
+    'capacity_exists_same_parcel' => $request->capacity_exists_same_parcel,
+    'capacity_exists_same_building' => $request->capacity_exists_same_building,
+    'existing_app_numbers' => $request->existing_app_numbers,
+]);
+
+
+In Model 
+
+public function getOtherInfoAttribute(){
+    $otherInfo = json_decode($this->attributes['other_info'] ?? '{}', true);
+    return $otherInfo;
+}
+
+
+
+ ************************************************* Sweet alert delete functionality ***********************************************
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@10">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
+
+
+<button onclick="deleteUser({{ $property->id }})" class="btn btn-danger btn-sm" onclick="confirm"><i class="fas fa-trash"></i></button>
+
+function deleteUser(id) {
+        Swal.fire({
+            title: 'Are you sure?',
+            text: '',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Delete',
+            customClass: {
+                popup: 'swal2-large',
+                content: 'swal2-large'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = "{{ route('vendor.deleteProperty', ':id') }}".replace(':id', id);
+            }
+        });
+    }
+
+
+************************************************* check auth is login or not then redirect previuos url **********************************
+
+@if(Auth::check())
+<a href="#" class="btn btn-order" data-toggle="modal"
+    data-target="#taxiFormModal"><span><i class="feather-calendar me-2"></i></span>Book Now</a>
+@else 
+<a href="{{ url('login') }}?redirect_url={{ urlencode(url()->current()) }}" class="btn btn-order"><span><i class="feather-calendar me-2"></i></span>Book Now</a>
+@endif
+
+ <input type="hidden" name="redirect_url" value="{{ request('redirect_url') }}">
+
+ $redirectUrl = $request->input('redirect_url');
+// dd($redirectUrl);
+
+if ($redirectUrl) {
+    return redirect()->to($redirectUrl);
+}
+
+
+
+************************************************** if you have face laravel/log error  in the project ******************************
+
+mkdir -p /home/u128827813/domains/test.pearl-developer.com/public_html/synchro_new/storage/framework/sessions
+
+
+
+************************************************** Ruppess utf code *********************************************************
+
+(Price: &#8377;{{ $product->unit_price }})
+
+<h4>{{ $property->price }} &#x62F;.&#x625; /<span>Night</span></h4>
+
+
+*********************************************** jquery script *************************************************************
+
+
+
+<script>
+  $(document).ready(function () {
+    let today = new Date().toISOString().split('T')[0];
+    $('#start_date').attr('min', today);
+
+    $('#start_date').on('change', function () {
+        let selectedDate = $(this).val();
+        $('#end_date').attr('min', selectedDate);
+    });
+    
+    $('.number').on('input', function() {
+        this.value = this.value.replace(/[^0-9]/g, '');
+        if (this.value.length > 10) {
+            this.value = this.value.slice(0, 10);
+        }
+    });
+   
+
+    $('.proceed-to-checkout').on('click', function (e) {
+        let startDate = $('#start_date').val();
+        let endDate = $('#end_date').val();
+
+        if (!startDate || !endDate) {
+            e.preventDefault(); // Prevent navigation
+            alert('Please fill in both Check-In and Check-Out dates.');
+        }
+    });
+});
+</script>
+
+<td>
+    <td>
+         <div class="inline-flex items-center" style="cursor: pointer;" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ $report->reportMetas->keyword }}">{{ $report->reportMetas->keyword }} <i class="fa fa-info-circle ml-1"></i></div>
+    </td>
+
+    {{ Illuminate\Support\Str::limit(strip_tags($property->title), 25) }} 
+        <i class="fa fa-info-circle" data-toggle="tooltip" title="{{ strip_tags($property->title) }}"></i>  
+
+    {{ \Carbon\Carbon::parse($item->created_at)->format('d-M-Y') }}
+</td>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+    });
+</script>
+
+
+ $validatedData = $req->validate([
+    'name' => 'required|string|max:250',
+    'email' => 'required|email|unique:institutes,email',
+    'college_id' => 'required|numeric',
+    'password' => 'required|string|min:8',
+    'mobile_no'  => 'required|numeric|digits:10|unique:institutes,mobile_no',
+], [
+    'email.unique' => 'This Email Already Exists in the Database. Try Another Email.',
+    'password.min' => 'Password Must Be At Least 8 Characters Long.',
+    'mobile_no.unique' => 'This Mobile No Already Exists in the Database. Try Another Mobile No.',
+]);
+
+$(document).ready(function () {
+    $("input[type='number'], .number").on("input", function () {
+        this.value = this.value.replace(/[^0-9]/g, '');
+         if (this.value.length > 10) {
+          this.value = this.value.slice(0, 10); 
+      }
+    });
+
+    var today = new Date().toISOString().split('T')[0];
+    $('#start_date').attr('min', today);
+    $('#due_date').attr('min', today);
+    $('#start_date').on('change', function () {
+        var selectedStartDate = $(this).val();
+        $('#due_date').val(''); 
+        $('#due_date').attr('min', selectedStartDate);
+    });
+
+    $(".alphabet").on("input", function () {
+        this.value = this.value.replace(/[^a-zA-Z\s]/g, ''); 
+    });
+});
+
+$(document).on('submit', '#get-in-touch-form', function(e) {
+    e.preventDefault();  // use this line when your form will submit behalf of ajax
+    let btn = $('button[type="submit"]');
+    btn.html('⏳ Please Wait...').prop('disabled', true).css('cursor', 'no-drop');
+});
+
+$(document).on('submit', '#update-role', function() {
+    let btn = $('button[type="submit"]');
+    btn.prop('disabled', true).css('cursor', 'no-drop').html(`
+            <i class="fa fa-spinner fa-spin me-2"></i>
+            Please wait...
+    `);
+});
+
+
+
+
+
+ $('#send-notification').find('input[name="name"]').val(id);
+
+
+
+ **************************************** validation and save data *****************************************************
+
+use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Validator;
+
+  public function collegeAdd(Request $req){
+        if($req->isMethod('get')){
+            return view('admin.college.add');
+        }else{
+            // dd($req->all());
+            try{
+                DB::beginTransaction();
+
+                $validator = Validator::make($req->all(), [
+                    'logo' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+                    'name' => 'required|string|max:255',
+                    'year' => 'required|digits:4|integer|min:1800|max:' . date('Y'),
+                    'website_link' => 'required|url',
+                    'affilated_university' => 'nullable|string|max:255',
+                    'email' => 'required|email|max:255|unique:colleges,email',
+                    'mobile_no' => 'required|digits:10',
+                    'landline_no' => 'required|digits_between:6,12',
+                    'grade' => 'required|in:A++,A+,A,B++,B+,B,none',
+                    'director_name' => 'required|string|max:255',
+                    'pin_code' => 'required|digits_between:5,10',
+                    'state' => 'required',
+                    'city' => 'required',
+                    'location_url' => 'required|url',
+                    'address' => 'required|string|max:1000',
+                    'description' => 'required|string|max:5000',
+                ]);
+
+                if ($validator->fails()) {
+                    return back()->withErrors($validator)->withInput();
+                }
+
+                $college = new College();
+                $college->name = $req->name;
+                $college->year = $req->year;
+                $college->website_link = $req->website_link;
+                $college->affilated_university = $req->affilated_university;
+                $college->email = $req->email;
+                $college->mobile_no = $req->mobile_no;
+                $college->landline_no = $req->landline_no;
+                $college->grade = $req->grade;
+                $college->director_name = $req->director_name;
+                $college->pin_code = $req->pin_code;
+                $college->state = $req->state;
+                $college->city = $req->city;
+                $college->location_url = $req->location_url;
+                $college->address = $req->address;
+                $college->description = $req->description;
+
+                if($req->logo != null){
+                    $file = $req->logo;
+                    $filename = time(). '.' . $file->getClientOriginalExtension();
+                    $year = now()->year;
+                    $month = now()->format('M');
+                    $folderPath = public_path("app/college-logo/{$year}/{$month}");
+                    if (!file_exists($folderPath)) {
+                        mkdir($folderPath, 0777, true);  
+                    }
+                    $file->move($folderPath, $filename);
+                    $college->logo = "app/college-logo/{$year}/{$month}/" . $filename;
+                }
+
+
+                $college->save();
+                DB::commit();
+                return redirect()->route('admin.college.list')->with('success','College Details Add Successfully!');
+
+            }catch(\Exception $e){
+                DB::rollBack();
+            }
+                
+        }
+    }
+
+
+
+
+*******************************************Search and query for controller side code**************************************
+
+ <div class="row">
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header" style="display: flex;justify-content: space-between;align-items: center;">
+                <h3>Amenities Listing</h3><span class="count-circle" style="margin-left: 16%;">{{ count($amenities ?? '') }}</span>
+                <div style="display: flex; gap: 10px; align-items: center;justify-content: space-between;">
+                    <form action="{{ url()->current() }}" method="get" style="display: flex;gap:15px;">
+                        <input type="text" class="form-control" value="{{ request()->query('name', '') }}" name="name" required placeholder="Search Amenities">
+                        <button class="btn btn-primary">Search</button>
+                    </form>
+                    <a href="javascript:void(0)" data-bs-toggle="modal" data-bs-target="#addamenitie" class="btn btn-dark " >Add</a>          
+                   <button class="btn btn-info " onclick="window.location.href='{{ route(Route::currentRouteName()) }}';">Reset</button>
+                </div>
+            </div>
+        </div>                
+    </div>          
+</div>
+
+<div class="d-flex justify-content-center mt-3">
+    {{ $amenities->links('pagination::bootstrap-5') }}
+</div>
+
+
+public function index(Request $req){
+    $query = News::query();
+    if($req->filled('name') && $req->name != null){
+        $query->where('title', 'like', "%{$req->name}%");
+    }        
+    $news = $query->orderBy('id','desc')->paginate(1)->appends($req->all());
+    return view('admin.news.index', compact('news'));
+}
+
+
+<div style="display: flex; gap: 10px; align-items: center;justify-content: space-between;">
+    <form action="{{ url()->current() }}" method="get" style="display: flex;gap:11px;">
+        <input type="text" class="form-control" name="name" value="{{ request()->query('name', '') }}" required placeholder="Search Property">
+        <button class="btn btn-primary">Search</button>
+        <a href="{{ route('owner.property-add') }}" class="btn btn-info btn-sm" >Add</a>
+        <button type="button" class="btn btn-info" onclick="window.location.href='{{ route(Route::currentRouteName()) }}';">Reset</button>
+    </form>                            
+</div>
+
+ @if(isset($bookings) && $bookings->count())
+        @foreach($bookings as $key => $booking)
+        @endforeach
+    @else 
+    <tr>
+        <td colspan="6" class="text-danger text-center" >No Cancelled Booking Found!</td>
+    </tr>
+@endif
+
+<div class="modal fade" id="add-ticket" tabindex="-1" role="dialog" aria-labelledby="modelTitleId" data-backdrop="static" data-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Ticket</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="container-fluid">
+                    <form id="support-ticket-save" action="{{ route('owner.support-ticket-save') }}" method="POST" enctype="multipart/form-data">
+                        @csrf      
+                        <div class="form-group">
+                            <label for="">Subject</label><span class="text-danger" >*</span>
+                            <input type="text" name="subject" required class="form-control"  >
+                             @error('subject')
+                                <div class="text-danger">{{ $message }}</div>
+                            @enderror
+                        </div>                        
+                        <div class="form-group">
+                            <label for="">Priority</label><span class="text-danger" >*</span>
+                            <select name="priority" required  class="form-control select">
+                                <option selected disabled >Choose Priority</option>
+                                <option value="1" >Urgent</option>
+                                <option value="2" >High</option>
+                                <option value="3" >Medium</option>
+                                <option value="4" >Low</option>
+                            </select>
+                             @error('priority')
+                                <div class="text-danger">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div class="form-group">
+                            <label for="">Attachment (You can upload multiple images)</label>
+                            <input type="file" name="attachments[]" accept=".jpeg,.jpg,.png,.webp,.pdf,.xlsx"  multiple required class="form-control" id="attachmentInput">
+                             @error('attachments')
+                                <div class="text-danger">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div id="previewContainer" style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 10px;"></div>
+                        <div class="form-group mt-2">
+                            <label for="">Description</label><span class="text-danger" >*</span>
+                            <textarea name="description" required class="form-control customTextarea"  ></textarea>
+                             @error('description')
+                                <div class="text-danger">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        
+                </div>
+            </div>
+            <div class="modal-footer">
+            <button type="button" class="btn btn-danger" data-dismiss="modal">Close</button>
+            <button type="submit" class="btn btn-primary">Submit a ticket</button>
+            </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+*********************************** SummernNote And Select2 Functionality *******************************************************
+
+<link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.js"></script>
+<script>
+    $(document).ready(function() {        
+        $('.summernote').summernote({
+        tabsize: 2,
+        height: 120,
+        toolbar: [
+          ['style', ['style']],
+          ['font', ['bold', 'underline', 'clear']],
+          ['color', ['color']],
+          ['para', ['ul', 'ol', 'paragraph']],
+          ['table', ['table']],
+          ['insert', ['link', 'picture', 'video']],
+          ['view', ['fullscreen', 'codeview', 'help']]
+        ]
+       });
+    
+    });
+</script>
+
+
+
+
+<link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
+<select class="form-control select2" multiple name="student_id[]" required data-placeholder="Select Student">
+</select>
+<script>
+    $(document).ready(function() {
+        $('.select2').select2({
+            allowClear: true,
+            width:'300px'
+        });
+    });
+</script>
+<style>
+    .select2-container{
+        width: 100% !important;
+    }
+    .select2-container--default .select2-selection--single{
+        height: 37px !important;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered{
+        line-height: 40px;
+    }
+</style>
+
+
+
+******** After assigned a new project kindly add and complete 100% necessary task within 2hours. *********************************
+
+
+
+ 1) Meeting required:  Will create task and complete and inform to cre via email as well.
+ 2) Credentials required: Will create task and complete if not available in pearl vault & inform to cre via email as well.
+ 3) R&D Task: Will Create and complete task if project out of parameters.
+ 4) Cancelled Project: Will Create and complete task with cancelled ss & inform to cre via email as well.
+
+
+
+ ********************************** Implement Select and textarea custom Functionsality ***********************************************
+
+<link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
+
+<script>
+    $(document).ready(function() {
+        $('#mySelect').select2({
+            allowClear: true
+        });
+    });
+</script>
+
+
+<select class="form-control select2" name="state" id="state">
+    <option selected disabled  >--Select State--</option>
+    @php $states = \App\Models\State::all(); @endphp
+    @if($states->isNotEmpty())
+        @foreach($states as $state)
+        <option class="form-control" value="{{ $state->id }}"  >{{ $state->name ?? '' }}</option>
+        @endforeach
+    @endif
+</select>
+
+
+
+
+<style>
+    .customTextarea {
+    width: 425px !important;   
+    height: 87px !important;  
+    resize: none !important; 
+}
+</style>
+
+ <div class="col-12" style="margin-top:2%;margin-left:-2%;">
+    <label>Address</label><span class="text-danger" >*</span>
+    <textarea name="address" class="form-control customTextarea" required>{{ auth()->guard('student')->user()->address ?? '' }}</textarea>
+    @error('address')
+    <small class="text-danger" style="font-size: 13px;">{{ $message }}</small>
+    @enderror
+</div>
+
+
+****************************************** Set Footer Of The Website *****************************************
+
+
+2025 © All Rights Reserved by Library and Powered by Pearl Organisation
+
+{{ date('Y') }} © All Rights Reserved by <a href="{{ url('/') }}" target="_blank" style="color:#ff7029 !important;" >Gaam Raam Trust</a> and Powered by <a href="{{ url('https://www.pearlorganisation.com/') }}" target="_blank" style="color:#ff7029 !important;">Pearl Organisation</a>
+
+
+***************************************** store key value format values in the database ******************************************
+
+   public function updateCourse(Request $req){
+        // dd($req->all());
+        $req->validate([
+            'course_id' => 'required|exists:courses,id',
+            'overview' => 'nullable|string',
+            'key' => 'required|array',
+            'value' => 'required|array',
+        ]);
+        $course = Course::find($req->course_id);
+        if(!$course){
+            return back()->with('error','Course Not Found!');
+        }
+        $courseDetails = [];
+        foreach ($req->key as $index => $key) {
+            $courseDetails[] = [
+                'key' => $key,
+                'value' => $req->value[$index] ?? '',
+            ];
+        }
+        $course->update([
+            'overview' => $req->overview,
+            'details' => json_encode($courseDetails), 
+        ]);     
+        return back()->with('success', 'Course details updated  successfully.');
+
+    }
+
+    
+
+beforeSend: function() {
+    $('#paymentLoader').removeClass('d-none');
+},
+
+
+
+///////////////////////////////////////////// image src condition ///////////////////////////////////////////////////
+
+
+<img src="{{ Auth::guard('admin')->check() && Auth::guard('admin')->user()->image ? asset(Auth::guard('admin')->user()->image) : asset('admin/assets/img/profile.jpg') }}" class="avatar-img rounded-circle"   />
+
+
+<div class="row">
+    <div class="col-12">
+        <div class="industry-image d-flex flex-wrap justify-content-center"></div>
+    </div>
+</div>
+
+<input type="file" id="attachmentInput" class="form-control" name="image" accept="image/*">
+
+<script>
+    $('#attachmentInput').on('change', function(e) {
+      const preview = $('.industry-image').empty();
+      [...e.target.files].forEach((file, index) => {
+          const reader = new FileReader();
+          reader.onload = e => {
+              const isImage = file.type.startsWith('image/');
+              const html = `
+                  <div class="file-preview position-relative d-inline-block m-1">
+                      ${isImage ?
+                          `<img src="${e.target.result}" class="img-thumbnail" style="width:100px;height:100px;">` :
+                          `<div class="border p-2" style="width:100px;height:100px;overflow:hidden;">${file.name}</div>`
+                      }
+                  </div>`;
+              preview.append(html);
+          };
+          reader.readAsDataURL(file);
+      });
+    });
+</script>
+
+
+
+
+
+
+
+
