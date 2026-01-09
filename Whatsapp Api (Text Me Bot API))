@@ -1,49 +1,149 @@
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
+************************************************ Configure text me bot api *****************************************************************************
 
+Test api working or not 
 
-public function sendWhatsappMessage(Request $req){
-        // dd($req->all());
+public function sendWhatsappMessage(Request $req)
+    {
+        $MobileNo = $req->whatsapp_no;
+        $apiSetting = BussinessSetting::where('type', 'apikey')->first();
+        $apiKey = $apiSetting?->value;
+        $message = "👋 Dear Customer,\n\n" .
+            "✅ This is just a *test message* to confirm that the WhatsApp API is working correctly.\n\n" .
+            "🧪 *No action is needed.*\n\n" .
+            "🛠 This is only for testing. Please ignore.\n\n" .
+            "Thanks & Regards,\nReconsult Advisory Team";
 
-        $req->validate([
-            'student_name' => 'required|string',
-            'student_mobile_no' => 'required|string',
-            'message' => 'required|string',
-        ]);
-
-        $studentName = $req->input('student_name');
-        $studentMobileNo = $req->input('student_mobile_no');
-        $message = $req->input('message');
-
-      
-
-        if (!str_starts_with($studentMobileNo, '+91')) {
-            $studentMobileNo = '+91' . $studentMobileNo;
-        }
-        $apiKey = 'EfJ3kJdXG6cz'; 
-        $whatsappApiUrl = 'http://api.textmebot.com/send.php';
-
-
-
-        $response = Http::get($whatsappApiUrl, [
-            'recipient' => $studentMobileNo,
-            'apikey' => $apiKey,
-            'text' => $message
-        ]);
-
-        if ($response->successful()) {
-            return response()->json([
-                'message' => 'WhatsApp message sent successfully!'
-            ], 200);
-        } else {
-            return response()->json([
-                'errors' => ['message' => 'Failed to send WhatsApp message.']
-            ], 500);
+        if (!str_starts_with($MobileNo, '+91')) {
+            $MobileNo = '+91' . $MobileNo;
         }
 
+        try {
+            $response = Http::timeout(30)->get('http://api.textmebot.com/send.php', [
+                'recipient' => $MobileNo,
+                'apikey'    => $apiKey,
+                'text'      => $message
+            ]);
+            Log::info('WhatsApp API Response', [
+                'mobile' => $MobileNo,
+                'status' => $response->status(),
+                'body'   => $response->body(),
+                'json'   => $response->json(),
+            ]);
+            if ($response->successful()) {
+                $body = strtolower($response->body());
+
+                if (str_contains($body, 'error') || str_contains($body, 'failed')) {
+                    return back()->with('error',
+                        'API responded with failure.<br><b>Response:</b><br>' .
+                        nl2br(e($response->body()))
+                    );
+                }
+                return back()->with('success', 'Message sent successfully!');
+            }
+            return back()->with('error',
+                'API Error ❌<br>' .
+                '<b>Status:</b> ' . $response->status() . '<br>' .
+                '<b>Response:</b><br>' . nl2br(e($response->body()))
+            );
+        } catch (Exception $e) {
+            Log::error('WhatsApp API Exception', [
+                'message' => $e->getMessage(),
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine(),
+                'trace'   => $e->getTraceAsString(),
+                'mobile'  => $MobileNo,
+                'apikey'  => $apiKey,
+            ]);
+            return back()->with('error',
+                'Exception Occurred ❌<br>' .
+                '<b>Message:</b> ' . e($e->getMessage()) . '<br>' .
+                '<b>File:</b> ' . $e->getFile() . '<br>' .
+                '<b>Line:</b> ' . $e->getLine()
+            );
+        }
     }
 
 
+
+
+
+
+
+
+********************************************************* Follow Trait *******************************************************************************
+
+<?php
+
+namespace App\Traits;
+
+use App\Models\BussinessSetting;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+trait sendOtpForWhatsapp
+{
+    public function sendOtpOnWhatsapp($user, $otp)
+    {
+        try {
+            // dd($user,$otp);
+            $mobile = $user->mobile ?? null;
+            if (!$mobile) {
+                Log::channel('whatsapp-api')->warning('Mobile number missing', [
+                    'user_id' => $user->id ?? null,
+                ]);
+                return false;
+            }
+            if (!str_starts_with($mobile, '+91')) {
+                $mobile = '+91' . ltrim($mobile, '0');
+            }
+            $apiKey = BussinessSetting::where('type', 'apikey')->value('value');
+            if (!$apiKey) {
+                Log::channel('whatsapp-api')->error('WhatsApp API key missing');
+                return false;
+            }
+            $message = $this->otpWhatsappMessage($user->name ?? 'User', $otp);
+            Log::channel('whatsapp-api')->info('Sending WhatsApp OTP', [
+                'mobile' => $mobile,
+                'otp'    => $otp,
+            ]);
+            $response = Http::get('http://api.textmebot.com/send.php', [
+                'recipient' => $mobile,
+                'apikey'    => $apiKey,
+                'text'      => $message
+            ]);
+            if ($response->successful()) {
+                Log::channel('whatsapp-api')->info('WhatsApp OTP sent successfully', [
+                    'mobile' => $mobile,
+                    'response' => $response->body(),
+                ]);
+                return true;
+            }
+            Log::channel('whatsapp-api')->error('WhatsApp OTP failed', [
+                'mobile'   => $mobile,
+                'status'   => $response->status(),
+                'response' => $response->body(),
+            ]);
+            return false;
+        } catch (\Throwable $e) {
+            Log::channel('whatsapp-api')->critical('WhatsApp OTP Exception', [
+                'error' => $e->getMessage(),
+                'line'  => $e->getLine(),
+                'file'  => $e->getFile(),
+            ]);
+            return false;
+        }
+    }
+
+    private function otpWhatsappMessage($name, $otp)
+    {
+        return "Hello {$name}, 👋\n\n"
+            . "Your login OTP is *{$otp}* 🔐\n"
+            . "This OTP is valid for *2 minutes* only.\n\n"
+            . "Please do not share this OTP with anyone.\n\n"
+            . "Thanks & Regards,\n"
+            . "Reconsulant Advisory Team";
+    }
+}
 
 
 
