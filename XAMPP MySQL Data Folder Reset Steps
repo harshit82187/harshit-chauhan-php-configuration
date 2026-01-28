@@ -1,0 +1,10 @@
+#######################################################EEE################### XAMPP MySQL Data Folder Reset Steps ################################################################################################
+
+
+1. Go to the path E:\xampp\mysql and copy the data folder. Paste it in the same location and rename it to data-old.
+
+2. Open the data folder and select mysql, performance_schema, phpmyadmin, and test, then delete them.
+
+3. Again, Select all files except the folders and the ibdata1 file, and delete them.
+
+4. Go to E:\xampp\mysql\backup, copy all the data except ibdata1, and paste it into the data folder.
