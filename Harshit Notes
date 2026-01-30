@@ -134,6 +134,21 @@ require __DIR__ . '/auth.php';
 
 
 
+************************************************ match using in php 8+ version *************************************************
+
+@php 
+    $message = match ($user->is_approved){
+        null => ['pending-badge','Pending'],
+        'Y' => ['verified-badge','Approved'],
+        'N' => ['reject-badge','Reject'],
+    }
+@endphp
+
+<span class="{{ $message[0] }}">{{ $message[1] }}</span>
+
+
+
+************************************************ match using end *************************************************
 
 
  ************************************************* json encode and decode via help of model **************************************
