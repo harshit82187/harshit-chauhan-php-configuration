@@ -5,6 +5,7 @@ Nessacary Package :
 composer require stripe/stripe-php
 composer require barryvdh/laravel-dompdf
 composer require endroid/qr-code
+composer require milon/barcode
 
 
 
