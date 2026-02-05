@@ -70,3 +70,22 @@ class Query extends Model
         ]);
         return back()->with('success', 'Your message has been sent successfully.');
     }
+
+
+
+
+
+
+
+
+
+******************************************************************************* Accessor and Mutator (Array Format)  In Laravel **************************************************************************************
+
+
+ protected $casts = [
+        'attachments' => 'array',
+    ];
+
+    public function setAttachmentsAttribute($value){
+        $this->attributes['attachments'] = json_encode($value, JSON_UNESCAPED_SLASHES);
+    }
