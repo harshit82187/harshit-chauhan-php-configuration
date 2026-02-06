@@ -1,14 +1,24 @@
 
-
-Please close the FTP if you are not using it
-Please close the FTP if you are not using it
-Please close the FTP if you are not using it
-
-
 *********************************************************** Multiline Comments ********************************************************
 /* 
 
 */
+
+
+*********************************************************** Select2 css maintain height and width ********************************************************
+.select2-container .select2-selection--single {
+    height: 38px !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height: 38px !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 38px !important;
+}
 
 
 ************************************** Report Url *************************************************************************
