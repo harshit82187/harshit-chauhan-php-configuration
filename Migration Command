@@ -9,7 +9,7 @@ public function up()
         $table->id();
         $table->string('name');
         $table->integer('price');
-        $table->tinyInteger('status')->byDefault(1);
+        $table->tinyInteger('status')->default(1);
         $table->unsignedBigInteger('created_by');
         $table->softDeletes();
 
