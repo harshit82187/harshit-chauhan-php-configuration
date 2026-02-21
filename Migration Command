@@ -9,8 +9,10 @@ public function up()
         $table->id();
         $table->string('name');
         $table->integer('price');
-
+        $table->tinyInteger('status')->byDefault(1);
         $table->unsignedBigInteger('created_by');
+        $table->softDeletes();
+
         $table->foreign('created_by')->references('id')->on('admins')->onDelete('cascade');
         $table->timestamps();
     });
