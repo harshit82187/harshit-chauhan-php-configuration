@@ -107,35 +107,21 @@ Route::post('admin/blogs/update-status', [BlogController::class, 'updateStatus']
 ******************************************* Controller Side Code  ********************************************************
 
 
-  public function customerReviewChange(Request $request)
-    {
-        $request->validate([
-            'review_id' => 'required|numeric',  
-            'status' => 'required|boolean',  
-        ]);    
-    
-        try {
-            $review = Review::findOrFail($request->review_id);
-            $review->status = $request->status;
-    
-            if ($review->save()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Review status updated successfully',
-                ]);
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to update review status.',
-                ], 500);
-            }
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Something went wrong: ' . $e->getMessage(),
-            ], 500);
-        }
-    }
+ public function customerReviewChange(Request $request)
+{
+    $request->validate([
+        'review_id' => 'required|numeric',
+        'status'    => 'required|boolean',
+    ]);
+
+    Review::findOrFail($request->review_id)
+        ->update(['status' => $request->status]);
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Review status updated successfully',
+    ]);
+}
 
 
 
