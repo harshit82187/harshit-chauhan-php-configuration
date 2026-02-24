@@ -339,10 +339,7 @@ $(document).on('submit', '#get-in-touch-form', function(e) {
 
 $(document).on('submit', '#update-role', function() {
     let btn = $('button[type="submit"]');
-    btn.prop('disabled', true).css('cursor', 'no-drop').html(`
-            <i class="fa fa-spinner fa-spin me-2"></i>
-            Please wait...
-    `);
+    btn.prop('disabled', true).css('cursor', 'no-drop').html(`<i class="fa fa-spinner fa-spin me-2"></i>Please wait...`);
 });
 
 
