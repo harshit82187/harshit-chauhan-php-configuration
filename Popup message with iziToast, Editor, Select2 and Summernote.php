@@ -176,6 +176,24 @@ catch (ValidationException $e) {
 </script>
 @endif
 
+@if(session('processing'))
+<script>
+   Swal.fire({
+		icon: 'info',
+		title: 'Please wait...',
+		text: 'Processing your booking',
+		allowOutsideClick: false,
+		showConfirmButton: false,
+		timer: 4000,
+		didOpen: () => {
+			Swal.showLoading();
+		}
+	});
+</script>
+@endif
+
+
+
 
 ************************************************************** Another Method With Command ***********************************************************************************
 composer require brian2694/laravel-toastr
