@@ -117,3 +117,10 @@ git push -u origin main --force
 
 
 
+********************************* When you pull new project on the github *************************************************************
+
+Step :1 E:\react\whms
+git clone https://github.com/sunidhi-chauhan/whms-react.git
+
+Step :2 cd whms
+npm start
