@@ -114,6 +114,21 @@ catch (\Throwable  $e) {
 
 class="text-nowrap"
 
+
+
+***************************************************** try catch *******************************************************************
+
+try{
+
+}catch (\Exception $e) {
+    return response()->json([
+        'status' => false,
+        'message' => $e->getMessage() ?: 'Something went wrong',
+        'error_line' => $e->getLine(),
+        'error_file' => $e->getFile(),
+    ], 500);
+}
+
 ***************************************************** web and date extension *******************************************************
 <title>@yield('title', 'Tensor - Admin Dashboard')</title>
 <title>@yield('title', config('app.title'))</title>
