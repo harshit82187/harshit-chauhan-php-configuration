@@ -360,8 +360,9 @@ $(document).on('submit', '#update-role', function() {
 
 
 
-
+let name = $(this).data('name');
  $('#send-notification').find('input[name="name"]').val(id);
+ $("#edit-temperament-modal").modal('show');
 
 
 
