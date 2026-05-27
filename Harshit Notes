@@ -84,6 +84,13 @@ catch (\Throwable  $e) {
         'status' => 'error',
         'message' => $e->getMessage()
     ], 500);
+    Log::error('Gift Card Payment Error', [
+        'message' => $e->getMessage(),
+        'file'    => $e->getFile(),
+        'line'    => $e->getLine(),
+        'trace'   => $e->getTraceAsString(),
+    ]);
+
 }
 
 
@@ -121,6 +128,12 @@ class="text-nowrap"
 try{
 
 }catch (\Exception $e) {
+    Log::error('Gift Card Payment Error', [
+        'message' => $e->getMessage(),
+        'file'    => $e->getFile(),
+        'line'    => $e->getLine(),
+        'trace'   => $e->getTraceAsString(),
+    ]);
     return response()->json([
         'status' => false,
         'message' => $e->getMessage() ?: 'Something went wrong',
