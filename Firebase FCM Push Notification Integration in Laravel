@@ -1,0 +1,489 @@
+         ******************************************* Firebase FCM Push Notification Integration in Laravel***********************************************************
+
+Step :- 1 Create fcm_token column in the user table.
+
+Step :- 2 Recieve fcm_token in register and login api.
+
+    public function login(Request $request){
+        // dd($request->all());
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required'
+        ]);
+        $user = User::withTrashed()->where('email', $request->email)->where('status', 1)->first();
+
+        if (checkDeletedAccount($user)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Your account has been deleted.'
+            ], 403);
+        }
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid credentials'
+            ], 401);
+        }
+
+        if ($request->filled('fcm_token')) {
+            $user->update([
+                'fcm_token' => $request->fcm_token
+            ]);
+        }
+
+        $token = $user->createToken('user-login-token')->plainTextToken;
+        return response()->json([
+            'status' => true,
+            'message' => 'Login successful',
+            'token' => $token,
+            'user' => [
+                'id' => $user->id,
+                'email' => $user->email,
+                'mobile_no' => $user->mobile_no,
+                'name' => $user->name,
+                'image' => $user->image,
+                'fcm_token' => $user->fcm_token
+
+            ]
+        ]);
+    }
+
+    public function register(Request $request){
+        // dd($request->all());
+        $rules = [
+            'name' => 'required|string|max:250',
+            'mobile_no' => 'required|unique:users,mobile_no',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:8',
+            'post_code' => 'required|string|max:12',
+        ];
+        $validator = Validator::make($request->all(), $rules);
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $user = User::create([
+            'name'     => $request->name,
+            'email'    => $request->email,
+            'mobile_no'    => $request->mobile_no,
+            'post_code'    => $request->post_code,
+            'password' => Hash::make($request->password),
+            'status' => 1,
+            'email_verified_at' => now(),
+            'fcm_token' => $request->fcm_token ?? null
+        ]);
+
+        $token = $user->createToken('user-register-token')->plainTextToken;
+        assignPendingGiftCards($user);
+        sendWelcomeEmail($user);
+        return response()->json([
+            'status' => true,
+            'message' => 'Customer registered and logged in successfully',
+            'token' => $token,
+            'user' => $user,
+        ],200);
+    }
+
+Step :- 3 Recieve firebase_credentials.json file which you provided by the flutter developer in the firebase console.
+
+{
+  "type": "service_account",
+  "project_id": "dogwalkingfield",
+  "private_key_id": "2d15308d1f855fcb09b70fe9da17c4ae372bde96",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC7DK+gOtX8lJKm\nbENSltC6Nz5a9aVA4p/9fz5OogjP5OlIJ5QJF6s4GJOkxslvQcArVwZuQS0qZ2dy\nssyJe6+wibUomGdsbnLZDk8UTrZMyQHUxouQj2mHoG6Y0lyFp3+Ho/n+yVK5brai\nmJHgix02jTOIh9g9Hb6cEBGlukMRGakAHocFNr6KKcK/QdvNesxO/EfKXaG6WtM7\nx7VMpwE4dd74Lt/pYQcmbPByax4iVYfRGqOeed2p8uL5Qa35p4NIUAP//7PhG1vh\ns0bEsw6PaZTePSJKSjYhbpZMjFC9Ef2aJRwmOmYwxkMQvt/4arY+/NVlk3AmL4ec\nNB57ASvbAgMBAAECggEADtR2qDGB/cCZz/ANdmLWsaznmLaZH4fYP3TzL7DRGgqA\nJGRe7EmgHZZ1Pj80gUmpPsZrkBpCxnXkUcezR8MyrsB8SHes23/2QxdLVcTX10ao\nioIjVpbIOySRIDSteTtKdSqfC4BSurj4afPGvRLKgiS3zT9X+aB+GEl93LHj11sa\ngFBmyIV3YnnsfkIbrRh8rlkSXIQHvcyH/TNWJbbdUjddJvmlzHNTM9FMo8sjL1Wm\nymgj9ATCScz9M9NoQ2MqdYU89OfZDrvW2MWTjechcMvS5az9ij21FLJj3y1aKNWv\nfY146TLNZcnscCKKG6M7NH9nbfWsUo7Ou1GvIuP2oQKBgQD3lfBEU6gvdENs6QBv\nJb/38KhOyxcMNWuSUhsuyF+D7WosqBtUk/Flzncu+xMexiVu4W9pD01ekk59T1Ko\neG2IbzXdN/t0HUYT4NXLh1hLZnDZrDF/DsZTT/Kzs05pZMsTQTIs/NsEkNDBeD8O\nV7bIrmnFMc7w7YiQtvqg+MLKfwKBgQDBaBEjUDCPFp+i4liVfSdUhj9xIm8rNLY1\n/QU9vpBB66C3Uk2kpyqr1K77vxcDYHt46KB4btGICBvfnOWOumgBHuGqhMZFWlqf\neXQ6Ow3vgWVVoM6VRy3+rzgQPiIM4Nt+Y1izUP+sFwaKwbz/os3/tX73G0amn/ZS\nbivFaadYpQKBgQDdT6QED5upP439zpFayS2+Hdr1A8lIWoAbvVUbDnWC4jgkTuiP\nQ+dmj5Yt4rUGryxK3yzNhqYsQS/0B3HlsjCG4pINertE4d4AatvxILymOZ3qlWdx\nIe3aDv7t7vvKbhSw03hcinHktOZF6ozC71kuLenSIWHQLyQB5+5E8dh9VQKBgEHT\nCmorY6t/dqt4P8/4/YbN/g+iOZXJ5e3wBHWkQvK8oEFkWJqebm52/2sc+Vcj4kIf\nYmY6yUN0BxCPFK4EEVu4R/PCJrz56Hf4XS9oY/DM6FFBXq39wNC6j+kvTGV3rhyQ\n8WJuQeYvHAHjuFCE93l9Kw4tEVmqfapGZs1UjSklAoGBAJA+/EjWFae7m07iB7Hw\n4oz51MaUfacOaovw6IG2/ibKHtbgQAA5xn9QUJWWUNni4CROKF2q+e1nqr82xkjA\nQDjl4rxLTqn7BLSVYcL4R+Sx+4wjVaeVSMeQgh0WrxISIr7hNQ7rKDddMZrIwyvS\n236Kbz/+IO1kfi01XFI9vSDj\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-fbsvc@dogwalkingfield.iam.gserviceaccount.com",
+  "client_id": "107278147947768035783",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40dogwalkingfield.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
+
+
+Step :- 4 create fcm_notification log channel in the logging.php file
+
+   'cron_job_book_confirmation' => [
+        'driver' => 'single',
+        'path' => storage_path('logs/cron_job_book_confirmation.log'),
+        'level' => env('LOG_LEVEL', 'debug'),
+    ],
+
+
+Step :- 5 Create Notification or Announcment module in the admin pannel and then put below code in the store function.
+
+    public function store(Request $request){
+        \Log::channel('fcm_notification')->info('Announcement Store API Hit', [
+            'request' => $request->all()
+        ]);
+
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'type' => 'required|in:1,2,3',
+            'message' => 'required|string',
+        ]);
+
+        \Log::channel('fcm_notification')->info('Validation Passed');
+
+        // Step 1: Create Announcement
+        $announcement = Announcment::create([
+            'title' => $request->title,
+            'type' => $request->type,
+            'message' => $request->message,
+            'created_by' => $this->admin->id,
+            'notification_for' => 1,
+        ]);
+
+        \Log::channel('fcm_notification')->info('Announcement Created', [
+            'announcement_id' => $announcement->id
+        ]);
+
+        $tokens = [];
+
+        // =========================
+        // Selected Users
+        // =========================
+        if ($request->type == 3 && !empty($request->customer_id)) {
+
+            \Log::channel('fcm_notification')->info('Type 3 Notification Started');
+
+            $data = [];
+
+            foreach ($request->customer_id as $userId) {
+
+                $data[] = [
+                    'announcement_id' => $announcement->id,
+                    'user_id' => $userId,
+                    'is_seen' => 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+
+            DB::table('announcement_users')->insert($data);
+
+            \Log::channel('fcm_notification')->info('Announcement Users Inserted', [
+                'total_users' => count($data)
+            ]);
+
+            $tokens = User::whereIn('id', $request->customer_id)
+                ->whereNotNull('fcm_token')
+                ->distinct()
+                ->pluck('fcm_token')
+                ->toArray();
+
+            \Log::channel('fcm_notification')->info('FCM Tokens Fetched', [
+                'total_tokens' => count($tokens),
+                'tokens' => $tokens
+            ]);
+        }
+
+        // =========================
+        // All Users
+        // =========================
+        elseif ($request->type == 1) {
+
+            \Log::channel('fcm_notification')->info('Type 1 Notification Started');
+
+            $users = User::pluck('id');
+
+            $data = $users->map(function ($id) use ($announcement) {
+
+                return [
+                    'announcement_id' => $announcement->id,
+                    'user_id' => $id,
+                    'is_seen' => 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            })->toArray();
+
+            DB::table('announcement_users')->insert($data);
+
+            \Log::channel('fcm_notification')->info('Announcement Users Inserted', [
+                'total_users' => count($data)
+            ]);
+
+            $tokens = User::whereNotNull('fcm_token')
+                ->distinct()
+                ->pluck('fcm_token')
+                ->toArray();
+
+            \Log::channel('fcm_notification')->info('FCM Tokens Fetched', [
+                'total_tokens' => count($tokens)
+            ]);
+        }
+
+        // =========================
+        // Send Push Notification
+        // =========================
+        if (!empty($tokens)) {
+
+            \Log::channel('fcm_notification')->info('Sending Push Notification');
+
+            $this->sendPushNotification(
+                $tokens,
+                $request->title,
+                $request->message
+            );
+        } else {
+
+            \Log::channel('fcm_notification')->warning('No FCM Tokens Found');
+        }
+
+        \Log::channel('fcm_notification')->info('Announcement Process Completed');
+
+        return back()->with('success', 'Announcement Created Successfully');
+    }
+
+    public function sendPushNotification($tokens, $title, $body){
+        \Log::channel('fcm_notification')->info('================ FCM START ================');
+
+        try {
+
+            // ====================================
+            // Firebase Credentials File
+            // ====================================
+            $credentialsPath = storage_path('app/firebase/firebase_credentials.json');
+
+            \Log::channel('fcm_notification')->info('Firebase Path', [
+                'path' => $credentialsPath
+            ]);
+
+            if (!file_exists($credentialsPath)) {
+
+                \Log::channel('fcm_notification')->error('Firebase JSON file not found');
+
+                return false;
+            }
+
+            $json = json_decode(file_get_contents($credentialsPath), true);
+
+            \Log::channel('fcm_notification')->info('Firebase JSON Loaded');
+
+            // ====================================
+            // Firebase Details
+            // ====================================
+            $privateKey = str_replace("\\n", "\n", $json['private_key']);
+
+            $clientEmail = $json['client_email'];
+
+            $projectId = $json['project_id'];
+
+            \Log::channel('fcm_notification')->info('Firebase Config', [
+                'project_id' => $projectId,
+                'client_email' => $clientEmail
+            ]);
+
+            // ====================================
+            // OpenSSL Check
+            // ====================================
+            $keyResource = openssl_get_privatekey($privateKey);
+
+            if (!$keyResource) {
+
+                \Log::channel('fcm_notification')->error('Invalid Private Key');
+
+                return false;
+            }
+
+            \Log::channel('fcm_notification')->info('Private Key Validated');
+
+            // ====================================
+            // Create JWT
+            // ====================================
+            $header = [
+                'alg' => 'RS256',
+                'typ' => 'JWT'
+            ];
+
+            $now = time();
+
+            $payload = [
+                'iss' => $clientEmail,
+                'scope' => 'https://www.googleapis.com/auth/firebase.messaging',
+                'aud' => 'https://oauth2.googleapis.com/token',
+                'exp' => $now + 3600,
+                'iat' => $now
+            ];
+
+            $base64UrlHeader = str_replace(
+                ['+', '/', '='],
+                ['-', '_', ''],
+                base64_encode(json_encode($header))
+            );
+
+            $base64UrlPayload = str_replace(
+                ['+', '/', '='],
+                ['-', '_', ''],
+                base64_encode(json_encode($payload))
+            );
+
+            $signatureInput = $base64UrlHeader . "." . $base64UrlPayload;
+
+            $signature = '';
+
+            $signed = openssl_sign(
+                $signatureInput,
+                $signature,
+                $privateKey,
+                'SHA256'
+            );
+
+            if (!$signed) {
+
+                \Log::channel('fcm_notification')->error('JWT Signature Failed');
+
+                return false;
+            }
+
+            \Log::channel('fcm_notification')->info('JWT Signed Successfully');
+
+            $base64UrlSignature = str_replace(
+                ['+', '/', '='],
+                ['-', '_', ''],
+                base64_encode($signature)
+            );
+
+            $jwt = $base64UrlHeader . "." . $base64UrlPayload . "." . $base64UrlSignature;
+
+            \Log::channel('fcm_notification')->info('JWT Generated');
+
+            // ====================================
+            // OAuth Token Request
+            // ====================================
+            $tokenUrl = 'https://oauth2.googleapis.com/token';
+
+            $postFields = http_build_query([
+                'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+                'assertion' => $jwt
+            ]);
+
+            $ch = curl_init();
+
+            curl_setopt($ch, CURLOPT_URL, $tokenUrl);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $postFields);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/x-www-form-urlencoded'
+            ]);
+
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+
+            $response = curl_exec($ch);
+
+            if (curl_errno($ch)) {
+
+                \Log::channel('fcm_notification')->error('OAuth CURL Error', [
+                    'error' => curl_error($ch)
+                ]);
+            }
+
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+            curl_close($ch);
+
+            \Log::channel('fcm_notification')->info('OAuth Response', [
+                'http_code' => $httpCode,
+                'response' => $response
+            ]);
+
+            $responseData = json_decode($response, true);
+
+            if (!isset($responseData['access_token'])) {
+
+                \Log::channel('fcm_notification')->error('Access Token Not Generated', [
+                    'response' => $responseData
+                ]);
+
+                return false;
+            }
+
+            $accessToken = $responseData['access_token'];
+
+            \Log::channel('fcm_notification')->info('Access Token Generated Successfully');
+
+            // ====================================
+            // Send Notification
+            // ====================================
+            foreach ($tokens as $deviceToken) {
+
+                \Log::channel('fcm_notification')->info('Sending Notification To Token', [
+                    'token' => $deviceToken
+                ]);
+
+                $payload = [
+                    "message" => [
+
+                        "token" => $deviceToken,
+
+                        "notification" => [
+                            "title" => $title,
+                            "body" => $body
+                        ],
+
+                        "data" => [
+                            "click_action" => "FLUTTER_NOTIFICATION_CLICK"
+                        ],
+
+                        "android" => [
+                            "priority" => "high"
+                        ]
+                    ]
+                ];
+
+                $url = "https://fcm.googleapis.com/v1/projects/{$projectId}/messages:send";
+
+                $headers = [
+                    'Authorization: Bearer ' . $accessToken,
+                    'Content-Type: application/json',
+                ];
+
+                $ch = curl_init();
+
+                curl_setopt($ch, CURLOPT_URL, $url);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+
+                $response = curl_exec($ch);
+
+                if (curl_errno($ch)) {
+
+                    \Log::channel('fcm_notification')->error('FCM CURL Error', [
+                        'error' => curl_error($ch)
+                    ]);
+                }
+
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+                curl_close($ch);
+
+                \Log::channel('fcm_notification')->info('FCM Send Response', [
+                    'http_code' => $httpCode,
+                    'response' => $response
+                ]);
+            }
+
+        } catch (\Exception $e) {
+
+            \Log::channel('fcm_notification')->error('FCM Exception', [
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile()
+            ]);
+        }
+
+        \Log::channel('fcm_notification')->info('================ FCM END ================');
+    }
