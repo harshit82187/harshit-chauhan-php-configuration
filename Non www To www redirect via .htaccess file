@@ -8,7 +8,7 @@
     RewriteEngine On
 
     # 🔥 ADD THIS (WWW + HTTPS redirect)
-    RewriteCond %{HTTP_HOST} !^www\.diamondpoint\.uk$ [NC]
+    RewriteCond %{HTTP_HOST} ^diamondpoint\.uk$ [NC]
     RewriteRule ^(.*)$ https://www.diamondpoint.uk/$1 [L,R=301]
 
     # Handle Authorization Header
@@ -32,5 +32,5 @@
 
 ///////////////////////////////////////////////////// Mention Only below two lines //////////////////////////////////////////////////////////////////
     # 🔥 ADD THIS (WWW + HTTPS redirect)
-    RewriteCond %{HTTP_HOST} !^www\.diamondpoint\.uk$ [NC]
+    RewriteCond %{HTTP_HOST} ^diamondpoint\.uk$ [NC]
     RewriteRule ^(.*)$ https://www.diamondpoint.uk/$1 [L,R=301]
