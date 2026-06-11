@@ -1,0 +1,238 @@
+****************************************************** Google Maps Location Picker with Address Autocomplete and Reverse Geocoding *********************************************************************
+
+Step :- 1 Config/app.php file code
+          'google'              => [
+              // 'apiKey' => 'AIzaSyBGY9oosi2-AXKw0yQSO4_0NjudOEPnGmM',
+              'apiKey' => 'AIzaSyDbmpSpIZSnkyIM25wXMbHSpfl3bfcOU4Q',
+              'apiKey2' => 'AIzaSyABtvSspmie6Nl72rYRs75WPz5U65LqTqc',
+          ],
+
+Step :- 2 Blade file code 
+
+<div class="card dwfcard">
+    <div class="card-header card-no-border">
+        <div>
+            <h3>Location & Map</h3>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="field-form-item">
+            <input type="hidden" id="latitude" name="latitude" />
+            <input type="hidden" id="longitude" name="longitude" />
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="form-group" wire:ignore>
+                        <label
+                            >Address Line 1 <span class="text-danger">*</span>
+                            <span id="mapErrorMsg" style="color: red; font-size: 12px; display: none">
+                                (Autocomplete API not working)
+                            </span></label
+                        >
+                        <input
+                            type="text"
+                            id="address_one"
+                            name="address_one"
+                            value="{{ old('address_one', isset($field) ? json_decode($field->address, true)['address_one'] ?? '' : '') }}"
+                            required
+                            placeholder="Street address"
+                        />
+                    </div>
+                </div>
+
+                <div class="col-md-12">
+                    <div class="form-group">
+                        <label>Address Line 2</label>
+                        <input
+                            type="text"
+                            name="address_two"
+                            value="{{ old('address_two', isset($field) ? json_decode($field->address, true)['address_two'] ?? '' : '') }}"
+                            autocomplete="one-time-code"
+                            placeholder="paste link here..."
+                        />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label>City <span class="text-danger">*</span></label>
+                        <input
+                            type="text"
+                            id="city"
+                            name="city"
+                            value="{{ old('city', isset($field) ? json_decode($field->address, true)['city'] ?? '' : '') }}"
+                            required
+                            placeholder="City"
+                        />
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label>Postcode <span class="text-danger">*</span></label>
+                        <input
+                            type="text"
+                            id="postcode"
+                            name="postcode"
+                            value="{{ old('postcode', isset($field) ? json_decode($field->address, true)['postcode'] ?? '' : '') }}"
+                            required
+                            placeholder="Postcode"
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="map-grid" wire:ignore>
+            <div id="map" style="width: 100%; height: 350px"></div>
+        </div>
+
+Step :- 3 Script code 
+
+  <script src="https://maps.googleapis.com/maps/api/js?key={{ config('app.google.apiKey') }}&libraries=places&callback=initAutocomplete" async defer></script>
+ <script>
+        let map;
+        let marker;
+        let geocoder;
+
+        window.initAutocomplete = function () {
+
+            geocoder = new google.maps.Geocoder();
+
+            let defaultLocation = {
+                lat: 28.6139,
+                lng: 77.2090
+            };
+
+            map = new google.maps.Map(document.getElementById("map"), {
+                center: defaultLocation,
+                zoom: 13
+            });
+
+            marker = new google.maps.Marker({
+                position: defaultLocation,
+                map: map,
+                draggable: true
+            });
+
+            // Marker drag hone par address fill karo
+            google.maps.event.addListener(marker, "dragend", function(event) {
+
+                let lat = event.latLng.lat();
+                let lng = event.latLng.lng();
+
+                $("#latitude").val(lat);
+                $("#longitude").val(lng);
+
+                reverseGeocode(lat, lng);
+            });
+
+            // Map click par marker move karo
+            google.maps.event.addListener(map, "click", function(event) {
+
+                marker.setPosition(event.latLng);
+
+                let lat = event.latLng.lat();
+                let lng = event.latLng.lng();
+
+                $("#latitude").val(lat);
+                $("#longitude").val(lng);
+
+                reverseGeocode(lat, lng);
+            });
+
+            // Existing autocomplete
+            let input = document.getElementById("address_one");
+
+            const autocomplete = new google.maps.places.Autocomplete(input, {
+                types: ["geocode"]
+            });
+
+            autocomplete.addListener("place_changed", function() {
+
+                let place = autocomplete.getPlace();
+
+                if (!place.geometry) return;
+
+                let city = "";
+                let postcode = "";
+
+                place.address_components.forEach(function(component) {
+
+                    let types = component.types;
+
+                    if (types.includes("locality")) {
+                        city = component.long_name;
+                    }
+
+                    if (!city && types.includes("administrative_area_level_2")) {
+                        city = component.long_name;
+                    }
+
+                    if (types.includes("postal_code")) {
+                        postcode = component.long_name;
+                    }
+                });
+
+                let lat = place.geometry.location.lat();
+                let lng = place.geometry.location.lng();
+
+                $("#address_one").val(place.formatted_address);
+                $("#city").val(city);
+                $("#postcode").val(postcode);
+
+                $("#latitude").val(lat);
+                $("#longitude").val(lng);
+
+                map.setCenter({
+                    lat: lat,
+                    lng: lng
+                });
+
+                marker.setPosition({
+                    lat: lat,
+                    lng: lng
+                });
+
+                map.setZoom(18);
+            });
+        };
+
+        function reverseGeocode(lat, lng) {
+
+            geocoder.geocode({
+                location: {
+                    lat: lat,
+                    lng: lng
+                }
+            }, function(results, status) {
+
+                if (status === "OK" && results[0]) {
+
+                    let city = "";
+                    let postcode = "";
+
+                    results[0].address_components.forEach(function(component) {
+
+                        let types = component.types;
+
+                        if (types.includes("locality")) {
+                            city = component.long_name;
+                        }
+
+                        if (!city && types.includes("administrative_area_level_2")) {
+                            city = component.long_name;
+                        }
+
+                        if (types.includes("postal_code")) {
+                            postcode = component.long_name;
+                        }
+                    });
+
+                    $("#address_one").val(results[0].formatted_address);
+                    $("#city").val(city);
+                    $("#postcode").val(postcode);
+                }
+            });
+        }
+    </script>
+
+    </div>
+</div>
