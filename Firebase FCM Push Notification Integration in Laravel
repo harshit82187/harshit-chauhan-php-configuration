@@ -89,7 +89,7 @@ Step :- 2 Recieve fcm_token in register and login api.
     }
 
 Step :- 3 Recieve firebase_credentials.json file which you provided by the flutter developer in the firebase console.
-
+          store this json in storage/app/firebase/firebase_credentials.json
 {
   "type": "service_account",
   "project_id": "dogwalkingfield",
