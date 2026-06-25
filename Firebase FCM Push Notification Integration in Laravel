@@ -487,3 +487,287 @@ Step :- 5 Create Notification or Announcment module in the admin pannel and then
 
         \Log::channel('fcm_notification')->info('================ FCM END ================');
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+**************************************************** Helper Function code ***********************************************************
+
+
+    public function pushNotificationView(Request $req){
+        if ($req->isMethod('get')) {
+
+            return view('admin.business-setting.notifications.push-notification');
+        }
+
+        $response = sendUserPushNotification(
+            $req->customer_id,
+            'Test Notification',
+            'This is a test push notification from admin panel.'
+        );
+
+        return redirect()->back()->with(
+            $response ? 'success' : 'error',
+            $response ? 'Notification sent successfully.' : 'Notification failed.'
+        );
+    }
+
+
+
+
+
+
+
+
+if (!function_exists('sendUserPushNotification')) {
+
+    function sendUserPushNotification($userIds, $title, $body)
+    {
+        \Log::info('================ FCM HELPER START ================');
+
+        try {
+
+            \Log::info('Input Data', [
+                'user_ids' => $userIds,
+                'title' => $title,
+                'body' => $body
+            ]);
+
+            if (empty($userIds)) {
+
+                \Log::warning('User IDs empty');
+                return false;
+            }
+
+            if (!is_array($userIds)) {
+                $userIds = [$userIds];
+            }
+
+            // ================================
+            // GET TOKENS
+            // ================================
+            $tokens = \App\Models\User::whereIn('id', $userIds)
+                ->whereNotNull('fcm_token')
+                ->pluck('fcm_token')
+                ->toArray();
+
+            \Log::info('FCM Tokens Fetched', [
+                'count' => count($tokens),
+                'tokens' => $tokens
+            ]);
+
+            if (empty($tokens)) {
+
+                \Log::warning('No FCM tokens found');
+                return false;
+            }
+
+            // ================================
+            // FIREBASE FILE
+            // ================================
+            $path = storage_path('app/firebase/firebase_credentials.json');
+
+            \Log::info('Firebase Path', ['path' => $path]);
+
+            if (!file_exists($path)) {
+
+                \Log::error('Firebase credentials file missing');
+                return false;
+            }
+
+            $json = json_decode(file_get_contents($path), true);
+
+            $privateKey = str_replace("\\n", "\n", $json['private_key']);
+            $clientEmail = $json['client_email'];
+            $projectId = $json['project_id'];
+
+            \Log::info('Firebase Config Loaded', [
+                'project_id' => $projectId,
+                'client_email' => $clientEmail
+            ]);
+
+            // ================================
+            // JWT CREATE
+            // ================================
+            $header = ['alg' => 'RS256', 'typ' => 'JWT'];
+
+            $now = time();
+
+            $payload = [
+                'iss' => $clientEmail,
+                'scope' => 'https://www.googleapis.com/auth/firebase.messaging',
+                'aud' => 'https://oauth2.googleapis.com/token',
+                'exp' => $now + 3600,
+                'iat' => $now
+            ];
+
+            $base64Header = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode(json_encode($header)));
+            $base64Payload = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode(json_encode($payload)));
+
+            $signatureInput = $base64Header . "." . $base64Payload;
+
+            $signature = '';
+
+            $signed = openssl_sign(
+                $signatureInput,
+                $signature,
+                $privateKey,
+                OPENSSL_ALGO_SHA256
+            );
+
+            if (!$signed) {
+
+                \Log::error('JWT SIGN FAILED');
+                return false;
+            }
+
+            \Log::info('JWT Signed Successfully');
+
+            $base64Signature = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($signature));
+
+            $jwt = $base64Header . "." . $base64Payload . "." . $base64Signature;
+
+            \Log::info('JWT Generated');
+
+            // ================================
+            // ACCESS TOKEN REQUEST
+            // ================================
+            $ch = curl_init();
+
+            curl_setopt_array($ch, [
+                CURLOPT_URL => 'https://oauth2.googleapis.com/token',
+                CURLOPT_POST => true,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POSTFIELDS => http_build_query([
+                    'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+                    'assertion' => $jwt
+                ]),
+                CURLOPT_HTTPHEADER => [
+                    'Content-Type: application/x-www-form-urlencoded'
+                ],
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => false,
+            ]);
+
+            $response = curl_exec($ch);
+
+            if (curl_errno($ch)) {
+
+                \Log::error('OAuth CURL ERROR', [
+                    'error' => curl_error($ch)
+                ]);
+            }
+
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+            curl_close($ch);
+
+            \Log::info('OAuth Response', [
+                'http_code' => $httpCode,
+                'response' => $response
+            ]);
+
+            $responseData = json_decode($response, true);
+
+            if (!isset($responseData['access_token'])) {
+
+                \Log::error('ACCESS TOKEN FAILED', [
+                    'response' => $responseData
+                ]);
+
+                return false;
+            }
+
+            $accessToken = $responseData['access_token'];
+
+            \Log::info('Access Token Generated');
+
+            // ================================
+            // SEND NOTIFICATION
+            // ================================
+            foreach ($tokens as $token) {
+
+                \Log::info('Sending Notification', [
+                    'token' => $token
+                ]);
+
+                $payload = [
+                    "message" => [
+                        "token" => $token,
+                        "notification" => [
+                            "title" => $title,
+                            "body" => $body
+                        ],
+                        "android" => [
+                            "priority" => "high"
+                        ]
+                    ]
+                ];
+
+                $ch = curl_init();
+
+                curl_setopt_array($ch, [
+                    CURLOPT_URL => "https://fcm.googleapis.com/v1/projects/{$projectId}/messages:send",
+                    CURLOPT_POST => true,
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_HTTPHEADER => [
+                        "Authorization: Bearer $accessToken",
+                        "Content-Type: application/json"
+                    ],
+                    CURLOPT_POSTFIELDS => json_encode($payload),
+                    CURLOPT_SSL_VERIFYPEER => false,
+                    CURLOPT_SSL_VERIFYHOST => false,
+                ]);
+
+                $response = curl_exec($ch);
+
+                if (curl_errno($ch)) {
+
+                    \Log::error('FCM CURL ERROR', [
+                        'error' => curl_error($ch)
+                    ]);
+                }
+
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+                curl_close($ch);
+
+                \Log::info('FCM RESPONSE', [
+                    'http_code' => $httpCode,
+                    'response' => $response
+                ]);
+            }
+
+            \Log::info('================ FCM HELPER END ================');
+
+            return true;
+
+        } catch (\Exception $e) {
+
+            \Log::error('FCM EXCEPTION', [
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile()
+            ]);
+
+            return false;
+        }
+    }
+}
