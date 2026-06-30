@@ -29,7 +29,8 @@ class Task extends Model
 
 
 2. In the tasks table, create a deleted_at column with the type timestamp and a default value of null.
-
+ALTER TABLE `tasks`
+ADD COLUMN `deleted_at` TIMESTAMP NULL DEFAULT NULL AFTER `updated_at`;
 
 2. Controller Side Code
 
