@@ -148,6 +148,7 @@ try{
 
 @section('title', 'Login - Metric Wave Insights')
 @section('title', (Auth()->check() ? Auth()->user()->name : 'N/A') . ' Info - Tensor')
+@section('title', 'New Orders - ' . config('app.siteTitle'))
 
 require __DIR__ . '/auth.php';
 
