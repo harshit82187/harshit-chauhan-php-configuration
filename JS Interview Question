@@ -468,3 +468,1622 @@
   console.log(countDigits(7));     // 1
   console.log(sumOfDigits(1234));  // 10
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+/**
+ * JavaScript Array Coding: 25 solutions (bina built-in functions)
+ * Run: node js-array-coding.js
+ */
+
+// ============================================================
+// Q1. Remove duplicates
+// Time: O(n)  |  Space: O(n)
+// ============================================================
+{
+  console.log("\n--- Q1. Remove duplicates ---");
+  function removeDuplicates(arr) {
+    const seen = {};
+    const result = [];
+    for (let i = 0; i < arr.length; i++) {
+      const value = arr[i];
+      const key = typeof value + "_" + value; // 1 aur "1" alag rahein
+      if (seen[key] !== true) {
+        seen[key] = true;
+        result[result.length] = value; // push() ki jagah
+      }
+    }
+    return result;
+  }
+
+  console.log(removeDuplicates([1, 2, 2, 3, 4, 4, 5])); // [ 1, 2, 3, 4, 5 ]
+  console.log(removeDuplicates(["a", "b", "a", "c"]));  // [ 'a', 'b', 'c' ]
+  console.log(removeDuplicates([1, "1", 1]));           // [ 1, '1' ]
+  console.log(removeDuplicates([]));                    // []
+}
+
+// ============================================================
+// Q2. Find duplicate elements
+// Time: O(n)  |  Space: O(n)
+// ============================================================
+{
+  console.log("\n--- Q2. Find duplicate elements ---");
+  function findDuplicates(arr) {
+    const count = {};
+    const result = [];
+    for (let i = 0; i < arr.length; i++) {
+      const value = arr[i];
+      count[value] = (count[value] || 0) + 1;
+      if (count[value] === 2) { // doosri baar mili, tabhi add karo
+        result[result.length] = value;
+      }
+    }
+    return result;
+  }
+
+  console.log(findDuplicates([1, 2, 3, 2, 4, 3, 3])); // [ 2, 3 ]
+  console.log(findDuplicates([1, 2, 3]));             // []
+  console.log(findDuplicates(["js", "php", "js"]));   // [ 'js' ]
+}
+
+// ============================================================
+// Q3. Find unique elements (sirf ek baar aane wale)
+// Time: O(n)  |  Space: O(n)
+// ============================================================
+{
+  console.log("\n--- Q3. Find unique elements (sirf ek baar aane wale) ---");
+  function findUnique(arr) {
+    const count = {};
+    for (let i = 0; i < arr.length; i++) {
+      count[arr[i]] = (count[arr[i]] || 0) + 1;
+    }
+
+    const result = [];
+    for (let i = 0; i < arr.length; i++) {
+      if (count[arr[i]] === 1) {
+        result[result.length] = arr[i];
+      }
+    }
+    return result;
+  }
+
+  console.log(findUnique([1, 2, 2, 3, 4, 4, 5])); // [ 1, 3, 5 ]
+  console.log(findUnique([7, 7, 7]));             // []
+  console.log(findUnique(["a", "b", "a"]));       // [ 'b' ]
+}
+
+// ============================================================
+// Q4. Find common elements between two arrays
+// Time: O(n + m)  |  Space: O(m)
+// ============================================================
+{
+  console.log("\n--- Q4. Find common elements between two arrays ---");
+  function findCommon(a, b) {
+    const inB = {};
+    for (let i = 0; i < b.length; i++) {
+      inB[b[i]] = true;
+    }
+
+    const added = {};
+    const result = [];
+    for (let i = 0; i < a.length; i++) {
+      const value = a[i];
+      if (inB[value] === true && added[value] !== true) {
+        added[value] = true;
+        result[result.length] = value;
+      }
+    }
+    return result;
+  }
+
+  console.log(findCommon([1, 2, 3, 4, 2], [2, 4, 6, 2])); // [ 2, 4 ]
+  console.log(findCommon(["js", "php"], ["php", "go"]));  // [ 'php' ]
+  console.log(findCommon([1, 2], [3, 4]));                // []
+}
+
+// ============================================================
+// Q5. Find difference between two arrays
+// Time: O(n + m)  |  Space: O(n + m)
+// ============================================================
+{
+  console.log("\n--- Q5. Find difference between two arrays ---");
+  // A me hai, B me nahi
+  function difference(a, b) {
+    const inB = {};
+    for (let i = 0; i < b.length; i++) {
+      inB[b[i]] = true;
+    }
+    const result = [];
+    for (let i = 0; i < a.length; i++) {
+      if (inB[a[i]] !== true) {
+        result[result.length] = a[i];
+      }
+    }
+    return result;
+  }
+
+  // Jo sirf kisi ek array me hai
+  function symmetricDifference(a, b) {
+    const onlyA = difference(a, b);
+    const onlyB = difference(b, a);
+    const result = [];
+    for (let i = 0; i < onlyA.length; i++) {
+      result[result.length] = onlyA[i];
+    }
+    for (let i = 0; i < onlyB.length; i++) {
+      result[result.length] = onlyB[i];
+    }
+    return result;
+  }
+
+  console.log(difference([1, 2, 3, 4], [3, 4, 5]));          // [ 1, 2 ]
+  console.log(difference([3, 4, 5], [1, 2, 3, 4]));          // [ 5 ]
+  console.log(symmetricDifference([1, 2, 3, 4], [3, 4, 5])); // [ 1, 2, 5 ]
+}
+
+// ============================================================
+// Q6. Find intersection (duplicates ke saath)
+// Time: O(n + m), sorted: O(n + m)  |  Space: O(n), sorted: O(1) extra
+// ============================================================
+{
+  console.log("\n--- Q6. Find intersection (duplicates ke saath) ---");
+  function intersection(a, b) {
+    const count = {};
+    for (let i = 0; i < a.length; i++) {
+      count[a[i]] = (count[a[i]] || 0) + 1;
+    }
+
+    const result = [];
+    for (let i = 0; i < b.length; i++) {
+      if (count[b[i]] > 0) {
+        result[result.length] = b[i];
+        count[b[i]]--;
+      }
+    }
+    return result;
+  }
+
+  // Dono arrays sorted hon to: two pointers
+  function intersectionSorted(a, b) {
+    const result = [];
+    let i = 0;
+    let j = 0;
+    while (i < a.length && j < b.length) {
+      if (a[i] === b[j]) {
+        result[result.length] = a[i];
+        i++;
+        j++;
+      } else if (a[i] < b[j]) {
+        i++;
+      } else {
+        j++;
+      }
+    }
+    return result;
+  }
+
+  console.log(intersection([1, 2, 2, 1], [2, 2]));       // [ 2, 2 ]
+  console.log(intersection([4, 9, 5], [9, 4, 9, 8, 4])); // [ 9, 4 ]
+  console.log(intersectionSorted([1, 2, 2, 3, 5], [2, 2, 5, 7])); // [ 2, 2, 5 ]
+}
+
+// ============================================================
+// Q7. Find union
+// Time: O(n + m)  |  Space: O(n + m)
+// ============================================================
+{
+  console.log("\n--- Q7. Find union ---");
+  function union(a, b) {
+    const seen = {};
+    const result = [];
+    const both = [a, b];
+
+    for (let k = 0; k < both.length; k++) {
+      const arr = both[k];
+      for (let i = 0; i < arr.length; i++) {
+        if (seen[arr[i]] !== true) {
+          seen[arr[i]] = true;
+          result[result.length] = arr[i];
+        }
+      }
+    }
+    return result;
+  }
+
+  console.log(union([1, 2, 3], [2, 3, 4, 5])); // [ 1, 2, 3, 4, 5 ]
+  console.log(union([1, 1], []));              // [ 1 ]
+  console.log(union([], []));                  // []
+}
+
+// ============================================================
+// Q8. Find maximum and minimum (ek hi loop me)
+// Time: O(n)  |  Space: O(1)
+// ============================================================
+{
+  console.log("\n--- Q8. Find maximum and minimum (ek hi loop me) ---");
+  function findMaxMin(arr) {
+    if (arr.length === 0) return null;
+
+    let max = arr[0];
+    let min = arr[0];
+    for (let i = 1; i < arr.length; i++) {
+      if (arr[i] > max) {
+        max = arr[i];
+      } else if (arr[i] < min) {
+        min = arr[i];
+      }
+    }
+    return { max, min };
+  }
+
+  console.log(findMaxMin([3, 9, 1, 7]));   // { max: 9, min: 1 }
+  console.log(findMaxMin([-4, -9, -2]));   // { max: -2, min: -9 }
+  console.log(findMaxMin([5]));            // { max: 5, min: 5 }
+  console.log(findMaxMin([]));             // null
+}
+
+// ============================================================
+// Q9. Find second largest
+// Time: O(n)  |  Space: O(1)
+// ============================================================
+{
+  console.log("\n--- Q9. Find second largest ---");
+  function secondLargest(arr) {
+    let first = -Infinity;
+    let second = -Infinity;
+
+    for (let i = 0; i < arr.length; i++) {
+      const num = arr[i];
+      if (num > first) {
+        second = first;
+        first = num;
+      } else if (num > second && num !== first) {
+        second = num;
+      }
+    }
+    return second === -Infinity ? null : second;
+  }
+
+  console.log(secondLargest([12, 35, 1, 10, 34, 1])); // 34
+  console.log(secondLargest([10, 10, 10]));           // null
+  console.log(secondLargest([-10, -20, -5]));         // -10
+  console.log(secondLargest([1, 2]));                 // 1
+}
+
+// ============================================================
+// Q10. Find frequency of elements
+// Time: O(n)  |  Space: O(k) (k = alag-alag values)
+// ============================================================
+{
+  console.log("\n--- Q10. Find frequency of elements ---");
+  function frequency(arr) {
+    const freq = {};
+    for (let i = 0; i < arr.length; i++) {
+      const value = arr[i];
+      if (freq[value] === undefined) {
+        freq[value] = 0;
+      }
+      freq[value]++;
+    }
+    return freq;
+  }
+
+  function mostFrequent(arr) {
+    const freq = frequency(arr);
+    let best = null;
+    let bestCount = 0;
+    for (let i = 0; i < arr.length; i++) {
+      if (freq[arr[i]] > bestCount) {
+        bestCount = freq[arr[i]];
+        best = arr[i];
+      }
+    }
+    return { value: best, count: bestCount };
+  }
+
+  console.log(frequency(["apple", "banana", "apple", "mango", "apple"]));
+  // { apple: 3, banana: 1, mango: 1 }
+  console.log(frequency([1, 2, 2, 3, 3, 3]));
+  // { '1': 1, '2': 2, '3': 3 }
+  console.log(mostFrequent([1, 2, 2, 3, 3, 3])); // { value: 3, count: 3 }
+}
+
+// ============================================================
+// Q11. Move zeros to the end
+// Time: O(n)  |  Space: O(1)
+// ============================================================
+{
+  console.log("\n--- Q11. Move zeros to the end ---");
+  function moveZeros(arr) {
+    let pos = 0;
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i] !== 0) {
+        const temp = arr[pos];
+        arr[pos] = arr[i];
+        arr[i] = temp;
+        pos++;
+      }
+    }
+    return arr;
+  }
+
+  console.log(moveZeros([0, 1, 0, 3, 12])); // [ 1, 3, 12, 0, 0 ]
+  console.log(moveZeros([0, 0, 1]));        // [ 1, 0, 0 ]
+  console.log(moveZeros([1, 2]));           // [ 1, 2 ]
+  console.log(moveZeros([0, 0]));           // [ 0, 0 ]
+}
+
+// ============================================================
+// Q12. Move negative numbers to the start
+// Time: O(n)  |  Space: Tarika 1: O(n), tarika 2: O(1)
+// ============================================================
+{
+  console.log("\n--- Q12. Move negative numbers to the start ---");
+  // Tarika 1: order same rahe (naya array)
+  function moveNegativesStable(arr) {
+    const result = [];
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i] < 0) result[result.length] = arr[i];
+    }
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i] >= 0) result[result.length] = arr[i];
+    }
+    return result;
+  }
+
+  // Tarika 2: in-place (order badal sakta hai)
+  function moveNegativesInPlace(arr) {
+    let pos = 0;
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i] < 0) {
+        const temp = arr[i];
+        arr[i] = arr[pos];
+        arr[pos] = temp;
+        pos++;
+      }
+    }
+    return arr;
+  }
+
+  console.log(moveNegativesStable([1, -2, 3, -4, 5, -6]));  // [ -2, -4, -6, 1, 3, 5 ]
+  console.log(moveNegativesInPlace([1, -2, 3, -4, 5, -6])); // [ -2, -4, -6, 1, 5, 3 ]
+  console.log(moveNegativesStable([3, 0, -1]));             // [ -1, 3, 0 ]
+}
+
+// ============================================================
+// Q13. Rotate array (right aur left)
+// Time: O(n)  |  Space: O(1)
+// ============================================================
+{
+  console.log("\n--- Q13. Rotate array (right aur left) ---");
+  // reverse() ki jagah apna helper
+  function reverseRange(arr, start, end) {
+    while (start < end) {
+      const temp = arr[start];
+      arr[start] = arr[end];
+      arr[end] = temp;
+      start++;
+      end--;
+    }
+  }
+
+  function rotateRight(arr, k) {
+    const n = arr.length;
+    if (n === 0) return arr;
+    k = k % n;
+    reverseRange(arr, 0, n - 1); // poora ulta
+    reverseRange(arr, 0, k - 1); // pehle k ulte
+    reverseRange(arr, k, n - 1); // baaki ulte
+    return arr;
+  }
+
+  function rotateLeft(arr, k) {
+    const n = arr.length;
+    if (n === 0) return arr;
+    return rotateRight(arr, n - (k % n));
+  }
+
+  console.log(rotateRight([1, 2, 3, 4, 5], 2)); // [ 4, 5, 1, 2, 3 ]
+  console.log(rotateRight([1, 2, 3], 4));       // [ 3, 1, 2 ]
+  console.log(rotateLeft([1, 2, 3, 4, 5], 2));  // [ 3, 4, 5, 1, 2 ]
+  console.log(rotateRight([1, 2, 3], 0));       // [ 1, 2, 3 ]
+}
+
+// ============================================================
+// Q14. Reverse array
+// Time: O(n)  |  Space: In-place: O(1), copy: O(n)
+// ============================================================
+{
+  console.log("\n--- Q14. Reverse array ---");
+  // In-place
+  function reverseInPlace(arr) {
+    let left = 0;
+    let right = arr.length - 1;
+    while (left < right) {
+      const temp = arr[left];
+      arr[left] = arr[right];
+      arr[right] = temp;
+      left++;
+      right--;
+    }
+    return arr;
+  }
+
+  // Naya array (original safe)
+  function reversedCopy(arr) {
+    const result = [];
+    for (let i = arr.length - 1; i >= 0; i--) {
+      result[result.length] = arr[i];
+    }
+    return result;
+  }
+
+  console.log(reverseInPlace([1, 2, 3, 4, 5])); // [ 5, 4, 3, 2, 1 ]
+  console.log(reverseInPlace([7]));             // [ 7 ]
+  const original = ["a", "b", "c"];
+  console.log(reversedCopy(original));          // [ 'c', 'b', 'a' ]
+  console.log(original);                        // [ 'a', 'b', 'c' ]
+}
+
+// ============================================================
+// Q15. Chunk array
+// Time: O(n)  |  Space: O(n)
+// ============================================================
+{
+  console.log("\n--- Q15. Chunk array ---");
+  function chunk(arr, size) {
+    if (size <= 0) return [];
+
+    const result = [];
+    let current = [];
+    for (let i = 0; i < arr.length; i++) {
+      current[current.length] = arr[i];
+      if (current.length === size) {
+        result[result.length] = current;
+        current = [];
+      }
+    }
+    if (current.length > 0) {
+      result[result.length] = current; // bache hue elements
+    }
+    return result;
+  }
+
+  console.log(chunk([1, 2, 3, 4, 5, 6, 7], 3)); // [ [ 1, 2, 3 ], [ 4, 5, 6 ], [ 7 ] ]
+  console.log(chunk([1, 2, 3, 4], 2));          // [ [ 1, 2 ], [ 3, 4 ] ]
+  console.log(chunk([1, 2], 5));                // [ [ 1, 2 ] ]
+  console.log(chunk([], 3));                    // []
+}
+
+// ============================================================
+// Q16. Flatten nested array
+// Time: O(n) (n = kul elements)  |  Space: O(n) + O(d) recursion (d = depth)
+// ============================================================
+{
+  console.log("\n--- Q16. Flatten nested array ---");
+  function flatten(arr, result = []) {
+    for (let i = 0; i < arr.length; i++) {
+      const item = arr[i];
+      if (item instanceof Array) {  // Array.isArray ki jagah
+        flatten(item, result);
+      } else {
+        result[result.length] = item;
+      }
+    }
+    return result;
+  }
+
+  // arr.flat(depth) jaisa
+  function flattenDepth(arr, depth, result = []) {
+    for (let i = 0; i < arr.length; i++) {
+      const item = arr[i];
+      if (item instanceof Array && depth > 0) {
+        flattenDepth(item, depth - 1, result);
+      } else {
+        result[result.length] = item;
+      }
+    }
+    return result;
+  }
+
+  console.log(flatten([1, [2, [3, [4]], 5]]));         // [ 1, 2, 3, 4, 5 ]
+  console.log(flattenDepth([1, [2, [3, [4]], 5]], 1)); // [ 1, 2, [ 3, [ 4 ] ], 5 ]
+  console.log(flatten([[], [[]], 6]));                 // [ 6 ]
+}
+
+// ============================================================
+// Q17. Merge two sorted arrays
+// Time: O(n + m)  |  Space: O(n + m)
+// ============================================================
+{
+  console.log("\n--- Q17. Merge two sorted arrays ---");
+  function mergeSorted(a, b) {
+    const result = [];
+    let i = 0;
+    let j = 0;
+
+    while (i < a.length && j < b.length) {
+      if (a[i] <= b[j]) {
+        result[result.length] = a[i];
+        i++;
+      } else {
+        result[result.length] = b[j];
+        j++;
+      }
+    }
+    while (i < a.length) {
+      result[result.length] = a[i];
+      i++;
+    }
+    while (j < b.length) {
+      result[result.length] = b[j];
+      j++;
+    }
+    return result;
+  }
+
+  console.log(mergeSorted([1, 4, 7], [2, 3, 8])); // [ 1, 2, 3, 4, 7, 8 ]
+  console.log(mergeSorted([1, 2], []));           // [ 1, 2 ]
+  console.log(mergeSorted([1, 3, 3], [3]));       // [ 1, 3, 3, 3 ]
+}
+
+// ============================================================
+// Q18. Find pairs with given sum
+// Time: O(n + p) (p = pairs)  |  Space: O(n)
+// ============================================================
+{
+  console.log("\n--- Q18. Find pairs with given sum ---");
+  function findPairs(arr, target) {
+    const count = {};
+    const pairs = [];
+    for (let i = 0; i < arr.length; i++) {
+      const need = target - arr[i];
+      const times = count[need] || 0;
+      for (let t = 0; t < times; t++) {
+        pairs[pairs.length] = [need, arr[i]];
+      }
+      count[arr[i]] = (count[arr[i]] || 0) + 1; // check ke baad badhao
+    }
+    return pairs;
+  }
+
+  console.log(findPairs([1, 5, 7, -1, 5], 6)); // [ [ 1, 5 ], [ 7, -1 ], [ 1, 5 ] ]
+  console.log(findPairs([2, 2, 2], 4));        // [ [ 2, 2 ], [ 2, 2 ], [ 2, 2 ] ]
+  console.log(findPairs([1, 2, 3], 10));       // []
+}
+
+// ============================================================
+// Q19. Two Sum (indices return karo)
+// Time: O(n)  |  Space: O(n), sorted: O(1)
+// ============================================================
+{
+  console.log("\n--- Q19. Two Sum (indices return karo) ---");
+  function twoSum(nums, target) {
+    const seenAt = {}; // value -> index
+    for (let i = 0; i < nums.length; i++) {
+      const need = target - nums[i];
+      if (seenAt[need] !== undefined) {
+        return [seenAt[need], i];
+      }
+      seenAt[nums[i]] = i;
+    }
+    return null;
+  }
+
+  // Sorted array ke liye: two pointers
+  function twoSumSorted(nums, target) {
+    let left = 0;
+    let right = nums.length - 1;
+    while (left < right) {
+      const sum = nums[left] + nums[right];
+      if (sum === target) return [left, right];
+      if (sum < target) left++;
+      else right--;
+    }
+    return null;
+  }
+
+  console.log(twoSum([2, 7, 11, 15], 9));         // [ 0, 1 ]
+  console.log(twoSum([3, 2, 4], 6));              // [ 1, 2 ]
+  console.log(twoSum([3, 3], 6));                 // [ 0, 1 ]
+  console.log(twoSum([1, 2], 7));                 // null
+  console.log(twoSumSorted([1, 3, 4, 6, 9], 10)); // [ 0, 4 ]
+}
+
+// ============================================================
+// Q20. Find missing number (1 se n tak)
+// Time: O(n)  |  Space: O(1)
+// ============================================================
+{
+  console.log("\n--- Q20. Find missing number (1 se n tak) ---");
+  // Tarika 1: sum formula
+  function findMissing(arr) {
+    const n = arr.length + 1;
+    let sum = 0;
+    for (let i = 0; i < arr.length; i++) {
+      sum += arr[i];
+    }
+    return (n * (n + 1)) / 2 - sum;
+  }
+
+  // Tarika 2: XOR
+  function findMissingXor(arr) {
+    const n = arr.length + 1;
+    let xor = 0;
+    for (let i = 1; i <= n; i++) {
+      xor = xor ^ i;
+    }
+    for (let i = 0; i < arr.length; i++) {
+      xor = xor ^ arr[i];
+    }
+    return xor;
+  }
+
+  console.log(findMissing([1, 2, 4, 5, 6]));  // 3
+  console.log(findMissing([1, 2, 3, 4]));     // 5
+  console.log(findMissingXor([2, 3, 1, 5]));  // 4
+  console.log(findMissingXor([1]));           // 2
+}
+
+// ============================================================
+// Q21. Find continuous subarray with given sum
+// Time: O(n)  |  Space: Sliding window: O(1), prefix sum: O(n)
+// ============================================================
+{
+  console.log("\n--- Q21. Find continuous subarray with given sum ---");
+  // Sirf positive numbers: sliding window
+  function subarrayWithSum(arr, target) {
+    let start = 0;
+    let sum = 0;
+    for (let end = 0; end < arr.length; end++) {
+      sum += arr[end];
+      while (sum > target && start < end) {
+        sum -= arr[start];
+        start++;
+      }
+      if (sum === target) {
+        return { start, end };
+      }
+    }
+    return null;
+  }
+
+  // Negative numbers ke saath: prefix sum
+  function subarrayWithSumAny(arr, target) {
+    const firstIndex = { 0: -1 }; // prefix sum -> pehla index
+    let prefix = 0;
+    for (let i = 0; i < arr.length; i++) {
+      prefix += arr[i];
+      if (firstIndex[prefix - target] !== undefined) {
+        return { start: firstIndex[prefix - target] + 1, end: i };
+      }
+      if (firstIndex[prefix] === undefined) {
+        firstIndex[prefix] = i;
+      }
+    }
+    return null;
+  }
+
+  // slice() ki jagah
+  function getRange(arr, start, end) {
+    const part = [];
+    for (let i = start; i <= end; i++) {
+      part[part.length] = arr[i];
+    }
+    return part;
+  }
+
+  const nums = [1, 4, 20, 3, 10, 5];
+  const r = subarrayWithSum(nums, 33);
+  console.log(r);                                  // { start: 2, end: 4 }
+  console.log(getRange(nums, r.start, r.end));     // [ 20, 3, 10 ]
+  console.log(subarrayWithSum([1, 2, 3], 10));     // null
+  console.log(subarrayWithSumAny([10, 2, -2, -20, 10], -10)); // { start: 0, end: 3 }
+}
+
+// ============================================================
+// Q22. Find maximum sum subarray (Kadane's algorithm)
+// Time: O(n)  |  Space: O(1)
+// ============================================================
+{
+  console.log("\n--- Q22. Find maximum sum subarray (Kadane's algorithm) ---");
+  function maxSubarray(arr) {
+    if (arr.length === 0) return null;
+
+    let best = arr[0];
+    let current = arr[0];
+    let start = 0;
+    let bestStart = 0;
+    let bestEnd = 0;
+
+    for (let i = 1; i < arr.length; i++) {
+      if (current + arr[i] < arr[i]) {
+        current = arr[i]; // naya subarray yahin se
+        start = i;
+      } else {
+        current = current + arr[i];
+      }
+      if (current > best) {
+        best = current;
+        bestStart = start;
+        bestEnd = i;
+      }
+    }
+    return { sum: best, start: bestStart, end: bestEnd };
+  }
+
+  console.log(maxSubarray([-2, 1, -3, 4, -1, 2, 1, -5, 4]));
+  // { sum: 6, start: 3, end: 6 }  -> [4, -1, 2, 1]
+  console.log(maxSubarray([-3, -1, -2])); // { sum: -1, start: 1, end: 1 }
+  console.log(maxSubarray([5]));          // { sum: 5, start: 0, end: 0 }
+}
+
+// ============================================================
+// Q23. Sort array without sort()
+// Time: Bubble: O(n²) (sorted par O(n)), merge: O(n log n)  |  Space: Bubble: O(n) copy, merge: O(n)
+// ============================================================
+{
+  console.log("\n--- Q23. Sort array without sort() ---");
+  // Tarika 1: Bubble sort
+  function bubbleSort(input) {
+    const arr = [];
+    for (let i = 0; i < input.length; i++) arr[i] = input[i]; // copy
+
+    for (let i = 0; i < arr.length - 1; i++) {
+      let swapped = false;
+      for (let j = 0; j < arr.length - 1 - i; j++) {
+        if (arr[j] > arr[j + 1]) {
+          const temp = arr[j];
+          arr[j] = arr[j + 1];
+          arr[j + 1] = temp;
+          swapped = true;
+        }
+      }
+      if (!swapped) break; // already sorted
+    }
+    return arr;
+  }
+
+  // Tarika 2: Merge sort
+  function mergeSort(arr) {
+    if (arr.length <= 1) return arr;
+    const mid = (arr.length - (arr.length % 2)) / 2; // Math.floor ki jagah
+    const left = [];
+    const right = [];
+    for (let i = 0; i < mid; i++) left[left.length] = arr[i];
+    for (let i = mid; i < arr.length; i++) right[right.length] = arr[i];
+    return merge(mergeSort(left), mergeSort(right));
+  }
+
+  function merge(a, b) {
+    const result = [];
+    let i = 0;
+    let j = 0;
+    while (i < a.length && j < b.length) {
+      if (a[i] <= b[j]) result[result.length] = a[i++];
+      else result[result.length] = b[j++];
+    }
+    while (i < a.length) result[result.length] = a[i++];
+    while (j < b.length) result[result.length] = b[j++];
+    return result;
+  }
+
+  console.log(bubbleSort([5, 1, 4, 2, 8]));   // [ 1, 2, 4, 5, 8 ]
+  console.log(mergeSort([38, 27, 43, 3, 9])); // [ 3, 9, 27, 38, 43 ]
+  console.log(mergeSort([-1, 5, -10, 0]));    // [ -10, -1, 0, 5 ]
+  // Descending ke liye: a[i] >= b[j]
+}
+
+// ============================================================
+// Q24. Remove duplicates without Set
+// Time: Tarika 1: O(n²), tarika 2: O(n)  |  Space: Tarika 1: O(n), tarika 2: O(1)
+// ============================================================
+{
+  console.log("\n--- Q24. Remove duplicates without Set ---");
+  // Tarika 1: sirf loops
+  function removeDuplicatesNoSet(arr) {
+    const result = [];
+    for (let i = 0; i < arr.length; i++) {
+      let found = false;
+      for (let j = 0; j < result.length; j++) { // includes() ki jagah
+        if (result[j] === arr[i]) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        result[result.length] = arr[i];
+      }
+    }
+    return result;
+  }
+
+  // Tarika 2: sorted array, in-place
+  function removeDuplicatesSorted(arr) {
+    if (arr.length === 0) return arr;
+    let write = 1;
+    for (let read = 1; read < arr.length; read++) {
+      if (arr[read] !== arr[write - 1]) {
+        arr[write] = arr[read];
+        write++;
+      }
+    }
+    arr.length = write; // baaki hissa hata do
+    return arr;
+  }
+
+  console.log(removeDuplicatesNoSet([1, 2, 2, 3, 1, 4])); // [ 1, 2, 3, 4 ]
+  console.log(removeDuplicatesNoSet(["a", "A", "a"]));    // [ 'a', 'A' ]
+  console.log(removeDuplicatesSorted([1, 1, 2, 3, 3, 3])); // [ 1, 2, 3 ]
+}
+
+// ============================================================
+// Q25. Find duplicates without built-in methods
+// Time: Tarika 1: O(n²), tarika 2: O(n)  |  Space: Tarika 1: O(k), tarika 2: O(n) copy (original badal sakte ho to O(1))
+// ============================================================
+{
+  console.log("\n--- Q25. Find duplicates without built-in methods ---");
+  // Tarika 1: nested loops, koi object / Set nahi
+  function findDuplicatesNoBuiltIn(arr) {
+    const result = [];
+    for (let i = 0; i < arr.length; i++) {
+      let alreadyAdded = false;
+      for (let k = 0; k < result.length; k++) {
+        if (result[k] === arr[i]) {
+          alreadyAdded = true;
+          break;
+        }
+      }
+      if (alreadyAdded) continue;
+
+      for (let j = i + 1; j < arr.length; j++) {
+        if (arr[j] === arr[i]) {
+          result[result.length] = arr[i];
+          break;
+        }
+      }
+    }
+    return result;
+  }
+
+  // Tarika 2: values 1..n ke beech hon to index par sign se mark karo
+  function findDuplicatesInRange(input) {
+    const arr = [];
+    for (let i = 0; i < input.length; i++) arr[i] = input[i]; // copy
+
+    const result = [];
+    for (let i = 0; i < arr.length; i++) {
+      let value = arr[i];
+      if (value < 0) value = -value; // Math.abs ki jagah
+      const idx = value - 1;
+      if (arr[idx] < 0) {
+        result[result.length] = value; // pehle mark ho chuka tha
+      } else {
+        arr[idx] = -arr[idx];
+      }
+    }
+    return result;
+  }
+
+  console.log(findDuplicatesNoBuiltIn([1, 2, 3, 2, 4, 3, 3]));  // [ 2, 3 ]
+  console.log(findDuplicatesNoBuiltIn([5, 6, 7]));              // []
+  console.log(findDuplicatesInRange([4, 3, 2, 7, 8, 2, 3, 1])); // [ 2, 3 ]
+}
+
+
+
+
+
+/**
+ * JavaScript String Coding: 16 solutions (bina built-in functions)
+ * Run: node js-string-coding.js
+ */
+
+// ============================================================
+// Q1. Reverse string
+// Time: Loop / two pointers: O(n), recursion: O(n²)  |  Space: O(n)
+// ============================================================
+{
+  console.log("\n--- Q1. Reverse string ---");
+  // Tarika 1: loop
+  function reverseString(str) {
+    let reversed = "";
+    for (let i = str.length - 1; i >= 0; i--) {
+      reversed += str[i];
+    }
+    return reversed;
+  }
+
+  // Tarika 2: recursion
+  function reverseRecursive(str) {
+    if (str.length <= 1) return str;
+    let rest = "";
+    for (let i = 1; i < str.length; i++) rest += str[i]; // slice(1) ki jagah
+    return reverseRecursive(rest) + str[0];
+  }
+
+  // Tarika 3: two pointers
+  function reverseTwoPointers(str) {
+    const chars = [];
+    for (let i = 0; i < str.length; i++) chars[i] = str[i];
+
+    let left = 0;
+    let right = chars.length - 1;
+    while (left < right) {
+      const temp = chars[left];
+      chars[left] = chars[right];
+      chars[right] = temp;
+      left++;
+      right--;
+    }
+
+    let result = "";
+    for (let i = 0; i < chars.length; i++) result += chars[i]; // join() ki jagah
+    return result;
+  }
+
+  console.log(reverseString("hello"));         // olleh
+  console.log(reverseRecursive("JavaScript")); // tpircSavaJ
+  console.log(reverseTwoPointers("race car")); // rac ecar
+  console.log(reverseString("") === "");       // true
+}
+
+// ============================================================
+// Q2. Palindrome (case aur symbols ignore karke)
+// Time: O(n)  |  Space: O(1)
+// ============================================================
+{
+  console.log("\n--- Q2. Palindrome (case aur symbols ignore karke) ---");
+  const UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const LOWER = "abcdefghijklmnopqrstuvwxyz";
+
+  // toLowerCase() ki jagah
+  function toLowerChar(ch) {
+    for (let i = 0; i < UPPER.length; i++) {
+      if (UPPER[i] === ch) return LOWER[i];
+    }
+    return ch;
+  }
+
+  function isAlphaNumeric(ch) {
+    return (ch >= "a" && ch <= "z") ||
+           (ch >= "A" && ch <= "Z") ||
+           (ch >= "0" && ch <= "9");
+  }
+
+  function isPalindrome(str) {
+    let left = 0;
+    let right = str.length - 1;
+    while (left < right) {
+      // space, comma jaise characters skip karo
+      while (left < right && !isAlphaNumeric(str[left])) left++;
+      while (left < right && !isAlphaNumeric(str[right])) right--;
+
+      if (toLowerChar(str[left]) !== toLowerChar(str[right])) {
+        return false;
+      }
+      left++;
+      right--;
+    }
+    return true;
+  }
+
+  console.log(isPalindrome("madam"));                          // true
+  console.log(isPalindrome("Madam"));                          // true
+  console.log(isPalindrome("A man, a plan, a canal: Panama")); // true
+  console.log(isPalindrome("hello"));                          // false
+  console.log(isPalindrome(""));                               // true
+}
+
+// ============================================================
+// Q3. Anagram: words ke anagram groups banao
+// Time: O(n x k) (n = words, k = word length)  |  Space: O(n x k)
+// ============================================================
+{
+  console.log("\n--- Q3. Anagram: words ke anagram groups banao ---");
+  const LOWER = "abcdefghijklmnopqrstuvwxyz";
+
+  // "eat" -> "1#0#0#0#1#...": har letter ki ginti
+  function signature(word) {
+    const count = {};
+    for (let i = 0; i < word.length; i++) {
+      count[word[i]] = (count[word[i]] || 0) + 1;
+    }
+    let key = "";
+    for (let i = 0; i < LOWER.length; i++) {
+      key += (count[LOWER[i]] || 0) + "#";
+    }
+    return key;
+  }
+
+  function groupAnagrams(words) {
+    const groupIndex = {}; // signature -> result me group ka index
+    const result = [];
+    for (let i = 0; i < words.length; i++) {
+      const key = signature(words[i]);
+      if (groupIndex[key] === undefined) {
+        groupIndex[key] = result.length;
+        result[result.length] = [];
+      }
+      const group = result[groupIndex[key]];
+      group[group.length] = words[i];
+    }
+    return result;
+  }
+
+  console.log(groupAnagrams(["eat", "tea", "tan", "ate", "nat", "bat"]));
+  // [ [ 'eat', 'tea', 'ate' ], [ 'tan', 'nat' ], [ 'bat' ] ]
+  console.log(groupAnagrams(["listen", "silent", "enlist", "google"]));
+  // [ [ 'listen', 'silent', 'enlist' ], [ 'google' ] ]
+  console.log(groupAnagrams([])); // []
+}
+
+// ============================================================
+// Q4. Count characters (letters, digits, spaces, special)
+// Time: O(n)  |  Space: O(1)
+// ============================================================
+{
+  console.log("\n--- Q4. Count characters (letters, digits, spaces, special) ---");
+  function countCharacters(str) {
+    const result = { total: 0, letters: 0, digits: 0, spaces: 0, special: 0 };
+    for (let i = 0; i < str.length; i++) {
+      const ch = str[i];
+      result.total++;
+      if ((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z")) {
+        result.letters++;
+      } else if (ch >= "0" && ch <= "9") {
+        result.digits++;
+      } else if (ch === " ") {
+        result.spaces++;
+      } else {
+        result.special++;
+      }
+    }
+    return result;
+  }
+
+  // Bonus: .length ke bina length
+  function stringLength(str) {
+    let count = 0;
+    while (str[count] !== undefined) {
+      count++;
+    }
+    return count;
+  }
+
+  console.log(countCharacters("Hello World 2026!"));
+  // { total: 17, letters: 10, digits: 4, spaces: 2, special: 1 }
+  console.log(stringLength("JavaScript")); // 10
+  console.log(countCharacters(""));
+  // { total: 0, letters: 0, digits: 0, spaces: 0, special: 0 }
+}
+
+// ============================================================
+// Q5. Character frequency
+// Time: O(n)  |  Space: O(k) (k = alag-alag characters)
+// ============================================================
+{
+  console.log("\n--- Q5. Character frequency ---");
+  const UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const LOWER = "abcdefghijklmnopqrstuvwxyz";
+
+  // toLowerCase() ki jagah
+  function toLowerChar(ch) {
+    for (let i = 0; i < UPPER.length; i++) {
+      if (UPPER[i] === ch) return LOWER[i];
+    }
+    return ch;
+  }
+
+  function charFrequency(str, ignoreCase) {
+    const freq = {};
+    for (let i = 0; i < str.length; i++) {
+      let ch = str[i];
+      if (ch === " ") continue; // space nahi ginna
+      if (ignoreCase) ch = toLowerChar(ch);
+      freq[ch] = (freq[ch] || 0) + 1;
+    }
+    return freq;
+  }
+
+  function mostFrequentChar(str) {
+    const freq = charFrequency(str, true);
+    let best = null;
+    let bestCount = 0;
+    for (const ch in freq) { // Object.keys() ki jagah
+      if (freq[ch] > bestCount) {
+        bestCount = freq[ch];
+        best = ch;
+      }
+    }
+    return { char: best, count: bestCount };
+  }
+
+  console.log(charFrequency("banana"));         // { b: 1, a: 3, n: 2 }
+  console.log(charFrequency("Aa Bb", true));    // { a: 2, b: 2 }
+  console.log(mostFrequentChar("Programming")); // { char: 'r', count: 2 }
+}
+
+// ============================================================
+// Q6. First non-repeating character
+// Time: O(n)  |  Space: O(k)
+// ============================================================
+{
+  console.log("\n--- Q6. First non-repeating character ---");
+  function firstNonRepeating(str) {
+    const count = {};
+    for (let i = 0; i < str.length; i++) {
+      count[str[i]] = (count[str[i]] || 0) + 1;
+    }
+
+    for (let i = 0; i < str.length; i++) {
+      if (count[str[i]] === 1) {
+        return { char: str[i], index: i };
+      }
+    }
+    return null;
+  }
+
+  console.log(firstNonRepeating("aabbcdd")); // { char: 'c', index: 4 }
+  console.log(firstNonRepeating("swiss"));   // { char: 'w', index: 1 }
+  console.log(firstNonRepeating("aabb"));    // null
+}
+
+// ============================================================
+// Q7. First repeating character
+// Time: O(n)  |  Space: O(k)
+// ============================================================
+{
+  console.log("\n--- Q7. First repeating character ---");
+  // Definition 1: jo character sabse pehle dobara mile
+  function firstRepeatingSeen(str) {
+    const seen = {};
+    for (let i = 0; i < str.length; i++) {
+      if (seen[str[i]] === true) {
+        return str[i];
+      }
+      seen[str[i]] = true;
+    }
+    return null;
+  }
+
+  // Definition 2: pehli position wala character jo kahin bhi repeat ho
+  function firstRepeatingByPosition(str) {
+    const count = {};
+    for (let i = 0; i < str.length; i++) {
+      count[str[i]] = (count[str[i]] || 0) + 1;
+    }
+    for (let i = 0; i < str.length; i++) {
+      if (count[str[i]] > 1) return str[i];
+    }
+    return null;
+  }
+
+  console.log(firstRepeatingSeen("abcbad"));       // b
+  console.log(firstRepeatingByPosition("abcbad")); // a
+  console.log(firstRepeatingSeen("abc"));          // null
+}
+
+// ============================================================
+// Q8. Remove duplicate characters
+// Time: O(n)  |  Space: O(k)
+// ============================================================
+{
+  console.log("\n--- Q8. Remove duplicate characters ---");
+  const UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const LOWER = "abcdefghijklmnopqrstuvwxyz";
+
+  // toLowerCase() ki jagah
+  function toLowerChar(ch) {
+    for (let i = 0; i < UPPER.length; i++) {
+      if (UPPER[i] === ch) return LOWER[i];
+    }
+    return ch;
+  }
+
+  function removeDuplicateChars(str, ignoreCase) {
+    const seen = {};
+    let result = "";
+    for (let i = 0; i < str.length; i++) {
+      const ch = str[i];
+      const key = ignoreCase ? toLowerChar(ch) : ch;
+      if (seen[key] !== true) {
+        seen[key] = true;
+        result += ch;
+      }
+    }
+    return result;
+  }
+
+  console.log(removeDuplicateChars("programming")); // progamin
+  console.log(removeDuplicateChars("hello world")); // helo wrd
+  console.log(removeDuplicateChars("AaBbA"));       // AaBb
+  console.log(removeDuplicateChars("AaBbA", true)); // AB
+}
+
+// ============================================================
+// Q9. Count vowels and consonants
+// Time: O(n)  |  Space: O(1)
+// ============================================================
+{
+  console.log("\n--- Q9. Count vowels and consonants ---");
+  const VOWELS = {
+    a: true, e: true, i: true, o: true, u: true,
+    A: true, E: true, I: true, O: true, U: true,
+  };
+
+  function isLetter(ch) {
+    return (ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z");
+  }
+
+  function countVowelsConsonants(str) {
+    let vowels = 0;
+    let consonants = 0;
+    for (let i = 0; i < str.length; i++) {
+      const ch = str[i];
+      if (!isLetter(ch)) continue; // space, digit, symbol skip
+      if (VOWELS[ch] === true) {
+        vowels++;
+      } else {
+        consonants++;
+      }
+    }
+    return { vowels, consonants };
+  }
+
+  console.log(countVowelsConsonants("Hello World"));     // { vowels: 3, consonants: 7 }
+  console.log(countVowelsConsonants("JavaScript 2026")); // { vowels: 3, consonants: 7 }
+  console.log(countVowelsConsonants("xyz!"));            // { vowels: 0, consonants: 3 }
+}
+
+// ============================================================
+// Q10. Reverse words
+// Time: O(n)  |  Space: O(n)
+// ============================================================
+{
+  console.log("\n--- Q10. Reverse words ---");
+  function isSpace(ch) {
+    return ch === " " || ch === "\t" || ch === "\n";
+  }
+
+  // split(" ") ki jagah: extra spaces ignore ho jaate hain
+  function getWords(str) {
+    const words = [];
+    let word = "";
+    for (let i = 0; i < str.length; i++) {
+      if (isSpace(str[i])) {
+        if (word !== "") {
+          words[words.length] = word; // push() ki jagah
+          word = "";
+        }
+      } else {
+        word += str[i];
+      }
+    }
+    if (word !== "") words[words.length] = word;
+    return words;
+  }
+
+  function reverseWords(str) {
+    const words = getWords(str);
+    let result = "";
+    for (let i = words.length - 1; i >= 0; i--) {
+      result += words[i];
+      if (i > 0) result += " ";
+    }
+    return result;
+  }
+
+  function reverseEachWord(str) {
+    const words = getWords(str);
+    let result = "";
+    for (let i = 0; i < words.length; i++) {
+      let reversed = "";
+      for (let j = words[i].length - 1; j >= 0; j--) {
+        reversed += words[i][j];
+      }
+      result += reversed;
+      if (i < words.length - 1) result += " ";
+    }
+    return result;
+  }
+
+  console.log(reverseWords("I love JavaScript"));             // JavaScript love I
+  console.log("[" + reverseWords("  hello   world  ") + "]"); // [world hello]
+  console.log(reverseEachWord("I love coding"));              // I evol gnidoc
+}
+
+// ============================================================
+// Q11. Find longest word
+// Time: O(n)  |  Space: O(w) (w = sabse lamba word)
+// ============================================================
+{
+  console.log("\n--- Q11. Find longest word ---");
+  function isWordChar(ch) {
+    return (ch >= "a" && ch <= "z") ||
+           (ch >= "A" && ch <= "Z") ||
+           (ch >= "0" && ch <= "9");
+  }
+
+  function longestWord(str) {
+    let longest = "";
+    let current = "";
+    for (let i = 0; i <= str.length; i++) {
+      const ch = str[i]; // aakhri round me undefined
+      if (ch !== undefined && isWordChar(ch)) {
+        current += ch;
+      } else {
+        if (current.length > longest.length) longest = current;
+        current = "";
+      }
+    }
+    return longest === "" ? null : { word: longest, length: longest.length };
+  }
+
+  console.log(longestWord("I love JavaScript programming")); // { word: 'programming', length: 11 }
+  console.log(longestWord("Hello, world!!!"));               // { word: 'Hello', length: 5 }
+  console.log(longestWord("cat dog bat"));                   // { word: 'cat', length: 3 }
+  console.log(longestWord("   "));                           // null
+}
+
+// ============================================================
+// Q12. Find shortest word
+// Time: O(n)  |  Space: O(n)
+// ============================================================
+{
+  console.log("\n--- Q12. Find shortest word ---");
+  function isSpace(ch) {
+    return ch === " " || ch === "\t" || ch === "\n";
+  }
+
+  // split(" ") ki jagah: extra spaces ignore ho jaate hain
+  function getWords(str) {
+    const words = [];
+    let word = "";
+    for (let i = 0; i < str.length; i++) {
+      if (isSpace(str[i])) {
+        if (word !== "") {
+          words[words.length] = word; // push() ki jagah
+          word = "";
+        }
+      } else {
+        word += str[i];
+      }
+    }
+    if (word !== "") words[words.length] = word;
+    return words;
+  }
+
+  function shortestWords(str) {
+    const words = getWords(str);
+    if (words.length === 0) return [];
+
+    let minLen = words[0].length;
+    for (let i = 1; i < words.length; i++) {
+      if (words[i].length < minLen) minLen = words[i].length;
+    }
+
+    const result = [];
+    for (let i = 0; i < words.length; i++) {
+      if (words[i].length === minLen) {
+        result[result.length] = words[i];
+      }
+    }
+    return result;
+  }
+
+  console.log(shortestWords("I love JavaScript")); // [ 'I' ]
+  console.log(shortestWords("cat is on the mat")); // [ 'is', 'on' ]
+  console.log(shortestWords(""));                  // []
+}
+
+// ============================================================
+// Q13. Check if two strings are anagrams
+// Time: O(n + m)  |  Space: O(k)
+// ============================================================
+{
+  console.log("\n--- Q13. Check if two strings are anagrams ---");
+  const UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const LOWER = "abcdefghijklmnopqrstuvwxyz";
+
+  // toLowerCase() ki jagah
+  function toLowerChar(ch) {
+    for (let i = 0; i < UPPER.length; i++) {
+      if (UPPER[i] === ch) return LOWER[i];
+    }
+    return ch;
+  }
+
+  function isAnagram(a, b) {
+    const count = {};
+    let remaining = 0;
+
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] === " ") continue;
+      const ch = toLowerChar(a[i]);
+      count[ch] = (count[ch] || 0) + 1;
+      remaining++;
+    }
+
+    for (let i = 0; i < b.length; i++) {
+      if (b[i] === " ") continue;
+      const ch = toLowerChar(b[i]);
+      if (!count[ch]) return false; // letter tha hi nahi, ya zyada baar aaya
+      count[ch]--;
+      remaining--;
+    }
+    return remaining === 0; // a ke saare letters use hue?
+  }
+
+  console.log(isAnagram("listen", "silent"));        // true
+  console.log(isAnagram("Dormitory", "Dirty room")); // true
+  console.log(isAnagram("hello", "world"));          // false
+  console.log(isAnagram("aab", "ab"));               // false
+}
+
+// ============================================================
+// Q14. Find occurrence of a substring
+// Time: O(n x m)  |  Space: O(1) (indexes array ke alawa)
+// ============================================================
+{
+  console.log("\n--- Q14. Find occurrence of a substring ---");
+  // Saari starting positions (overlap ke saath)
+  function findAllIndexes(text, word) {
+    const indexes = [];
+    if (word.length === 0) return indexes;
+
+    for (let i = 0; i + word.length <= text.length; i++) {
+      let match = true;
+      for (let j = 0; j < word.length; j++) {
+        if (text[i + j] !== word[j]) {
+          match = false;
+          break;
+        }
+      }
+      if (match) indexes[indexes.length] = i;
+    }
+    return indexes;
+  }
+
+  // Bina overlap ke ginti
+  function countNonOverlapping(text, word) {
+    if (word.length === 0) return 0;
+    let count = 0;
+    let i = 0;
+    while (i + word.length <= text.length) {
+      let match = true;
+      for (let j = 0; j < word.length; j++) {
+        if (text[i + j] !== word[j]) {
+          match = false;
+          break;
+        }
+      }
+      if (match) {
+        count++;
+        i += word.length; // match ke baad aage kood jao
+      } else {
+        i++;
+      }
+    }
+    return count;
+  }
+
+  console.log(findAllIndexes("abababa", "aba"));        // [ 0, 2, 4 ]
+  console.log(findAllIndexes("abababa", "aba").length); // 3
+  console.log(countNonOverlapping("abababa", "aba"));   // 2
+  console.log(findAllIndexes("hello", "xyz"));          // []
+}
+
+// ============================================================
+// Q15. Remove spaces
+// Time: O(n)  |  Space: O(n)
+// ============================================================
+{
+  console.log("\n--- Q15. Remove spaces ---");
+  function isSpace(ch) {
+    return ch === " " || ch === "\t" || ch === "\n";
+  }
+
+  // 1. Saare spaces hatao
+  function removeAllSpaces(str) {
+    let result = "";
+    for (let i = 0; i < str.length; i++) {
+      if (!isSpace(str[i])) result += str[i];
+    }
+    return result;
+  }
+
+  // 2. trim() ki jagah
+  function myTrim(str) {
+    let start = 0;
+    let end = str.length - 1;
+    while (start <= end && isSpace(str[start])) start++;
+    while (end >= start && isSpace(str[end])) end--;
+
+    let result = "";
+    for (let i = start; i <= end; i++) result += str[i];
+    return result;
+  }
+
+  // 3. Trim + beech ke extra spaces ko ek space
+  function normalizeSpaces(str) {
+    let result = "";
+    let pendingSpace = false;
+    for (let i = 0; i < str.length; i++) {
+      if (isSpace(str[i])) {
+        pendingSpace = true;
+      } else {
+        if (pendingSpace && result !== "") result += " ";
+        result += str[i];
+        pendingSpace = false;
+      }
+    }
+    return result;
+  }
+
+  const text = "  Hello   World  ";
+  console.log(removeAllSpaces(text));             // HelloWorld
+  console.log("[" + myTrim(text) + "]");          // [Hello   World]
+  console.log("[" + normalizeSpaces(text) + "]"); // [Hello World]
+  console.log("[" + myTrim("     ") + "]");       // []
+}
+
+// ============================================================
+// Q16. Capitalize first letter of every word
+// Time: O(n)  |  Space: O(n)
+// ============================================================
+{
+  console.log("\n--- Q16. Capitalize first letter of every word ---");
+  const UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const LOWER = "abcdefghijklmnopqrstuvwxyz";
+
+  // toUpperCase() ki jagah
+  function toUpperChar(ch) {
+    for (let i = 0; i < LOWER.length; i++) {
+      if (LOWER[i] === ch) return UPPER[i];
+    }
+    return ch;
+  }
+
+  // toLowerCase() ki jagah
+  function toLowerChar(ch) {
+    for (let i = 0; i < UPPER.length; i++) {
+      if (UPPER[i] === ch) return LOWER[i];
+    }
+    return ch;
+  }
+
+  // lowerRest = true ho to title case (word ke baaki letters small)
+  function capitalizeWords(str, lowerRest) {
+    let result = "";
+    let newWord = true;
+    for (let i = 0; i < str.length; i++) {
+      const ch = str[i];
+      if (ch === " ") {
+        result += ch;
+        newWord = true;
+      } else if (newWord) {
+        result += toUpperChar(ch); // word ka pehla letter
+        newWord = false;
+      } else {
+        result += lowerRest ? toLowerChar(ch) : ch;
+      }
+    }
+    return result;
+  }
+
+  console.log(capitalizeWords("hello world from js")); // Hello World From Js
+  console.log(capitalizeWords("i love  javaScript"));  // I Love  JavaScript
+  console.log(capitalizeWords("hELLO wORLD", true));   // Hello World
+  console.log(capitalizeWords("123abc test"));         // 123abc Test
+}
