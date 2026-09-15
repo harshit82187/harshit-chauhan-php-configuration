@@ -1,0 +1,470 @@
+/**
+ * JavaScript Basic Logic: 15 solutions (bina built-in functions)
+ * Run: node js-basic-logic.js
+ */
+
+// ============================================================
+// Q1. Find largest number
+// Time: O(n)  |  Space: O(1)
+// ============================================================
+{
+  console.log("\n--- Q1. Find largest number ---");
+  function findLargest(arr) {
+    if (arr.length === 0) return null;
+
+    let largest = arr[0];
+    for (let i = 1; i < arr.length; i++) {
+      if (arr[i] > largest) {
+        largest = arr[i];
+      }
+    }
+    return largest;
+  }
+
+  console.log(findLargest([3, 7, 2, 9, 4]));  // 9
+  console.log(findLargest([-5, -2, -8, -1])); // -1
+  console.log(findLargest([42]));             // 42
+  console.log(findLargest([]));               // null
+}
+
+// ============================================================
+// Q2. Find smallest number
+// Time: O(n)  |  Space: O(1)
+// ============================================================
+{
+  console.log("\n--- Q2. Find smallest number ---");
+  function findSmallest(arr) {
+    if (arr.length === 0) return null;
+
+    let smallest = arr[0];
+    for (let i = 1; i < arr.length; i++) {
+      if (arr[i] < smallest) {
+        smallest = arr[i];
+      }
+    }
+    return smallest;
+  }
+
+  console.log(findSmallest([3, 7, 2, 9, 4]));  // 2
+  console.log(findSmallest([-5, -2, -8, -1])); // -8
+  console.log(findSmallest([10]));             // 10
+  console.log(findSmallest([]));               // null
+}
+
+// ============================================================
+// Q3. Find second largest number
+// Time: O(n)  |  Space: O(1)
+// ============================================================
+{
+  console.log("\n--- Q3. Find second largest number ---");
+  function findSecondLargest(arr) {
+    let first = -Infinity;
+    let second = -Infinity;
+
+    for (let i = 0; i < arr.length; i++) {
+      const num = arr[i];
+      if (num > first) {
+        second = first; // purana largest ab second hai
+        first = num;
+      } else if (num > second && num !== first) {
+        second = num;
+      }
+    }
+    return second === -Infinity ? null : second;
+  }
+
+  console.log(findSecondLargest([10, 5, 20, 8]));  // 10
+  console.log(findSecondLargest([20, 20, 10]));    // 10
+  console.log(findSecondLargest([-1, -5, -3]));    // -3
+  console.log(findSecondLargest([7, 7, 7]));       // null
+  console.log(findSecondLargest([5]));             // null
+}
+
+// ============================================================
+// Q4. Find second smallest number
+// Time: O(n)  |  Space: O(1)
+// ============================================================
+{
+  console.log("\n--- Q4. Find second smallest number ---");
+  function findSecondSmallest(arr) {
+    let first = Infinity;
+    let second = Infinity;
+
+    for (let i = 0; i < arr.length; i++) {
+      const num = arr[i];
+      if (num < first) {
+        second = first;
+        first = num;
+      } else if (num < second && num !== first) {
+        second = num;
+      }
+    }
+    return second === Infinity ? null : second;
+  }
+
+  console.log(findSecondSmallest([10, 5, 20, 8])); // 8
+  console.log(findSecondSmallest([1, 1, 4]));      // 4
+  console.log(findSecondSmallest([-1, -5, -3]));   // -3
+  console.log(findSecondSmallest([3, 3]));         // null
+}
+
+// ============================================================
+// Q5. Reverse an array
+// Time: O(n)  |  Space: Naya array: O(n), in-place: O(1)
+// ============================================================
+{
+  console.log("\n--- Q5. Reverse an array ---");
+  // Tarika 1: naya array (original nahi badlega)
+  function reverseArray(arr) {
+    const result = [];
+    for (let i = arr.length - 1; i >= 0; i--) {
+      result[result.length] = arr[i]; // push() ki jagah
+    }
+    return result;
+  }
+
+  // Tarika 2: in-place (original hi ulta ho jaayega)
+  function reverseInPlace(arr) {
+    let left = 0;
+    let right = arr.length - 1;
+    while (left < right) {
+      const temp = arr[left];
+      arr[left] = arr[right];
+      arr[right] = temp;
+      left++;
+      right--;
+    }
+    return arr;
+  }
+
+  const nums = [1, 2, 3, 4, 5];
+  console.log(reverseArray(nums));   // [ 5, 4, 3, 2, 1 ]
+  console.log(nums);                 // [ 1, 2, 3, 4, 5 ]  (original same)
+  console.log(reverseInPlace([10, 20, 30, 40])); // [ 40, 30, 20, 10 ]
+  console.log(reverseArray([]));     // []
+}
+
+// ============================================================
+// Q6. Reverse a string
+// Time: O(n)  |  Space: O(n)
+// ============================================================
+{
+  console.log("\n--- Q6. Reverse a string ---");
+  function reverseString(str) {
+    let reversed = "";
+    for (let i = str.length - 1; i >= 0; i--) {
+      reversed += str[i];
+    }
+    return reversed;
+  }
+
+  console.log(reverseString("hello"));        // "olleh"
+  console.log(reverseString("JavaScript"));   // "tpircSavaJ"
+  console.log(reverseString("a b c"));        // "c b a"
+  console.log(reverseString(""));             // ""
+}
+
+// ============================================================
+// Q7. Check palindrome (string aur number)
+// Time: String: O(n), Number: O(d) (d = digits)  |  Space: O(1)
+// ============================================================
+{
+  console.log("\n--- Q7. Check palindrome (string aur number) ---");
+  const UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const LOWER = "abcdefghijklmnopqrstuvwxyz";
+
+  // toLowerCase() ki jagah apna helper
+  function toLowerChar(ch) {
+    for (let i = 0; i < UPPER.length; i++) {
+      if (UPPER[i] === ch) return LOWER[i];
+    }
+    return ch;
+  }
+
+  function isPalindrome(str) {
+    let left = 0;
+    let right = str.length - 1;
+    while (left < right) {
+      if (toLowerChar(str[left]) !== toLowerChar(str[right])) {
+        return false;
+      }
+      left++;
+      right--;
+    }
+    return true;
+  }
+
+  function isNumberPalindrome(num) {
+    if (num < 0) return false;
+    const original = num;
+    let reversed = 0;
+    while (num > 0) {
+      const digit = num % 10;
+      reversed = reversed * 10 + digit;
+      num = (num - digit) / 10; // Math.floor ki jagah
+    }
+    return original === reversed;
+  }
+
+  console.log(isPalindrome("madam"));    // true
+  console.log(isPalindrome("Madam"));    // true
+  console.log(isPalindrome("hello"));    // false
+  console.log(isNumberPalindrome(121));  // true
+  console.log(isNumberPalindrome(123));  // false
+  console.log(isNumberPalindrome(-121)); // false
+}
+
+// ============================================================
+// Q8. Check even / odd
+// Time: O(1)  |  Space: O(1)
+// ============================================================
+{
+  console.log("\n--- Q8. Check even / odd ---");
+  function checkEvenOdd(num) {
+    if (num % 2 === 0) {
+      return "Even";
+    }
+    return "Odd"; // -3 % 2 === -1 hota hai, isliye === 1 check nahi kiya
+  }
+
+  // Bitwise tarika
+  function isEvenBitwise(num) {
+    return (num & 1) === 0;
+  }
+
+  console.log(checkEvenOdd(4));   // "Even"
+  console.log(checkEvenOdd(7));   // "Odd"
+  console.log(checkEvenOdd(0));   // "Even"
+  console.log(checkEvenOdd(-3));  // "Odd"
+  console.log(isEvenBitwise(10)); // true
+  console.log(isEvenBitwise(-3)); // false
+}
+
+// ============================================================
+// Q9. Sum of array elements
+// Time: O(n)  |  Space: O(1)
+// ============================================================
+{
+  console.log("\n--- Q9. Sum of array elements ---");
+  function sumArray(arr) {
+    let sum = 0;
+    for (let i = 0; i < arr.length; i++) {
+      sum += arr[i];
+    }
+    return sum;
+  }
+
+  console.log(sumArray([1, 2, 3, 4, 5])); // 15
+  console.log(sumArray([-2, 5, -3]));     // 0
+  console.log(sumArray([]));              // 0
+}
+
+// ============================================================
+// Q10. Find factorial
+// Time: O(n)  |  Space: Loop: O(1), recursion: O(n) (call stack)
+// ============================================================
+{
+  console.log("\n--- Q10. Find factorial ---");
+  // Loop se
+  function factorial(n) {
+    if (n < 0) return null;
+    let result = 1;
+    for (let i = 2; i <= n; i++) {
+      result *= i;
+    }
+    return result;
+  }
+
+  // Recursion se
+  function factorialRecursive(n) {
+    if (n < 0) return null;
+    if (n <= 1) return 1; // base case
+    return n * factorialRecursive(n - 1);
+  }
+
+  console.log(factorial(5));           // 120
+  console.log(factorial(0));           // 1
+  console.log(factorial(-3));          // null
+  console.log(factorialRecursive(6));  // 720
+}
+
+// ============================================================
+// Q11. Fibonacci series
+// Time: O(n)  |  Space: Series: O(n), nth term: O(1)
+// ============================================================
+{
+  console.log("\n--- Q11. Fibonacci series ---");
+  // Pehle n terms
+  function fibonacciSeries(n) {
+    const series = [];
+    let a = 0;
+    let b = 1;
+    for (let i = 0; i < n; i++) {
+      series[series.length] = a; // push() ki jagah
+      const next = a + b;
+      a = b;
+      b = next;
+    }
+    return series;
+  }
+
+  // Sirf nth term (0 se index)
+  function fibonacciNth(n) {
+    let a = 0;
+    let b = 1;
+    for (let i = 0; i < n; i++) {
+      const next = a + b;
+      a = b;
+      b = next;
+    }
+    return a;
+  }
+
+  console.log(fibonacciSeries(8));  // [ 0, 1, 1, 2, 3, 5, 8, 13 ]
+  console.log(fibonacciSeries(1));  // [ 0 ]
+  console.log(fibonacciSeries(0));  // []
+  console.log(fibonacciNth(10));    // 55
+}
+
+// ============================================================
+// Q12. Prime number
+// Time: isPrime: O(√n), 1 se n tak: O(n√n)  |  Space: O(1) (range ke liye result array O(k))
+// ============================================================
+{
+  console.log("\n--- Q12. Prime number ---");
+  function isPrime(n) {
+    if (n < 2) return false;
+    if (n === 2) return true;
+    if (n % 2 === 0) return false;
+
+    for (let i = 3; i * i <= n; i += 2) {
+      if (n % i === 0) return false;
+    }
+    return true;
+  }
+
+  // 1 se n tak ke saare primes
+  function primesUpTo(n) {
+    const primes = [];
+    for (let num = 2; num <= n; num++) {
+      if (isPrime(num)) {
+        primes[primes.length] = num;
+      }
+    }
+    return primes;
+  }
+
+  console.log(isPrime(2));     // true
+  console.log(isPrime(17));    // true
+  console.log(isPrime(21));    // false
+  console.log(isPrime(1));     // false
+  console.log(primesUpTo(30)); // [ 2, 3, 5, 7, 11, 13, 17, 19, 23, 29 ]
+}
+
+// ============================================================
+// Q13. Find missing number (1 se n tak)
+// Time: O(n)  |  Space: Formula: O(1), multiple missing: O(n)
+// ============================================================
+{
+  console.log("\n--- Q13. Find missing number (1 se n tak) ---");
+  function findMissing(arr) {
+    const n = arr.length + 1;
+    const expectedSum = (n * (n + 1)) / 2;
+
+    let actualSum = 0;
+    for (let i = 0; i < arr.length; i++) {
+      actualSum += arr[i];
+    }
+    return expectedSum - actualSum;
+  }
+
+  // Bonus: 1 se n tak ek se zyada missing numbers
+  function findAllMissing(arr, n) {
+    const seen = [];
+    for (let i = 0; i < arr.length; i++) {
+      seen[arr[i]] = true;
+    }
+    const missing = [];
+    for (let num = 1; num <= n; num++) {
+      if (seen[num] !== true) {
+        missing[missing.length] = num;
+      }
+    }
+    return missing;
+  }
+
+  console.log(findMissing([1, 2, 4, 5, 6]));    // 3
+  console.log(findMissing([3, 1, 2, 5]));       // 4  (unsorted)
+  console.log(findMissing([1, 2, 3, 4]));       // 5  (aakhri missing)
+  console.log(findAllMissing([1, 4, 6], 7));    // [ 2, 3, 5, 7 ]
+}
+
+// ============================================================
+// Q14. Swap two numbers
+// Time: O(1)  |  Space: O(1)
+// ============================================================
+{
+  console.log("\n--- Q14. Swap two numbers ---");
+  // 1. Temp variable se
+  let a = 5, b = 10;
+  let temp = a;
+  a = b;
+  b = temp;
+  console.log(a, b); // 10 5
+
+  // 2. Destructuring se (koi function nahi, sirf syntax)
+  let c = 5, d = 10;
+  [c, d] = [d, c];
+  console.log(c, d); // 10 5
+
+  // 3. Bina teesre variable ke (plus-minus)
+  let x = 5, y = 10;
+  x = x + y; // 15
+  y = x - y; // 5
+  x = x - y; // 10
+  console.log(x, y); // 10 5
+
+  // 4. XOR se (sirf integers)
+  let p = 5, q = 10;
+  p = p ^ q;
+  q = p ^ q;
+  p = p ^ q;
+  console.log(p, q); // 10 5
+}
+
+// ============================================================
+// Q15. Count digits
+// Time: O(d) (d = digits)  |  Space: O(1)
+// ============================================================
+{
+  console.log("\n--- Q15. Count digits ---");
+  function countDigits(num) {
+    if (num === 0) return 1;
+    if (num < 0) num = -num; // Math.abs ki jagah
+
+    let count = 0;
+    while (num > 0) {
+      num = (num - (num % 10)) / 10; // aakhri digit hata do
+      count++;
+    }
+    return count;
+  }
+
+  // Bonus: digits ka sum
+  function sumOfDigits(num) {
+    if (num < 0) num = -num;
+    let sum = 0;
+    while (num > 0) {
+      const digit = num % 10;
+      sum += digit;
+      num = (num - digit) / 10;
+    }
+    return sum;
+  }
+
+  console.log(countDigits(12345)); // 5
+  console.log(countDigits(0));     // 1
+  console.log(countDigits(-987));  // 3
+  console.log(countDigits(7));     // 1
+  console.log(sumOfDigits(1234));  // 10
+}
